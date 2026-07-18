@@ -1,1 +1,85 @@
 @import "tailwindcss";
+
+@theme inline {
+	--font-sans: var(--font-geist-sans);
+	--font-mono: var(--font-geist-mono);
+
+	--color-background: var(--bg-base);
+	--color-foreground: var(--text-primary);
+	--color-card: var(--bg-surface);
+	--color-card-foreground: var(--text-primary);
+	--color-popover: var(--bg-elevated);
+	--color-popover-foreground: var(--text-primary);
+	--color-primary: var(--accent-primary);
+	--color-primary-foreground: var(--bg-surface);
+	--color-primary-hover: var(--accent-primary-hover);
+	--color-primary-dim: var(--accent-primary-dim);
+	--color-secondary: var(--accent-secondary);
+	--color-secondary-foreground: var(--text-primary);
+	--color-secondary-hover: var(--accent-secondary-hover);
+	--color-secondary-dim: var(--accent-secondary-dim);
+	--color-muted: var(--bg-subtle);
+	--color-muted-foreground: var(--text-secondary);
+	--color-accent: var(--bg-selected);
+	--color-accent-foreground: var(--text-primary);
+	--color-border: var(--border-default);
+	--color-input: var(--border-default);
+	--color-ring: var(--accent-primary);
+	--color-destructive: var(--state-error);
+	--color-destructive-foreground: var(--bg-surface);
+	--color-success: var(--state-success);
+	--color-warning: var(--state-warning);
+	--color-info: var(--state-info);
+
+	--radius-sm: 0.75rem;
+	--radius-md: 1rem;
+	--radius-lg: 1.5rem;
+	--radius-xl: 1.75rem;
+}
+
+:root {
+	color-scheme: light;
+
+	--bg-base: #f7fbfd;
+	--bg-surface: #ffffff;
+	--bg-elevated: #ffffff;
+	--bg-subtle: #eaf6fa;
+	--bg-selected: #ddf1f8;
+	--border-default: #c7dee7;
+	--border-subtle: #e1edf2;
+	--text-primary: #023047;
+	--text-secondary: #315a6a;
+	--text-muted: #607d89;
+	--text-faint: #8aa0aa;
+	--accent-primary: #219ebc;
+	--accent-primary-hover: #1887a2;
+	--accent-primary-dim: rgba(33, 158, 188, 0.12);
+	--accent-secondary: #ffb703;
+	--accent-secondary-hover: #e5a400;
+	--accent-secondary-dim: rgba(255, 183, 3, 0.16);
+	--accent-warm: #fb8500;
+	--accent-warm-dim: rgba(251, 133, 0, 0.14);
+	--state-error: #d94c4c;
+	--state-success: #2e9e6f;
+	--state-warning: #fb8500;
+	--state-info: #219ebc;
+}
+
+html,
+body {
+	min-height: 100%;
+}
+
+body {
+	background: var(--bg-base);
+	color: var(--text-primary);
+}
+
+* {
+	border-color: var(--border-default);
+}
+
+::selection {
+	background: var(--accent-primary-dim);
+	color: var(--text-primary);
+}
