@@ -1,1 +1,126 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-bg-selected: var(--bg-selected);
+  --color-border-default: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-hover: var(--accent-primary-hover);
+  --color-accent-primary-dim: var(--accent-primary-dim);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-secondary-hover: var(--accent-secondary-hover);
+  --color-accent-secondary-dim: var(--accent-secondary-dim);
+  --color-accent-warm: var(--accent-warm);
+  --color-accent-warm-dim: var(--accent-warm-dim);
+  --color-state-error: var(--state-error);
+  --color-state-success: var(--state-success);
+  --color-state-warning: var(--state-warning);
+  --color-state-info: var(--state-info);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: 0.625rem;
+  --radius-md: 0.75rem;
+  --radius-lg: var(--radius-control);
+  --radius-xl: var(--radius-compact);
+  --radius-2xl: var(--radius-control);
+  --radius-3xl: var(--radius-panel);
+}
+
+:root {
+  --bg-base: #f7fbfd;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #eaf6fa;
+  --bg-selected: #ddf1f8;
+  --border-default: #c7dee7;
+  --border-subtle: #e1edf2;
+  --text-primary: #023047;
+  --text-secondary: #315a6a;
+  --text-muted: #607d89;
+  --text-faint: #8aa0aa;
+  --accent-primary: #219ebc;
+  --accent-primary-hover: #1887a2;
+  --accent-primary-dim: rgba(33, 158, 188, 0.12);
+  --accent-secondary: #ffb703;
+  --accent-secondary-hover: #e5a400;
+  --accent-secondary-dim: rgba(255, 183, 3, 0.16);
+  --accent-warm: #fb8500;
+  --accent-warm-dim: rgba(251, 133, 0, 0.14);
+  --state-error: #d94c4c;
+  --state-success: #2e9e6f;
+  --state-warning: #fb8500;
+  --state-info: #219ebc;
+
+  --radius-compact: 0.75rem;
+  --radius-control: 1rem;
+  --radius-panel: 1.5rem;
+
+  --text-on-primary: #f7fbfd;
+  --text-on-secondary: #023047;
+
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--text-on-primary);
+  --secondary: var(--accent-secondary);
+  --secondary-foreground: var(--text-on-secondary);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--accent-primary-dim);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--state-error);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent-primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-bg-base text-text-primary font-sans antialiased;
+  }
+}

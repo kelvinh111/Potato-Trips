@@ -3,15 +3,15 @@
 Update this file after each meaningful feature unit or architecture change, not after every small code edit.
 
 ## Current Phase
-- Context definition
+- Implementation
 
 ## Current Goal
-- Finalize the six core context files before writing feature specs.
+- Prepare next implementation feature unit after completing design system foundation.
 
 ## Current Feature Unit
-- Unit: Context foundation
-- Related spec: None yet
-- Status: In progress
+- Unit: Design system foundation
+- Related spec: `context/feature-specs/01-design-system.md`
+- Status: Completed
 
 ## Completed
 - Rewritten `project-overview.md`
@@ -20,12 +20,19 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Rewritten `code-standards.md`
 - Rewritten `ui-context.md`
 - Added wireframes under `context/ui-design/`
+- Initialized `shadcn/ui` with project configuration
+- Added foundation components: Button, Card, Dialog, Input, Tabs, Textarea, ScrollArea
+- Installed `lucide-react`
+- Confirmed `cn()` helper in `lib/utils.ts`
+- Implemented light-only semantic theme tokens in `app/globals.css`
+- Verified Geist Sans and Geist Mono setup through `next/font`
+- Verified `npm run build` passes for feature unit 01
 
 ## In Progress
-- Finalizing `progress-tracker.md`
+- None.
 
 ## Next Up
-- Define the first implementation feature unit and write its feature spec.
+- Define and start the next feature spec implementation unit.
 
 ## Blockers
 - None.
@@ -41,8 +48,8 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Context files reviewed for scope and responsibility
 - Wireframe references confirmed
 - Architecture decisions aligned across context files
-- `npm run build`: Not applicable during context-only work
-- Automated tests: Not applicable during context-only work
+- `npm run build`: Pass
+- `npm run lint`: Pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
