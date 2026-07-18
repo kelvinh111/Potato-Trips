@@ -3,9 +3,11 @@ import { TripPrompt } from "@/components/home/trip-prompt";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen w-full flex-col overflow-x-hidden bg-bg-base">
+    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-bg-base">
       <HomeNavbar />
-      <TripPrompt />
-    </main>
+      <main className="flex flex-1">
+        <TripPrompt />
+      </main>
+    </div>
   );
 }
