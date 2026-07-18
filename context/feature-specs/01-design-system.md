@@ -79,3 +79,13 @@ Ensure:
 - No generated `components/ui/*` file has been manually modified.
 - `npm run build` passes.
 - `context/progress-tracker.md` is updated.
+
+### Generated component exception
+
+`components/ui/tabs.tsx` may be patched to pass the extracted
+`orientation` prop to `TabsPrimitive.Root`.
+
+The current shadcn registry only applies it as a data attribute, which
+causes vertical tabs to retain horizontal keyboard and ARIA behaviour.
+
+No other generated `components/ui/*` modifications are permitted.
