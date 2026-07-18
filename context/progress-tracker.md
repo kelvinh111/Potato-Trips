@@ -6,14 +6,16 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after completing design system foundation.
+- Prepare next implementation feature unit after Home page.
 
 ## Current Feature Unit
-- Unit: Design system foundation
-- Related spec: `context/feature-specs/01-design-system.md`
+- Unit: Home page
+- Related spec: `context/feature-specs/02-home-page.md`
 - Status: Completed
 
 ## Completed
+
+### Feature 01: Design System
 - Rewritten `project-overview.md`
 - Rewritten `architecture.md`
 - Rewritten `ai-workflow-rules.md`
@@ -28,11 +30,17 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Verified Geist Sans and Geist Mono setup through `next/font`
 - Verified `npm run build` passes for feature unit 01
 
+### Feature 02: Home Page
+- Implemented Home navbar in `components/home/home-navbar.tsx`
+- Implemented trip prompt card in `components/home/trip-prompt.tsx`
+- Composed Home page in `app/page.tsx`
+- Verified `npm run build` passes for feature unit 02
+
 ## In Progress
 - None.
 
 ## Next Up
-- Define and start the next feature spec implementation unit.
+- Define and start next feature spec implementation unit.
 
 ## Blockers
 - None.
