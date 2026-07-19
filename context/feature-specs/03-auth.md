@@ -32,7 +32,9 @@ Requirements:
 - both actions open Clerk modals
 - use Clerk's prebuilt authentication UI
 - support the enabled email and Google sign-in methods
-- do not create separate sign-in or sign-up pages
+- Sign In and Sign Up actions in the Home navbar must use Clerk modals
+- keep Clerk-generated `/sign-in` and `/sign-up` routes only as fallback routes for OAuth and authentication-flow transfers
+- do not link directly to the fallback routes from the Home navbar
 - do not collect additional profile fields
 - preserve the existing button hierarchy and styling
 
@@ -82,6 +84,7 @@ Do not implement:
 - database synchronization
 - custom authentication forms
 - additional profile fields
+- custom sign-in or sign-up pages beyond the Clerk-generated fallback routes
 
 ### Check When Done
 

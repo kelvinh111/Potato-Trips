@@ -1,5 +1,9 @@
+import { ClerkProvider } from "@clerk/nextjs";
+import { ui } from "@clerk/ui";
+import { shadcn } from "@clerk/ui/themes";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "@clerk/ui/themes/shadcn.css";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +32,30 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
       <body className="min-h-full flex flex-col font-sans antialiased">
-        {children}
+        <ClerkProvider
+          ui={ui}
+          appearance={{
+            theme: shadcn,
+            variables: {
+              colorPrimary: "var(--accent-primary)",
+              colorBackground: "var(--bg-surface)",
+              colorForeground: "var(--text-primary)",
+              colorMutedForeground: "var(--text-secondary)",
+              colorInput: "var(--bg-surface)",
+              colorBorder: "var(--border-default)",
+              borderRadius: "1rem",
+            },
+            captcha: { theme: "light" },
+             elements: {
+              card: {
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              },
+            },
+          }}
+        >
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );
