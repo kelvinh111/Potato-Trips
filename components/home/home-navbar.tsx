@@ -72,7 +72,7 @@ export function HomeNavbar() {
                 />
               }
             >
-              {user?.imageUrl ? (
+              {user?.hasImage && user.imageUrl ? (
                 <span
                   aria-label="User avatar"
                   className="inline-flex size-8 rounded-full border border-border-default bg-cover bg-center"
