@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after Home page.
+- Prepare next implementation feature unit after authentication foundation.
 
 ## Current Feature Unit
-- Unit: Home page
-- Related spec: `context/feature-specs/02-home-page.md`
+- Unit: Authentication foundation
+- Related spec: `context/feature-specs/03-auth.md`
 - Status: Completed
 
 ## Completed
@@ -36,6 +36,17 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Composed Home page in `app/page.tsx`
 - Verified `npm run build` passes for feature unit 02
 
+### Feature 03: Authentication Foundation
+- Connected project to existing Clerk application
+- Added `@clerk/nextjs` and `@clerk/ui`
+- Added `proxy.ts` with `clerkMiddleware()` and kept routes public
+- Kept fallback routes: `app/sign-in/[[...sign-in]]/page.tsx` and `app/sign-up/[[...sign-up]]/page.tsx`
+- Wrapped app content with `ClerkProvider` inside `app/layout.tsx` body while preserving fonts and body classes
+- Configured Clerk with bundled `@clerk/ui` and light shadcn theme
+- Updated Home navbar with Clerk modal Sign In/Sign Up for signed-out state
+- Implemented custom signed-in avatar dropdown with My Trips (disabled), Profile, and Sign Out
+- Verified `npx clerk@latest doctor`, `npm run lint`, and `npm run build`
+
 ## In Progress
 - None.
 
@@ -58,6 +69,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Architecture decisions aligned across context files
 - `npm run build`: Pass
 - `npm run lint`: Pass
+- `npx clerk@latest doctor`: Pass (with non-blocking notices)
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
