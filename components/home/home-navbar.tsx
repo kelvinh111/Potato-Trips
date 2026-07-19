@@ -45,7 +45,7 @@ export function HomeNavbar() {
           Potato Trips
         </div>
 
-        {!isSignedIn && (
+        {isSignedIn === false && (
           <div className="flex items-center gap-2 sm:gap-3">
             <SignInButton mode="modal">
               <Button type="button" variant="ghost" className="rounded-xl">
