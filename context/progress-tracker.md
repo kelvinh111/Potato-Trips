@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after authentication foundation.
+- Prepare next implementation feature unit after Prisma foundation.
 
 ## Current Feature Unit
-- Unit: Authentication foundation
-- Related spec: `context/feature-specs/03-auth.md`
+- Unit: Prisma foundation
+- Related spec: `context/feature-specs/04-prisma-foundation.md`
 - Status: Completed
 
 ## Completed
@@ -47,11 +47,22 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implemented custom signed-in avatar dropdown with My Trips (disabled), Profile, and Sign Out
 - Verified `npx clerk@latest doctor`, `npm run lint`, and `npm run build`
 
+### Feature 04: Prisma Foundation
+- Confirmed Prisma PostgreSQL configuration in `prisma.config.ts` with `DATABASE_URL` from environment
+- Kept `prisma/schema.prisma` free of models and enums
+- Kept Prisma client generator output at `app/generated/prisma` using `prisma-client`
+- Added shared server-side Prisma client in `lib/prisma.ts` using `@prisma/adapter-pg`
+- Added npm scripts: `prisma:generate`, `prisma:migrate:dev`, `prisma:migrate:deploy`, `prisma:studio`
+- Generated Prisma client successfully
+- Verified read-only database check succeeds (`SELECT 1`)
+- Confirmed no models or migrations were created in this unit
+- Verified `npm run lint` and `npm run build`
+
 ## In Progress
 - None.
 
 ## Next Up
-- Define and start next feature spec implementation unit.
+- Start `05-planning-session-model.md`.
 
 ## Blockers
 - None.
@@ -70,6 +81,9 @@ Update this file after each meaningful feature unit or architecture change, not 
 - `npm run build`: Pass
 - `npm run lint`: Pass
 - `npx clerk@latest doctor`: Pass (with non-blocking notices)
+- `npx prisma validate`: Pass
+- `npm run prisma:generate`: Pass
+- Read-only Prisma query (`SELECT 1`): Pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
