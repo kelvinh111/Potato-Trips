@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -45,7 +44,7 @@ export function HomeNavbar() {
           Potato Trips
         </div>
 
-        {isSignedIn === false && (
+        {!isSignedIn && (
           <div className="flex items-center gap-2 sm:gap-3">
             <SignInButton mode="modal">
               <Button type="button" variant="ghost" className="rounded-xl">
@@ -72,7 +71,7 @@ export function HomeNavbar() {
                 />
               }
             >
-              {user?.hasImage && user.imageUrl ? (
+              {user?.imageUrl ? (
                 <span
                   aria-label="User avatar"
                   className="inline-flex size-8 rounded-full border border-border-default bg-cover bg-center"
@@ -84,15 +83,14 @@ export function HomeNavbar() {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-44 rounded-2xl">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Account</DropdownMenuLabel>
-                <DropdownMenuItem disabled aria-disabled="true">
-                  My Trips
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => clerk.openUserProfile()}>
-                  Profile
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
+              <DropdownMenuLabel>Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled aria-disabled="true">
+                My Trips
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => clerk.openUserProfile()}>
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => clerk.signOut()}>
                 Sign Out

@@ -46,12 +46,6 @@ export default function RootLayout({
               borderRadius: "1rem",
             },
             captcha: { theme: "light" },
-             elements: {
-              card: {
-                borderBottomLeftRadius: 0,
-                borderBottomRightRadius: 0,
-              },
-            },
           }}
         >
           {children}
