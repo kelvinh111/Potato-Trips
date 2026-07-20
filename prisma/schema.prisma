@@ -11,3 +11,22 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum PlanningSessionStatus {
+  CLARIFYING
+  READY_TO_GENERATE
+  GENERATING
+  GENERATED
+  FAILED
+}
+
+model PlanningSession {
+  id            String                @id @default(cuid())
+  initialPrompt String
+  status        PlanningSessionStatus @default(CLARIFYING)
+  expiresAt     DateTime
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([expiresAt])
+}

@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after Prisma foundation.
+- Prepare next implementation feature unit after planning session model.
 
 ## Current Feature Unit
-- Unit: Prisma foundation
-- Related spec: `context/feature-specs/04-prisma-foundation.md`
+- Unit: Planning session model
+- Related spec: `context/feature-specs/05-planning-session-model.md`
 - Status: Completed
 
 ## Completed
@@ -58,11 +58,21 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no models or migrations were created in this unit
 - Verified `npm run lint` and `npm run build`
 
+### Feature 05: Planning Session Model
+- Added `PlanningSessionStatus` enum with: `CLARIFYING`, `READY_TO_GENERATE`, `GENERATING`, `GENERATED`, `FAILED`
+- Added `PlanningSession` model with required fields only: `id`, `initialPrompt`, `status`, `expiresAt`, `createdAt`, `updatedAt`
+- Set `status` default to `CLARIFYING`
+- Added index on `expiresAt`
+- Created and applied first migration: `20260720221913_add_planning_session`
+- Inspected generated SQL and confirmed it contains only enum, table, and required index
+- Regenerated Prisma Client successfully
+- Verified `npx prisma validate`, `npm run lint`, and `npm run build`
+
 ## In Progress
 - None.
 
 ## Next Up
-- Start `05-planning-session-model.md`.
+- Start `06-planning-session-api.md`.
 
 ## Blockers
 - None.
@@ -84,6 +94,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - `npx prisma validate`: Pass
 - `npm run prisma:generate`: Pass
 - Read-only Prisma query (`SELECT 1`): Pass
+- `npx prisma migrate dev --name add_planning_session`: Pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
