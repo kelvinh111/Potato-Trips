@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after planning session model.
+- Prepare next implementation feature unit after planning session API.
 
 ## Current Feature Unit
-- Unit: Planning session model
-- Related spec: `context/feature-specs/05-planning-session-model.md`
+- Unit: Planning session API
+- Related spec: `context/feature-specs/06-planning-session-api.md`
 - Status: Completed
 
 ## Completed
@@ -68,11 +68,22 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Regenerated Prisma Client successfully
 - Verified `npx prisma validate`, `npm run lint`, and `npm run build`
 
+### Feature 06: Planning Session API
+- Added `POST /api/planning-sessions` for anonymous session creation
+- Added `GET /api/planning-sessions/[sessionId]` for anonymous session retrieval
+- Added Zod runtime validation for request body and route parameters
+- Added reusable planning-session modules under `lib/planning-sessions/`
+- Added seven-day session lifetime constant used server-side
+- Added browser storage helper for planning session ID using key `potato-trips:planning-session-id`
+- Confirmed API response shapes and error codes match spec
+- Confirmed no Prisma schema or migration changes in this unit
+- Verified `npm run lint` and `npm run build`
+
 ## In Progress
 - None.
 
 ## Next Up
-- Start `06-planning-session-api.md`.
+- Start `07-itinerary-workspace-shell.md`.
 
 ## Blockers
 - None.
@@ -95,6 +106,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - `npm run prisma:generate`: Pass
 - Read-only Prisma query (`SELECT 1`): Pass
 - `npx prisma migrate dev --name add_planning_session`: Pass
+- API smoke checks: `POST 201`, `GET 200`, malformed/blank/too-long/wrong-type prompt `400`, invalid `sessionId` `400`, missing session `404`, expired session `410`
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
