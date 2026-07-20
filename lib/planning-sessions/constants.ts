@@ -1,0 +1,11 @@
+export const PLANNING_SESSION_LIFETIME_DAYS = 7;
+
+export const PLANNING_SESSION_LIFETIME_MS =
+  PLANNING_SESSION_LIFETIME_DAYS * 24 * 60 * 60 * 1000;
+
+export const PLANNING_SESSION_STORAGE_KEY =
+  "potato-trips:planning-session-id";
+
+export const PLANNING_SESSION_PROMPT_MAX_LENGTH = 2000;
+
+export const PLANNING_SESSION_ID_MAX_LENGTH = 255;
