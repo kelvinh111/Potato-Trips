@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after planning session API.
+- Prepare next implementation feature unit after itinerary workspace shell.
 
 ## Current Feature Unit
-- Unit: Planning session API
-- Related spec: `context/feature-specs/06-planning-session-api.md`
+- Unit: Itinerary workspace shell
+- Related spec: `context/feature-specs/07-itinerary-workspace-shell.md`
 - Status: Completed
 
 ## Completed
@@ -79,11 +79,24 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no Prisma schema or migration changes in this unit
 - Verified `npm run lint` and `npm run build`
 
+### Feature 07: Itinerary Workspace Shell
+- Added server route `app/plan/[sessionId]/page.tsx`
+- Validated dynamic `sessionId` using existing planning-session validation helper
+- Loaded planning session directly with repository and expiry helpers from server component
+- Added unavailable and expired states that link back to Home
+- Added reusable shared app header with logo image, brand link, and preserved Clerk account behavior
+- Updated Home page to use shared header
+- Added responsive workspace shell with dedicated chat panel, itinerary panel, and reserved map slot
+- Kept map slot visually empty and omitted it on narrower layouts
+- Added disabled planning chat composer and placeholder-only panel states
+- Confirmed no Prisma schema or migration changes in this unit
+- Verified `npm run lint` and `npm run build`
+
 ## In Progress
 - None.
 
 ## Next Up
-- Start `07-itinerary-workspace-shell.md`.
+- `08-home-planning-flow.md`.
 
 ## Blockers
 - None.
@@ -107,6 +120,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Read-only Prisma query (`SELECT 1`): Pass
 - `npx prisma migrate dev --name add_planning_session`: Pass
 - API smoke checks: `POST 201`, `GET 200`, malformed/blank/too-long/wrong-type prompt `400`, invalid `sessionId` `400`, missing session `404`, expired session `410`
+- Feature 07 route compile check: `/plan/[sessionId]` included in `next build` output
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
