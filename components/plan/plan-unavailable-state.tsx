@@ -23,7 +23,9 @@ export function PlanUnavailableState({
     <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
       <Card className="w-full max-w-xl rounded-3xl border border-border-default bg-bg-surface shadow-sm">
         <CardHeader className="space-y-2">
-          <CardTitle className="text-xl text-text-primary">{title}</CardTitle>
+          <CardTitle role="heading" aria-level={1} className="text-xl text-text-primary">
+            {title}
+          </CardTitle>
           <CardDescription className="text-sm text-text-secondary">
             {description}
           </CardDescription>
