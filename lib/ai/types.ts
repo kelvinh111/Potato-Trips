@@ -5,12 +5,20 @@ export interface AiProviderMessage {
   content: string;
 }
 
-export interface AiStructuredGenerateInput<TSchema extends z.ZodTypeAny> {
+type PromptInput = {
+  prompt: string;
+  messages?: never;
+};
+
+type MessagesInput = {
+  messages: AiProviderMessage[];
+  prompt?: never;
+};
+
+export type AiStructuredGenerateInput<TSchema extends z.ZodTypeAny> = {
   systemInstructions?: string;
-  prompt?: string;
-  messages?: AiProviderMessage[];
   outputSchema: TSchema;
-}
+} & (PromptInput | MessagesInput);
 
 export interface AiTokenUsage {
   inputTokens: number | null;

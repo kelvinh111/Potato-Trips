@@ -1,9 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import {
-  generateObject,
-  NoObjectGeneratedError,
+  generateText,
+  NoOutputGeneratedError,
+  Output,
+  TypeValidationError,
 } from "ai";
-import { ZodError, type z } from "zod";
+import type { z } from "zod";
 
 import { AiProviderError } from "@/lib/ai/errors";
 import type {
@@ -26,27 +28,50 @@ export class OpenAiProviderAdapter implements AiProvider {
   ) {
     const config = getOpenAiRuntimeConfig();
 
-    const prompt = input.prompt?.trim();
-    const messages = normalizeMessages(input.messages);
+    const prompt =
+      typeof input.prompt === "string" ? input.prompt.trim() : undefined;
+    const messages =
+      Array.isArray(input.messages) ? normalizeMessages(input.messages) : [];
 
-    if (!prompt && messages.length === 0) {
+    if (prompt !== undefined && input.messages !== undefined) {
+      throw new AiProviderError({
+        code: "PROVIDER_REQUEST_FAILURE",
+        message: "AI request must include either prompt or messages, not both.",
+      });
+    }
+
+    if (prompt === undefined && input.messages === undefined) {
       throw new AiProviderError({
         code: "PROVIDER_REQUEST_FAILURE",
         message: "AI request must include prompt or messages.",
       });
     }
 
+    if (prompt !== undefined && prompt.length === 0) {
+      throw new AiProviderError({
+        code: "PROVIDER_REQUEST_FAILURE",
+        message: "AI request prompt must not be empty.",
+      });
+    }
+
+    if (input.messages !== undefined && messages.length === 0) {
+      throw new AiProviderError({
+        code: "PROVIDER_REQUEST_FAILURE",
+        message: "AI request messages must include at least one non-empty message.",
+      });
+    }
+
     try {
       const openai = createOpenAI({ apiKey: config.apiKey });
 
-      const result = await generateObject({
+      const result = await generateText({
         model: openai(config.model),
-        schema: input.outputSchema,
+        output: Output.object({ schema: input.outputSchema }),
         system: input.systemInstructions,
         ...(messages.length > 0 ? { messages } : { prompt: prompt ?? "" }),
       });
 
-      const parsedOutput = input.outputSchema.parse(result.object);
+      const parsedOutput = input.outputSchema.parse(result.output);
 
       return {
         output: parsedOutput,
@@ -54,22 +79,23 @@ export class OpenAiProviderAdapter implements AiProvider {
         usage: normalizeUsage(result.usage),
       };
     } catch (error) {
-      if (error instanceof AiProviderError) {
-        throw error;
-      }
-
-      if (error instanceof NoObjectGeneratedError || error instanceof ZodError) {
+      if (
+        error instanceof NoOutputGeneratedError ||
+        error instanceof TypeValidationError
+      ) {
         throw new AiProviderError({
           code: "INVALID_STRUCTURED_OUTPUT",
           message: "AI returned invalid structured output.",
-          cause: error,
         });
+      }
+
+      if (error instanceof AiProviderError) {
+        throw error;
       }
 
       throw new AiProviderError({
         code: "PROVIDER_REQUEST_FAILURE",
         message: "AI request failed.",
-        cause: error,
       });
     }
   }

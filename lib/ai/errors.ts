@@ -6,14 +6,13 @@ export type AiProviderErrorCode =
 interface AiProviderErrorOptions {
   code: AiProviderErrorCode;
   message: string;
-  cause?: unknown;
 }
 
 export class AiProviderError extends Error {
   public readonly code: AiProviderErrorCode;
 
   constructor(options: AiProviderErrorOptions) {
-    super(options.message, { cause: options.cause });
+    super(options.message);
     this.name = "AiProviderError";
     this.code = options.code;
   }
