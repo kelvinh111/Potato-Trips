@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after itinerary workspace shell.
+- Prepare next implementation feature unit after home prompt flow.
 
 ## Current Feature Unit
-- Unit: Itinerary workspace shell
-- Related spec: `context/feature-specs/07-itinerary-workspace-shell.md`
+- Unit: Home prompt flow
+- Related spec: `context/feature-specs/08-home-prompt-flow.md`
 - Status: Completed
 
 ## Completed
@@ -92,11 +92,26 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no Prisma schema or migration changes in this unit
 - Verified `npm run lint` and `npm run build`
 
+### Feature 08: Home Prompt Flow
+- Converted Home prompt textarea to controlled input state
+- Added submit state and temporary error-message state handling
+- Reused planning-session Zod validation before API submission
+- Enforced client-side trim, blank rejection, and max length rejection before POST
+- Added POST submit flow to `/api/planning-sessions` with payload `{ initialPrompt }`
+- Validated response shape includes non-empty `session.id`
+- Saved session id via `savePlanningSessionId` before navigation
+- Added router navigation to `/plan/[sessionId]` on success
+- Added disabled submit/textarea and loading spinner icon while submitting
+- Added user-friendly retryable error messaging for validation/API/network/malformed responses
+- Added safe timed error dismissal with stale timer guard
+- Confirmed no Prisma schema or migration changes in this unit
+- Verified `npm run lint` and `npm run build`
+
 ## In Progress
 - None.
 
 ## Next Up
-- `08-home-planning-flow.md`.
+- `09-ai-provider-foundation.md`.
 
 ## Blockers
 - None.
@@ -121,6 +136,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - `npx prisma migrate dev --name add_planning_session`: Pass
 - API smoke checks: `POST 201`, `GET 200`, malformed/blank/too-long/wrong-type prompt `400`, invalid `sessionId` `400`, missing session `404`, expired session `410`
 - Feature 07 route compile check: `/plan/[sessionId]` included in `next build` output
+- Feature 08 compile check: Home prompt flow compiles and `/plan/[sessionId]` route remains in build output
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
