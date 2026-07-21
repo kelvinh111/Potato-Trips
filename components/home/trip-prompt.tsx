@@ -21,19 +21,23 @@ interface CreatePlanningSessionResponse {
   };
 }
 
+type PromptErrorKind = "validation" | "submission";
+
 export function TripPrompt() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<PromptErrorKind | null>(null);
   const errorSequenceRef = useRef(0);
   const errorTimerRef = useRef<number | null>(null);
 
-  const scheduleErrorMessage = (message: string) => {
+  const scheduleErrorMessage = (message: string, kind: PromptErrorKind) => {
     errorSequenceRef.current += 1;
     const currentSequence = errorSequenceRef.current;
 
     setErrorMessage(message);
+    setErrorKind(kind);
 
     if (errorTimerRef.current !== null) {
       window.clearTimeout(errorTimerRef.current);
@@ -57,11 +61,17 @@ export function TripPrompt() {
   const clearErrorState = () => {
     errorSequenceRef.current += 1;
     setErrorMessage(null);
+    setErrorKind(null);
 
     if (errorTimerRef.current !== null) {
       window.clearTimeout(errorTimerRef.current);
       errorTimerRef.current = null;
     }
+  };
+
+  const failSubmission = (message: string, kind: PromptErrorKind) => {
+    scheduleErrorMessage(message, kind);
+    setIsSubmitting(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -78,7 +88,10 @@ export function TripPrompt() {
     });
 
     if (!parsedBody.success) {
-      scheduleErrorMessage("Enter a trip prompt between 1 and 2000 characters.");
+      failSubmission(
+        "Enter a trip prompt between 1 and 2000 characters.",
+        "validation",
+      );
       return;
     }
 
@@ -94,8 +107,9 @@ export function TripPrompt() {
       });
 
       if (!response.ok) {
-        scheduleErrorMessage(
+        failSubmission(
           "Could not start planning session. Please try again.",
+          "submission",
         );
         return;
       }
@@ -105,8 +119,9 @@ export function TripPrompt() {
       try {
         responseBody = (await response.json()) as CreatePlanningSessionResponse;
       } catch {
-        scheduleErrorMessage(
+        failSubmission(
           "Could not start planning session. Please try again.",
+          "submission",
         );
         return;
       }
@@ -116,8 +131,9 @@ export function TripPrompt() {
       );
 
       if (!parsedSessionId.success) {
-        scheduleErrorMessage(
+        failSubmission(
           "Could not start planning session. Please try again.",
+          "submission",
         );
         return;
       }
@@ -125,11 +141,10 @@ export function TripPrompt() {
       savePlanningSessionId(parsedSessionId.data);
       router.push(`/plan/${encodeURIComponent(parsedSessionId.data)}`);
     } catch {
-      scheduleErrorMessage(
+      failSubmission(
         "Network problem while starting session. Please try again.",
+        "submission",
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -151,31 +166,33 @@ export function TripPrompt() {
             <label htmlFor="trip-prompt" className="sr-only">
               Describe your trip
             </label>
-            <Textarea
-              id="trip-prompt"
-              name="trip-prompt"
-              placeholder="A solo 7-day trip to Osaka in August..."
-              rows={5}
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              disabled={isSubmitting}
-              aria-invalid={errorMessage ? "true" : "false"}
-              aria-describedby={errorMessage ? "trip-prompt-error" : undefined}
-              className="resize-none rounded-2xl border-border-default bg-bg-surface pr-12 text-text-primary placeholder:text-text-faint"
-            />
-            <Button
-              type="submit"
-              size="icon-sm"
-              aria-label="Submit trip prompt"
-              disabled={isSubmitting}
-              className="absolute right-3 bottom-3 rounded-full"
-            >
-              {isSubmitting ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowUp className="h-4 w-4" />
-              )}
-            </Button>
+            <div className="relative">
+              <Textarea
+                id="trip-prompt"
+                name="trip-prompt"
+                placeholder="A solo 7-day trip to Osaka in August..."
+                rows={5}
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                disabled={isSubmitting}
+                aria-invalid={errorKind === "validation" ? "true" : "false"}
+                aria-describedby={errorMessage ? "trip-prompt-error" : undefined}
+                className="resize-none rounded-2xl border-border-default bg-bg-surface pr-12 text-text-primary placeholder:text-text-faint"
+              />
+              <Button
+                type="submit"
+                size="icon-sm"
+                aria-label="Submit trip prompt"
+                disabled={isSubmitting}
+                className="absolute right-3 bottom-3 rounded-full"
+              >
+                {isSubmitting ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
 
             {errorMessage && (
               <p

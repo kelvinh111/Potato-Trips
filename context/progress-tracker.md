@@ -111,7 +111,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - None.
 
 ## Next Up
-- `09-planning-chat-questions.md`.
+- `09-ai-provider-foundation.md`.
 
 ## Blockers
 - None.
