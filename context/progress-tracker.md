@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after Trigger.dev setup.
+- Prepare next implementation feature unit after clarification chat.
 
 ## Current Feature Unit
-- Unit: Trigger.dev setup
-- Related spec: `context/feature-specs/10-trigger-setup.md`
+- Unit: Clarification chat
+- Related spec: `context/feature-specs/11-clarification-chat.md`
 - Status: Completed
 
 ## Completed
@@ -136,11 +136,31 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed `.trigger` remains ignored and `trigger.config.ts` remains included in TypeScript config
 - Confirmed no API routes, AI workflow changes, or Prisma schema/migration changes were added
 
+### Feature 11: Clarification Chat
+- Extended `PlanningSession` with persisted clarification JSON fields: `clarificationMessages` and nullable `planningBrief`
+- Added and applied migration `20260722202553_add_clarification_chat_state`
+- Added application-owned Zod schemas for planning-session status, clarification messages, planning brief, and clarification AI output
+- Added planning-brief readiness guard requiring destination plus duration or exact date range
+- Added server-side clarification service using existing `AiProvider` structured-output boundary
+- Added `POST /api/planning-sessions/[sessionId]/clarify` with `start` and `reply` actions
+- Added request and route-parameter validation for clarify actions
+- Enforced missing/expired session checks and clarification-stage restrictions in clarify endpoint
+- Ensured no partial turn persistence by only writing after successful AI response
+- Enforced repeated start idempotency to avoid duplicate first assistant clarification message
+- Persisted completed user/assistant turns and planning brief updates
+- Updated status to `READY_TO_GENERATE` only when readiness conditions are satisfied
+- Replaced placeholder planning chat with live conversation UI
+- Rendered `initialPrompt` as first user message without duplicating it in persisted messages
+- Added auto-start clarification behavior for new `CLARIFYING` sessions
+- Added composer behaviors: trimmed non-empty submit, Enter send, Shift+Enter newline, loading guards, duplicate prevention, retryable error feedback, and scroll-to-latest
+- Kept conversation visible and disabled composer once status becomes `READY_TO_GENERATE`
+- Confirmed no itinerary generation, Trigger.dev generation tasks, kanban data, map data, place lookup, saved-trip, or collaboration work was added
+
 ## In Progress
 - None.
 
 ## Next Up
-- `11-clarification-chat.md`.
+- `12-initial-itinerary-generation.md`.
 
 ## Blockers
 - None.
@@ -171,6 +191,16 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 10 diff check: `git diff --check` pass
 - Feature 10 worker check: `npm run trigger:dev` local worker starts and registers `setup-smoke` task (`version 20260722.1`)
 - Feature 10 live smoke run: `run_cmrwbqf1y7c5b0poigt1shczv` completed with output `{ ok: true, message: "trigger setup smoke works" }`
+- Feature 11 migration check: `npx prisma migrate dev --name add_clarification_chat_state` pass
+- Feature 11 schema check: `npx prisma validate` pass
+- Feature 11 compile check: `npm run lint` and `npm run build` pass
+- Feature 11 live clarification smoke:
+	- create session `201`
+	- clarify `start` returns assistant turn
+	- repeated clarify `start` does not duplicate first assistant message
+	- clarify `reply` updates persisted chat and planning brief
+	- status reached `READY_TO_GENERATE` with destination + exact date range
+	- persisted planning brief contains destination/date range/traveller and optional fields remain nullable
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
