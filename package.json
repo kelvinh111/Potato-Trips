@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "next dev -H localhost -p 5000",
+    "trigger:dev": "npx trigger.dev@4.5.6 dev",
     "ai:smoke": "node --conditions=react-server --import tsx scripts/ai-provider-smoke.ts",
     "build": "next build",
     "start": "next start",
@@ -24,6 +25,7 @@
     "@clerk/ui": "^1.25.5",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@trigger.dev/sdk": "4.5.6",
     "ai": "^7.0.34",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -41,6 +43,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@trigger.dev/build": "4.5.6",
     "@types/node": "^22",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
