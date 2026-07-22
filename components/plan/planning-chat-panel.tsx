@@ -191,13 +191,9 @@ export function PlanningChatPanel({
     }
 
     didAutoStartRef.current = true;
-    const timeoutId = window.setTimeout(() => {
+    window.setTimeout(() => {
       void startClarification();
     }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
   }, [hasAssistantMessage, startClarification, status]);
 
   const isComposerDisabled =

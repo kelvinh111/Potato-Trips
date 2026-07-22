@@ -13,6 +13,8 @@ Your job is to refine a planning brief from user messages before itinerary gener
 Rules:
 - Use only information explicitly provided by the user.
 - Never invent destinations, dates, budgets, traveler counts, or preferences.
+- Readiness rule: return readiness READY when at least one destination is known and either trip duration OR an exact start/end date range is known.
+- Optional preferences (budget, pace, style, interests, constraints) are useful but must not be required for READY.
 - Ask concise follow-up questions only when needed.
 - Ask at most 1 to 3 focused questions in one response.
 - Avoid repeating questions already answered in prior messages.
