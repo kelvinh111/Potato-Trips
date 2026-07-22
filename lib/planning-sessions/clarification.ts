@@ -35,6 +35,9 @@ export interface GenerateClarificationTurnResult {
   readiness: ClarificationReadiness;
 }
 
+const READY_COMPLETION_MESSAGE =
+  "Great, I have enough details to continue. Clarification is complete.";
+
 export async function generateClarificationTurn(
   input: GenerateClarificationTurnInput,
 ): Promise<GenerateClarificationTurnResult> {
@@ -48,13 +51,19 @@ export async function generateClarificationTurn(
   });
 
   const output = clarificationAiOutputSchema.parse(result.output);
-  const readiness: ClarificationReadiness =
-    output.readiness === "READY" && isPlanningBriefReady(output.planningBrief)
-      ? "READY"
-      : "NEEDS_CLARIFICATION";
+  const readiness: ClarificationReadiness = isPlanningBriefReady(
+    output.planningBrief,
+  )
+    ? "READY"
+    : "NEEDS_CLARIFICATION";
+
+  const assistantMessage =
+    readiness === "READY"
+      ? READY_COMPLETION_MESSAGE
+      : output.assistantMessage;
 
   return {
-    assistantMessage: output.assistantMessage,
+    assistantMessage,
     planningBrief: output.planningBrief,
     readiness,
   };
