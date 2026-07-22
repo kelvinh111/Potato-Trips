@@ -130,7 +130,6 @@ Update this file after each meaningful feature unit or architecture change, not 
 - None.
 
 ## Open Questions
-- Initial AI provider and model
 - Final database schema details
 - Detailed export flow and PDF layout
 - Exact AI usage limits and future pricing model
@@ -151,7 +150,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 07 route compile check: `/plan/[sessionId]` included in `next build` output
 - Feature 08 compile check: Home prompt flow compiles and `/plan/[sessionId]` route remains in build output
 - Feature 09 compile check: AI provider foundation compiles behind server-only boundary (`npm run lint` and `npm run build` pass)
-- Feature 09 smoke test: `npx tsx scripts/ai-provider-smoke.ts` succeeded (`mood` object returned, model `gpt-5.6-terra`, normalized token usage present)
+- Feature 09 smoke test: `npm run ai:smoke` succeeded (`mood` object returned, model `gpt-5.6-terra`, normalized token usage present)
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
