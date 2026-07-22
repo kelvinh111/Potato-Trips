@@ -201,6 +201,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- clarify `reply` updates persisted chat and planning brief
 	- status reached `READY_TO_GENERATE` with destination + exact date range
 	- persisted planning brief contains destination/date range/traveller and optional fields remain nullable
+- Feature 11 browser flow:
+  - automatic initial clarification starts successfully
+  - clarification persists across refresh without duplication
+  - sufficient initial prompt can complete immediately
+  - multi-turn clarification continues until readiness conditions are met
+  - READY_TO_GENERATE disables the composer
+  - final ready message does not ask optional follow-up questions
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.

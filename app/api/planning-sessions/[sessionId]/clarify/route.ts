@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 
+import { AiProviderError } from "@/lib/ai/errors";
 import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import {
@@ -131,6 +132,14 @@ export async function POST(
 
     return planningSessionSuccessResponse(updatedSession, 200);
   } catch (error) {
+    if (error instanceof AiProviderError) {
+      return planningSessionErrorResponse({
+        code: "INTERNAL_ERROR",
+        message: "AI service is temporarily unavailable. Please try again.",
+        status: 503,
+      });
+    }
+
     if (error instanceof ZodError) {
       return planningSessionErrorResponse({
         code: "INVALID_REQUEST",
