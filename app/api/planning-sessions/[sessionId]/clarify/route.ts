@@ -1,14 +1,13 @@
-import { ZodError } from "zod";
-
 import { AiProviderError } from "@/lib/ai/errors";
 import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import {
+  planningSessionClarificationSuccessResponse,
   planningSessionErrorResponse,
-  planningSessionSuccessResponse,
 } from "@/lib/planning-sessions/http";
 import {
   findPlanningSessionById,
+  PlanningSessionConcurrencyError,
   updatePlanningSessionClarification,
 } from "@/lib/planning-sessions/repository";
 import { isClarificationStageStatus } from "@/lib/planning-sessions/types";
@@ -17,17 +16,18 @@ import {
   planningSessionIdSchema,
 } from "@/lib/planning-sessions/validation";
 
-async function readJsonBody(request: Request): Promise<unknown> {
+async function readJsonBody(
+  request: Request,
+): Promise<{ success: true; body: unknown } | { success: false }> {
   try {
-    return await request.json();
+    return {
+      success: true,
+      body: await request.json(),
+    };
   } catch {
-    throw new ZodError([
-      {
-        code: "custom",
-        message: "Malformed JSON body",
-        path: [],
-      },
-    ]);
+    return {
+      success: false,
+    };
   }
 }
 
@@ -35,12 +35,41 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
-  try {
-    const resolvedParams = await params;
-    const sessionId = planningSessionIdSchema.parse(resolvedParams.sessionId);
-    const body = clarifyPlanningSessionBodySchema.parse(await readJsonBody(request));
+  const resolvedParams = await params;
+  const parsedSessionId = planningSessionIdSchema.safeParse(
+    resolvedParams.sessionId,
+  );
 
-    const session = await findPlanningSessionById(sessionId);
+  if (!parsedSessionId.success) {
+    return planningSessionErrorResponse({
+      code: "INVALID_REQUEST",
+      message: "Invalid request payload.",
+      status: 400,
+    });
+  }
+
+  const bodyResult = await readJsonBody(request);
+
+  if (!bodyResult.success) {
+    return planningSessionErrorResponse({
+      code: "INVALID_REQUEST",
+      message: "Invalid request payload.",
+      status: 400,
+    });
+  }
+
+  const parsedBody = clarifyPlanningSessionBodySchema.safeParse(bodyResult.body);
+
+  if (!parsedBody.success) {
+    return planningSessionErrorResponse({
+      code: "INVALID_REQUEST",
+      message: "Invalid request payload.",
+      status: 400,
+    });
+  }
+
+  try {
+    const session = await findPlanningSessionById(parsedSessionId.data);
 
     if (!session) {
       return planningSessionErrorResponse({
@@ -66,13 +95,13 @@ export async function POST(
       });
     }
 
-    if (body.action === "start") {
+    if (parsedBody.data.action === "start") {
       const alreadyStarted = session.clarificationMessages.some(
         (message) => message.role === "assistant",
       );
 
       if (alreadyStarted || session.status === "READY_TO_GENERATE") {
-        return planningSessionSuccessResponse(session, 200);
+        return planningSessionClarificationSuccessResponse(session, 200);
       }
 
       const aiResult = await generateClarificationTurn({
@@ -93,9 +122,10 @@ export async function POST(
         ],
         planningBrief: aiResult.planningBrief,
         status: aiResult.readiness === "READY" ? "READY_TO_GENERATE" : "CLARIFYING",
+        expectedUpdatedAt: session.updatedAt,
       });
 
-      return planningSessionSuccessResponse(updatedSession, 200);
+      return planningSessionClarificationSuccessResponse(updatedSession, 200);
     }
 
     if (session.status !== "CLARIFYING") {
@@ -106,11 +136,13 @@ export async function POST(
       });
     }
 
+    const replyMessage = parsedBody.data.message;
+
     const aiResult = await generateClarificationTurn({
       initialPrompt: session.initialPrompt,
       clarificationMessages: session.clarificationMessages,
       planningBrief: session.planningBrief,
-      replyMessage: body.message,
+      replyMessage,
     });
 
     const updatedSession = await updatePlanningSessionClarification({
@@ -119,7 +151,7 @@ export async function POST(
         ...session.clarificationMessages,
         {
           role: "user",
-          content: body.message,
+          content: replyMessage,
         },
         {
           role: "assistant",
@@ -128,23 +160,24 @@ export async function POST(
       ],
       planningBrief: aiResult.planningBrief,
       status: aiResult.readiness === "READY" ? "READY_TO_GENERATE" : "CLARIFYING",
+      expectedUpdatedAt: session.updatedAt,
     });
 
-    return planningSessionSuccessResponse(updatedSession, 200);
+    return planningSessionClarificationSuccessResponse(updatedSession, 200);
   } catch (error) {
+    if (error instanceof PlanningSessionConcurrencyError) {
+      return planningSessionErrorResponse({
+        code: "INVALID_REQUEST",
+        message: "Planning session changed. Please try again.",
+        status: 409,
+      });
+    }
+
     if (error instanceof AiProviderError) {
       return planningSessionErrorResponse({
         code: "INTERNAL_ERROR",
         message: "AI service is temporarily unavailable. Please try again.",
         status: 503,
-      });
-    }
-
-    if (error instanceof ZodError) {
-      return planningSessionErrorResponse({
-        code: "INVALID_REQUEST",
-        message: "Invalid request payload.",
-        status: 400,
       });
     }
 

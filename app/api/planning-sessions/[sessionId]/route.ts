@@ -1,8 +1,6 @@
-import { ZodError } from "zod";
-
 import {
   planningSessionErrorResponse,
-  planningSessionSuccessResponse,
+  planningSessionPublicSuccessResponse,
 } from "@/lib/planning-sessions/http";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import { findPlanningSessionById } from "@/lib/planning-sessions/repository";
@@ -12,11 +10,21 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
-  try {
-    const resolvedParams = await params;
-    const sessionId = planningSessionIdSchema.parse(resolvedParams.sessionId);
+  const resolvedParams = await params;
+  const parsedSessionId = planningSessionIdSchema.safeParse(
+    resolvedParams.sessionId,
+  );
 
-    const session = await findPlanningSessionById(sessionId);
+  if (!parsedSessionId.success) {
+    return planningSessionErrorResponse({
+      code: "INVALID_REQUEST",
+      message: "Invalid request parameters.",
+      status: 400,
+    });
+  }
+
+  try {
+    const session = await findPlanningSessionById(parsedSessionId.data);
 
     if (!session) {
       return planningSessionErrorResponse({
@@ -34,16 +42,8 @@ export async function GET(
       });
     }
 
-    return planningSessionSuccessResponse(session, 200);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      return planningSessionErrorResponse({
-        code: "INVALID_REQUEST",
-        message: "Invalid request parameters.",
-        status: 400,
-      });
-    }
-
+    return planningSessionPublicSuccessResponse(session, 200);
+  } catch {
     return planningSessionErrorResponse({
       code: "INTERNAL_ERROR",
       message: "Internal server error.",

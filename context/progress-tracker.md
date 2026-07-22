@@ -102,6 +102,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Saved session id via `savePlanningSessionId` before navigation
 - Added router navigation to `/plan/[sessionId]` on success
 - Added disabled submit/textarea and loading spinner icon while submitting
+- Added keyboard composer behavior on Home prompt: `Enter` submits, `Shift+Enter` inserts newline, and IME composition Enter is safely ignored until composition completes
 - Added user-friendly retryable error messaging for validation/API/network/malformed responses
 - Added safe timed error dismissal with stale timer guard
 - Confirmed no Prisma schema or migration changes in this unit

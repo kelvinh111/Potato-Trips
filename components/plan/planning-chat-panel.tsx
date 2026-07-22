@@ -122,6 +122,7 @@ export function PlanningChatPanel({
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   const didAutoStartRef = useRef(false);
+  const isImeComposingRef = useRef(false);
   const conversationBottomRef = useRef<HTMLDivElement | null>(null);
 
   const conversationMessages = useMemo<ChatMessageViewModel[]>(() => {
@@ -235,6 +236,23 @@ export function PlanningChatPanel({
       return;
     }
 
+    const nativeEvent = event.nativeEvent as KeyboardEvent;
+    const isComposingIme =
+      nativeEvent.isComposing || nativeEvent.keyCode === 229;
+
+    if (isImeComposingRef.current) {
+      if (!isComposingIme) {
+        // Treat this Enter as candidate-confirm/stale cleanup and require another Enter to submit.
+        isImeComposingRef.current = false;
+      }
+
+      return;
+    }
+
+    if (isComposingIme) {
+      return;
+    }
+
     event.preventDefault();
     void sendReply();
   };
@@ -268,7 +286,12 @@ export function PlanningChatPanel({
                       : "border border-border-subtle bg-bg-subtle text-text-primary"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    <span className="sr-only">
+                      {isUser ? "You: " : "Assistant: "}
+                    </span>
+                    {message.content}
+                  </p>
                 </div>
               </article>
             );
@@ -279,7 +302,12 @@ export function PlanningChatPanel({
 
       <div className="border-t border-border-subtle px-4 py-4 sm:px-5">
         {errorMessage ? (
-          <div className="mb-3 rounded-2xl border border-state-error/30 bg-state-error/10 px-3 py-2 text-sm text-state-error">
+          <div
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+            className="mb-3 rounded-2xl border border-state-error/30 bg-state-error/10 px-3 py-2 text-sm text-state-error"
+          >
             <p>{errorMessage}</p>
             {shouldShowStartRetry ? (
               <Button
@@ -309,6 +337,15 @@ export function PlanningChatPanel({
             disabled={isComposerDisabled}
             onChange={(event) => {
               setDraftMessage(event.target.value);
+            }}
+            onCompositionStart={() => {
+              isImeComposingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              isImeComposingRef.current = false;
+            }}
+            onBlur={() => {
+              isImeComposingRef.current = false;
             }}
             onKeyDown={handleComposerKeyDown}
             placeholder={

@@ -15,6 +15,7 @@ const planningSessionSelect = {
   planningBrief: true,
   status: true,
   expiresAt: true,
+  updatedAt: true,
 } as const;
 
 interface RawPlanningSessionRecord {
@@ -24,6 +25,7 @@ interface RawPlanningSessionRecord {
   planningBrief: unknown;
   status: PlanningSessionStatusValue;
   expiresAt: Date;
+  updatedAt: Date;
 }
 
 export interface PlanningSessionRecord {
@@ -33,6 +35,21 @@ export interface PlanningSessionRecord {
   planningBrief: PlanningBrief | null;
   status: PlanningSessionStatusValue;
   expiresAt: Date;
+  updatedAt: Date;
+}
+
+export class PlanningSessionConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanningSessionConcurrencyError";
+  }
+}
+
+export class PlanningSessionDataValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanningSessionDataValidationError";
+  }
 }
 
 export async function createPlanningSession(input: {
@@ -68,17 +85,42 @@ export async function updatePlanningSessionClarification(input: {
   clarificationMessages: PlanningSessionClarificationMessages;
   planningBrief: PlanningBrief | null;
   status: "CLARIFYING" | "READY_TO_GENERATE";
+  expectedUpdatedAt: Date;
 }) {
-  const session = await prisma.planningSession.update({
-    where: { id: input.sessionId },
+  const clarificationMessages = parseClarificationMessages(
+    input.clarificationMessages,
+  );
+  const planningBrief = parsePlanningBrief(input.planningBrief);
+
+  const updateResult = await prisma.planningSession.updateMany({
+    where: {
+      id: input.sessionId,
+      updatedAt: input.expectedUpdatedAt,
+    },
     data: {
-      clarificationMessages: input.clarificationMessages,
+      clarificationMessages,
       planningBrief:
-        input.planningBrief === null ? Prisma.DbNull : input.planningBrief,
+        planningBrief === null ? Prisma.DbNull : planningBrief,
       status: input.status,
     },
+  });
+
+  if (updateResult.count === 0) {
+    throw new PlanningSessionConcurrencyError(
+      "Planning session was updated by another request.",
+    );
+  }
+
+  const session = await prisma.planningSession.findUnique({
+    where: { id: input.sessionId },
     select: planningSessionSelect,
   });
+
+  if (!session) {
+    throw new PlanningSessionDataValidationError(
+      "Planning session missing after successful update.",
+    );
+  }
 
   return mapPlanningSessionRecord(session);
 }
@@ -86,14 +128,21 @@ export async function updatePlanningSessionClarification(input: {
 function mapPlanningSessionRecord(
   session: RawPlanningSessionRecord,
 ): PlanningSessionRecord {
-  return {
-    id: session.id,
-    initialPrompt: session.initialPrompt,
-    clarificationMessages: parseClarificationMessages(
-      session.clarificationMessages,
-    ),
-    planningBrief: parsePlanningBrief(session.planningBrief),
-    status: session.status,
-    expiresAt: session.expiresAt,
-  };
+  try {
+    return {
+      id: session.id,
+      initialPrompt: session.initialPrompt,
+      clarificationMessages: parseClarificationMessages(
+        session.clarificationMessages,
+      ),
+      planningBrief: parsePlanningBrief(session.planningBrief),
+      status: session.status,
+      expiresAt: session.expiresAt,
+      updatedAt: session.updatedAt,
+    };
+  } catch {
+    throw new PlanningSessionDataValidationError(
+      "Planning session contains invalid persisted data.",
+    );
+  }
 }
