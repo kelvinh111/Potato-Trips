@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after home prompt flow.
+- Prepare next implementation feature unit after AI provider foundation.
 
 ## Current Feature Unit
-- Unit: Home prompt flow
-- Related spec: `context/feature-specs/08-home-prompt-flow.md`
+- Unit: AI provider foundation
+- Related spec: `context/feature-specs/09-ai-provider-foundation.md`
 - Status: Completed
 
 ## Completed
@@ -107,17 +107,29 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no Prisma schema or migration changes in this unit
 - Verified `npm run lint` and `npm run build`
 
+### Feature 09: AI Provider Foundation
+- Installed `ai` and `@ai-sdk/openai`
+- Added provider-neutral AI contracts under `lib/ai/types.ts`
+- Added application-owned `AiProviderError` and normalized error codes
+- Added OpenAI adapter behind provider boundary with Zod-validated structured output
+- Added server-only provider entrypoint and runtime provider factory for tooling
+- Added normalized model and token usage metadata output
+- Kept provider secrets server-side via runtime env configuration
+- Added developer smoke script `scripts/ai-provider-smoke.ts`
+- Verified live structured-output smoke test succeeds through provider interface
+- Confirmed no Prisma schema or migration changes in this unit
+- Verified `npm run lint` and `npm run build`
+
 ## In Progress
 - None.
 
 ## Next Up
-- `09-ai-provider-foundation.md`.
+- `10-trigger-setup.md`.
 
 ## Blockers
 - None.
 
 ## Open Questions
-- Initial AI provider and model
 - Final database schema details
 - Detailed export flow and PDF layout
 - Exact AI usage limits and future pricing model
@@ -137,6 +149,8 @@ Update this file after each meaningful feature unit or architecture change, not 
 - API smoke checks: `POST 201`, `GET 200`, malformed/blank/too-long/wrong-type prompt `400`, invalid `sessionId` `400`, missing session `404`, expired session `410`
 - Feature 07 route compile check: `/plan/[sessionId]` included in `next build` output
 - Feature 08 compile check: Home prompt flow compiles and `/plan/[sessionId]` route remains in build output
+- Feature 09 compile check: AI provider foundation compiles behind server-only boundary (`npm run lint` and `npm run build` pass)
+- Feature 09 smoke test: `npm run ai:smoke` succeeded (`mood` object returned, model `gpt-5.6-terra`, normalized token usage present)
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
