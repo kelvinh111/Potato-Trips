@@ -7,5 +7,6 @@ export const PLANNING_SESSION_STORAGE_KEY =
   "potato-trips:planning-session-id";
 
 export const PLANNING_SESSION_PROMPT_MAX_LENGTH = 2000;
+export const PLANNING_SESSION_MESSAGE_MAX_LENGTH = 2000;
 
 export const PLANNING_SESSION_ID_MAX_LENGTH = 255;

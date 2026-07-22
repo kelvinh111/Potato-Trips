@@ -13,7 +13,7 @@ interface PlanPageProps {
   }>;
 }
 
-type PlanViewState = "workspace" | "unavailable" | "expired";
+type PlanViewState = "unavailable" | "expired";
 
 function PlanPageFrame({ children }: { children: ReactNode }) {
   return (
@@ -34,34 +34,30 @@ export default async function PlanPage({ params }: PlanPageProps) {
     return renderPlanState("unavailable");
   }
 
-  let state: PlanViewState = "workspace";
+  let session: Awaited<ReturnType<typeof findPlanningSessionById>> = null;
 
   try {
-    const session = await findPlanningSessionById(parsedSessionId.data);
-
-    if (!session) {
-      state = "unavailable";
-    }
-
-    if (session && isPlanningSessionExpired(session.expiresAt)) {
-      state = "expired";
-    }
+    session = await findPlanningSessionById(parsedSessionId.data);
   } catch {
-    state = "unavailable";
+    return renderPlanState("unavailable");
   }
 
-  return renderPlanState(state);
+  if (!session) {
+    return renderPlanState("unavailable");
+  }
+
+  if (isPlanningSessionExpired(session.expiresAt)) {
+    return renderPlanState("expired");
+  }
+
+  return (
+    <PlanPageFrame>
+      <ItineraryWorkspaceShell session={session} />
+    </PlanPageFrame>
+  );
 }
 
 function renderPlanState(state: PlanViewState) {
-  if (state === "workspace") {
-    return (
-      <PlanPageFrame>
-        <ItineraryWorkspaceShell />
-      </PlanPageFrame>
-    );
-  }
-
   if (state === "expired") {
     return (
       <PlanPageFrame>

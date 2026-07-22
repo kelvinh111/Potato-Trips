@@ -1,7 +1,13 @@
 "use client";
 
 import { ArrowUp, LoaderCircle } from "lucide-react";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +35,7 @@ export function TripPrompt() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<PromptErrorKind | null>(null);
+  const isImeComposingRef = useRef(false);
   const errorSequenceRef = useRef(0);
   const errorTimerRef = useRef<number | null>(null);
 
@@ -72,6 +79,34 @@ export function TripPrompt() {
   const failSubmission = (message: string, kind: PromptErrorKind) => {
     scheduleErrorMessage(message, kind);
     setIsSubmitting(false);
+  };
+
+  const handlePromptKeyDown = (
+    event: ReactKeyboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    const nativeEvent = event.nativeEvent as KeyboardEvent;
+    const isComposingIme =
+      nativeEvent.isComposing || nativeEvent.keyCode === 229;
+
+    if (isImeComposingRef.current) {
+      if (!isComposingIme) {
+        // Some browsers may not fire compositionend before Enter; clear stale state.
+        isImeComposingRef.current = false;
+      }
+
+      return;
+    }
+
+    if (isComposingIme) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -174,6 +209,16 @@ export function TripPrompt() {
                 rows={5}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
+                onKeyDown={handlePromptKeyDown}
+                onCompositionStart={() => {
+                  isImeComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  isImeComposingRef.current = false;
+                }}
+                onBlur={() => {
+                  isImeComposingRef.current = false;
+                }}
                 disabled={isSubmitting}
                 aria-invalid={errorKind === "validation" ? "true" : "false"}
                 aria-describedby={errorMessage ? "trip-prompt-error" : undefined}

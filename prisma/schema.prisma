@@ -21,12 +21,14 @@ enum PlanningSessionStatus {
 }
 
 model PlanningSession {
-  id            String                @id @default(cuid())
-  initialPrompt String
-  status        PlanningSessionStatus @default(CLARIFYING)
-  expiresAt     DateTime
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  id                    String                @id @default(cuid())
+  initialPrompt         String
+  clarificationMessages Json                  @default("[]")
+  planningBrief         Json?
+  status                PlanningSessionStatus @default(CLARIFYING)
+  expiresAt             DateTime
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([expiresAt])
 }
