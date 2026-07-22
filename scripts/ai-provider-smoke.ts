@@ -2,13 +2,13 @@ import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 
 import { AiProviderError } from "../lib/ai/errors";
-import { getAiProviderRuntime } from "../lib/ai/provider-runtime";
+import { getAiProvider } from "../lib/ai/provider";
 
 loadEnv({ path: ".env.local", override: false });
 loadEnv({ path: ".env", override: false });
 
 async function main() {
-  const provider = getAiProviderRuntime();
+  const provider = getAiProvider();
 
   const result = await provider.generateStructured({
     systemInstructions:

@@ -1,9 +1,10 @@
+import "server-only";
+
 import { createOpenAI } from "@ai-sdk/openai";
 import {
   generateText,
-  NoOutputGeneratedError,
+  NoObjectGeneratedError,
   Output,
-  TypeValidationError,
 } from "ai";
 import type { z } from "zod";
 
@@ -14,8 +15,6 @@ import type {
   AiStructuredGenerateInput,
   AiTokenUsage,
 } from "@/lib/ai/types";
-
-const DEFAULT_AI_MODEL = "gpt-5.6-terra";
 
 interface OpenAiRuntimeConfig {
   model: string;
@@ -63,26 +62,24 @@ export class OpenAiProviderAdapter implements AiProvider {
 
     try {
       const openai = createOpenAI({ apiKey: config.apiKey });
+      const outputSpec = Output.object<z.infer<TSchema>>({
+        schema: input.outputSchema,
+      });
 
       const result = await generateText({
         model: openai(config.model),
-        output: Output.object({ schema: input.outputSchema }),
+        output: outputSpec,
         system: input.systemInstructions,
         ...(messages.length > 0 ? { messages } : { prompt: prompt ?? "" }),
       });
 
-      const parsedOutput = input.outputSchema.parse(result.output);
-
       return {
-        output: parsedOutput,
+        output: result.output,
         model: result.response?.modelId ?? config.model,
         usage: normalizeUsage(result.usage),
       };
     } catch (error) {
-      if (
-        error instanceof NoOutputGeneratedError ||
-        error instanceof TypeValidationError
-      ) {
+      if (NoObjectGeneratedError.isInstance(error)) {
         throw new AiProviderError({
           code: "INVALID_STRUCTURED_OUTPUT",
           message: "AI returned invalid structured output.",
@@ -103,7 +100,7 @@ export class OpenAiProviderAdapter implements AiProvider {
 
 function getOpenAiRuntimeConfig(): OpenAiRuntimeConfig {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = process.env.AI_MODEL?.trim() || DEFAULT_AI_MODEL;
+  const model = process.env.AI_MODEL?.trim();
 
   if (!apiKey) {
     throw new AiProviderError({
