@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after AI provider foundation.
+- Prepare next implementation feature unit after Trigger.dev setup.
 
 ## Current Feature Unit
-- Unit: AI provider foundation
-- Related spec: `context/feature-specs/09-ai-provider-foundation.md`
+- Unit: Trigger.dev setup
+- Related spec: `context/feature-specs/10-trigger-setup.md`
 - Status: Completed
 
 ## Completed
@@ -120,11 +120,27 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no Prisma schema or migration changes in this unit
 - Verified `npm run lint` and `npm run build`
 
+### Feature 10: Trigger.dev Setup
+- Migrated Trigger config and task imports to `@trigger.dev/sdk` (no `/v3` imports in source code)
+- Kept existing Trigger project reference in `trigger.config.ts`
+- Configured Trigger runtime to `node-22`
+- Explicitly set Trigger task directory to `./trigger`
+- Disabled automatic retries in development (`retries.enabledInDev: false`)
+- Kept Trigger config minimal and added required `maxDuration` for SDK type validity
+- Replaced generated hello-world task with `trigger/setup-smoke.ts`
+- Added deterministic `schemaTask` with runtime-validated Zod payload `{ message: string }`
+- Returned JSON-serializable smoke output `{ ok: true, message }` with no `any`
+- Added reproducible script `trigger:dev` pinned to `trigger.dev@4.5.6`
+- Pinned `@trigger.dev/sdk` and `@trigger.dev/build` to exact `4.5.6` to align package and CLI versions
+- Confirmed Trigger MCP tooling remains dev-only via `.vscode/mcp.json`
+- Confirmed `.trigger` remains ignored and `trigger.config.ts` remains included in TypeScript config
+- Confirmed no API routes, AI workflow changes, or Prisma schema/migration changes were added
+
 ## In Progress
 - None.
 
 ## Next Up
-- `10-trigger-setup.md`.
+- `11-clarification-chat.md`.
 
 ## Blockers
 - None.
@@ -151,6 +167,10 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 08 compile check: Home prompt flow compiles and `/plan/[sessionId]` route remains in build output
 - Feature 09 compile check: AI provider foundation compiles behind server-only boundary (`npm run lint` and `npm run build` pass)
 - Feature 09 smoke test: `npm run ai:smoke` succeeded (`mood` object returned, model `gpt-5.6-terra`, normalized token usage present)
+- Feature 10 compile check: Trigger setup compiles (`npm run lint` and `npm run build` pass)
+- Feature 10 diff check: `git diff --check` pass
+- Feature 10 worker check: `npm run trigger:dev` local worker starts and registers `setup-smoke` task (`version 20260722.1`)
+- Feature 10 live smoke run: `run_cmrwbqf1y7c5b0poigt1shczv` completed with output `{ ok: true, message: "trigger setup smoke works" }`
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
