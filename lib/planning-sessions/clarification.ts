@@ -51,11 +51,11 @@ export async function generateClarificationTurn(
   });
 
   const output = clarificationAiOutputSchema.parse(result.output);
-  const readiness: ClarificationReadiness = isPlanningBriefReady(
-    output.planningBrief,
-  )
-    ? "READY"
-    : "NEEDS_CLARIFICATION";
+  const hasRequiredBriefData = isPlanningBriefReady(output.planningBrief);
+  const readiness: ClarificationReadiness =
+    output.readiness === "READY" && hasRequiredBriefData
+      ? "READY"
+      : "NEEDS_CLARIFICATION";
 
   const assistantMessage =
     readiness === "READY"

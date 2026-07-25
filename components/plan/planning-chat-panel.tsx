@@ -270,7 +270,13 @@ export function PlanningChatPanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-        <div className="space-y-3">
+        <div
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-atomic="false"
+          className="space-y-3"
+        >
           {conversationMessages.map((message) => {
             const isUser = message.role === "user";
 

@@ -1,4 +1,5 @@
 import { AiProviderError } from "@/lib/ai/errors";
+import { PLANNING_SESSION_MAX_ASSISTANT_TURNS } from "@/lib/planning-sessions/constants";
 import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import {
@@ -137,6 +138,19 @@ export async function POST(
     }
 
     const replyMessage = parsedBody.data.message;
+
+    const assistantTurnCount = session.clarificationMessages.filter(
+      (message) => message.role === "assistant",
+    ).length;
+
+    if (assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS) {
+      return planningSessionErrorResponse({
+        code: "USAGE_LIMIT_EXCEEDED",
+        message:
+          "Clarification turn limit reached for this session. Start a new session to continue.",
+        status: 429,
+      });
+    }
 
     const aiResult = await generateClarificationTurn({
       initialPrompt: session.initialPrompt,

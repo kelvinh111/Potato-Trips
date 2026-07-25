@@ -91,6 +91,7 @@ The server must:
 - call `AiProvider`
 - persist the completed user/assistant turn and updated planning brief
 - move status to `READY_TO_GENERATE` only when AI returns `READY`
+- enforce a server-side clarification usage limit for this cost-sensitive provider path
 
 Do not leave partial conversation state when the AI request fails.
 
@@ -131,7 +132,6 @@ Do not implement:
 - place lookup
 - saved trips
 - collaboration
-- usage limits
 - AI refinement
 - streaming responses
 
@@ -146,6 +146,7 @@ Do not implement:
 - clarification survives refresh
 - failed AI calls do not create partial conversation turns
 - destination plus duration/date range can move status to `READY_TO_GENERATE`
+- clarify route enforces a server-side usage limit before additional AI turns
 - optional preferences are not mandatory
 - composer works during clarification and disables when ready
 - no itinerary generation or Trigger.dev workflow is added

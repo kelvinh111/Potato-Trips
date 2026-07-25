@@ -5,6 +5,7 @@ import type { PlanningSessionClarificationMessages } from "@/lib/planning-sessio
 
 export type PlanningSessionErrorCode =
   | "INVALID_REQUEST"
+  | "USAGE_LIMIT_EXCEEDED"
   | "PLANNING_SESSION_NOT_FOUND"
   | "PLANNING_SESSION_EXPIRED"
   | "INTERNAL_ERROR";
