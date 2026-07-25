@@ -2,6 +2,7 @@ import { AiProviderError } from "@/lib/ai/errors";
 import { PLANNING_SESSION_MAX_ASSISTANT_TURNS } from "@/lib/planning-sessions/constants";
 import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
+import { startPlanningSessionGeneration } from "@/lib/planning-sessions/generation-operation";
 import {
   planningSessionClarificationSuccessResponse,
   planningSessionErrorResponse,
@@ -9,6 +10,8 @@ import {
 import {
   findPlanningSessionById,
   PlanningSessionConcurrencyError,
+  PlanningSessionInvalidStateError,
+  PlanningSessionUsageLimitError,
   updatePlanningSessionClarification,
 } from "@/lib/planning-sessions/repository";
 import { isClarificationStageStatus } from "@/lib/planning-sessions/types";
@@ -110,6 +113,7 @@ export async function POST(
         clarificationMessages: session.clarificationMessages,
         planningBrief: session.planningBrief,
         replyMessage: null,
+        status: "CLARIFYING",
       });
 
       const updatedSession = await updatePlanningSessionClarification({
@@ -122,17 +126,30 @@ export async function POST(
           },
         ],
         planningBrief: aiResult.planningBrief,
-        status: aiResult.readiness === "READY" ? "READY_TO_GENERATE" : "CLARIFYING",
+        status:
+          aiResult.readiness === "NEEDS_CLARIFICATION"
+            ? "CLARIFYING"
+            : "READY_TO_GENERATE",
         expectedUpdatedAt: session.updatedAt,
       });
+
+      if (aiResult.readiness === "CONFIRMED") {
+        const generationSession = await startPlanningSessionGeneration(
+          updatedSession.id,
+        );
+
+        if (generationSession) {
+          return planningSessionClarificationSuccessResponse(generationSession, 200);
+        }
+      }
 
       return planningSessionClarificationSuccessResponse(updatedSession, 200);
     }
 
-    if (session.status !== "CLARIFYING") {
+    if (session.status === "GENERATING" || session.status === "GENERATED") {
       return planningSessionErrorResponse({
         code: "INVALID_REQUEST",
-        message: "Clarification is already complete for this planning session.",
+        message: "Clarification chat is unavailable after generation has started.",
         status: 409,
       });
     }
@@ -157,6 +174,10 @@ export async function POST(
       clarificationMessages: session.clarificationMessages,
       planningBrief: session.planningBrief,
       replyMessage,
+      status:
+        session.status === "READY_TO_GENERATE"
+          ? "READY_TO_GENERATE"
+          : "CLARIFYING",
     });
 
     const updatedSession = await updatePlanningSessionClarification({
@@ -173,9 +194,22 @@ export async function POST(
         },
       ],
       planningBrief: aiResult.planningBrief,
-      status: aiResult.readiness === "READY" ? "READY_TO_GENERATE" : "CLARIFYING",
+      status:
+        aiResult.readiness === "NEEDS_CLARIFICATION"
+          ? "CLARIFYING"
+          : "READY_TO_GENERATE",
       expectedUpdatedAt: session.updatedAt,
     });
+
+    if (aiResult.readiness === "CONFIRMED") {
+      const generationSession = await startPlanningSessionGeneration(
+        updatedSession.id,
+      );
+
+      if (generationSession) {
+        return planningSessionClarificationSuccessResponse(generationSession, 200);
+      }
+    }
 
     return planningSessionClarificationSuccessResponse(updatedSession, 200);
   } catch (error) {
@@ -192,6 +226,23 @@ export async function POST(
         code: "INTERNAL_ERROR",
         message: "AI service is temporarily unavailable. Please try again.",
         status: 503,
+      });
+    }
+
+    if (error instanceof PlanningSessionUsageLimitError) {
+      return planningSessionErrorResponse({
+        code: "USAGE_LIMIT_EXCEEDED",
+        message:
+          "Generation attempt limit reached for this session. Start a new session to continue.",
+        status: 429,
+      });
+    }
+
+    if (error instanceof PlanningSessionInvalidStateError) {
+      return planningSessionErrorResponse({
+        code: "INVALID_REQUEST",
+        message: "Planning session is not ready for that action.",
+        status: 409,
       });
     }
 

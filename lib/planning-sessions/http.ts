@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 import type { PlanningSessionRecord } from "@/lib/planning-sessions/repository";
-import type { PlanningSessionClarificationMessages } from "@/lib/planning-sessions/types";
+import type {
+  PersistedItinerary,
+  PlanningBrief,
+  PlanningSessionClarificationMessages,
+  PlanningSessionGenerationPhaseValue,
+} from "@/lib/planning-sessions/types";
 
 export type PlanningSessionErrorCode =
   | "INVALID_REQUEST"
@@ -20,6 +25,20 @@ interface PlanningSessionPublicDto {
 interface PlanningSessionClarificationDto {
   status: PlanningSessionRecord["status"];
   clarificationMessages: PlanningSessionClarificationMessages;
+  planningBrief: PlanningBrief | null;
+  generationPhase: PlanningSessionGenerationPhaseValue | null;
+  generatedItinerary: PersistedItinerary | null;
+  generationAttempts: number;
+  generationError: string | null;
+}
+
+interface PlanningSessionGenerationDto {
+  status: PlanningSessionRecord["status"];
+  planningBrief: PlanningBrief | null;
+  generationPhase: PlanningSessionGenerationPhaseValue | null;
+  generatedItinerary: PersistedItinerary | null;
+  generationAttempts: number;
+  generationError: string | null;
 }
 
 export function planningSessionPublicSuccessResponse(
@@ -43,9 +62,30 @@ export function planningSessionClarificationSuccessResponse(
   const clarificationDto: PlanningSessionClarificationDto = {
     status: session.status,
     clarificationMessages: session.clarificationMessages,
+    planningBrief: session.planningBrief,
+    generationPhase: session.generationPhase,
+    generatedItinerary: session.generatedItinerary,
+    generationAttempts: session.generationAttempts,
+    generationError: session.generationError,
   };
 
   return NextResponse.json({ session: clarificationDto }, { status });
+}
+
+export function planningSessionGenerationSuccessResponse(
+  session: PlanningSessionRecord,
+  status: number,
+) {
+  const generationDto: PlanningSessionGenerationDto = {
+    status: session.status,
+    planningBrief: session.planningBrief,
+    generationPhase: session.generationPhase,
+    generatedItinerary: session.generatedItinerary,
+    generationAttempts: session.generationAttempts,
+    generationError: session.generationError,
+  };
+
+  return NextResponse.json({ session: generationDto }, { status });
 }
 
 export function planningSessionErrorResponse(input: {

@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Prepare next implementation feature unit after clarification chat.
+- Validate and finalize initial itinerary generation flow with confirmation and Trigger.dev execution.
 
 ## Current Feature Unit
-- Unit: Clarification chat
-- Related spec: `context/feature-specs/11-clarification-chat.md`
-- Status: Completed
+- Unit: Initial itinerary generation
+- Related spec: `context/feature-specs/12-initial-itinerary-generation.md`
+- Status: In Progress
 
 ## Completed
 
@@ -158,10 +158,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no itinerary generation, Trigger.dev generation tasks, kanban data, map data, place lookup, saved-trip, or collaboration work was added
 
 ## In Progress
-- None.
+- Feature 12: Initial Itinerary Generation
+	- Extended `PlanningSession` with generation phase, generation attempt tracking, generation error, and persisted generated itinerary JSON.
+	- Added generation APIs: `POST /api/planning-sessions/[sessionId]/generate` and `GET /api/planning-sessions/[sessionId]/generation`.
+	- Added idempotent generation-start operation with status transition guards and per-session attempt limits.
+	- Added Trigger task `initial-itinerary-generation` for long-running initial itinerary workflow.
+	- Updated clarification flow for required planning fields, ready-for-confirmation state, and explicit chat confirmation.
+	- Added planning status panel and pre-generation two-area layout (`Planning Chat | Trip Plan Status`) with map hidden before generation.
+	- Added generation-phase polling and restore-on-refresh behavior in workspace runtime.
+	- Updated project flow documentation for confirmation-before-generation behavior.
 
 ## Next Up
-- `12-initial-itinerary-generation.md`.
+- `13-itinerary-kanban.md`.
 
 ## Blockers
 - None.
@@ -209,6 +217,9 @@ Update this file after each meaningful feature unit or architecture change, not 
   - multi-turn clarification continues until readiness conditions are met
   - READY_TO_GENERATE disables the composer
   - final ready message does not ask optional follow-up questions
+- Feature 12 schema check: `npx prisma validate` pass
+- Feature 12 Prisma client check: `npm run prisma:generate` pass
+- Feature 12 compile check: `npm run lint` and `npm run build` pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.

@@ -30,14 +30,16 @@ The wireframes define page structure, panel placement, and major interaction flo
 ## Core User Flow
 1. User submits a trip request from the Home page.
 2. The app immediately opens the Itinerary Plan workspace.
-3. AI asks for missing details such as dates, budget, pace, interests, or travel style.
-4. Once enough information is available, AI generates the trip.
-5. The app initializes the kanban board and Google Map.
-6. User edits the itinerary manually or through AI chat.
-7. User may inspect place details or add locations to a selected day.
-8. User signs in when they want to save the preview.
-9. Saved trips appear in My Trips and can be reopened or collaboratively edited.
-10. User may share or export the current itinerary.
+3. AI asks for missing details such as destination, starting location, timing, trip length, travellers, budget, and interests/travel style.
+4. Once enough information is available and practical, AI presents a final planning summary and waits for explicit confirmation.
+5. After confirmation, initial itinerary generation runs as a long-running Trigger.dev workflow.
+6. The workspace restores generation progress after refresh and returns to generated-trip layout when complete.
+7. The app initializes the kanban board and Google Map.
+8. User edits the itinerary manually or through AI chat.
+9. User may inspect place details or add locations to a selected day.
+10. User signs in when they want to save the preview.
+11. Saved trips appear in My Trips and can be reopened or collaboratively edited.
+12. User may share or export the current itinerary.
 
 ## Main Experiences
 
