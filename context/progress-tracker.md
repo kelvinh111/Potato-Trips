@@ -166,6 +166,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- Updated clarification flow for required planning fields, ready-for-confirmation state, and explicit chat confirmation.
 	- Added planning status panel and pre-generation two-area layout (`Planning Chat | Trip Plan Status`) with map hidden before generation.
 	- Added generation-phase polling and restore-on-refresh behavior in workspace runtime.
+	- Hardened destination-scope clarification semantics so broad destination intent can require focused region/city follow-up before readiness.
+	- Updated clarification assistant style guidance to friendly, casual, concise travel-consultant tone with safe Markdown output.
+	- Added server-date context for clarification so month-only timing can resolve to next future occurrence without unnecessary year follow-up.
+	- Improved traveller inference guidance for complete-party responses like "solo", "a couple", and explicit adult counts.
+	- Added Trigger dispatch failure recovery to move sessions from `GENERATING` to `FAILED` when task dispatch fails, preserving retry path and attempt limits.
+	- Reworked generation polling with failure backoff and stuck-state recovery notice/manual status check to avoid endless silent polling.
 	- Updated project flow documentation for confirmation-before-generation behavior.
 
 ## Next Up

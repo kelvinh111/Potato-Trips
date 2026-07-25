@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 
+import { AssistantMarkdown } from "@/components/plan/assistant-markdown";
 import { Button } from "@/components/ui/button";
 import type {
   PlanningBrief,
@@ -14,9 +15,12 @@ interface TripPlanStatusPanelProps {
   planningBrief: PlanningBrief | null;
   generationPhase: PlanningSessionGenerationPhaseValue | null;
   generationError: string | null;
+  generationPollingNotice: string | null;
+  isRefreshingGenerationState: boolean;
   generationAttempts: number;
   isStartingGeneration: boolean;
   onGenerateTrip: () => void;
+  onRefreshGenerationState: () => void;
 }
 
 interface RequirementViewModel {
@@ -37,9 +41,12 @@ export function TripPlanStatusPanel({
   planningBrief,
   generationPhase,
   generationError,
+  generationPollingNotice,
+  isRefreshingGenerationState,
   generationAttempts,
   isStartingGeneration,
   onGenerateTrip,
+  onRefreshGenerationState,
 }: TripPlanStatusPanelProps) {
   const requirements = buildRequirementRows(planningBrief);
 
@@ -79,9 +86,10 @@ export function TripPlanStatusPanel({
             <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
               Final planning summary
             </p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">
-              {planningBrief.finalSummary}
-            </p>
+            <AssistantMarkdown
+              content={planningBrief.finalSummary}
+              className="mt-1 text-sm text-text-primary"
+            />
           </div>
         ) : null}
 
@@ -103,6 +111,26 @@ export function TripPlanStatusPanel({
             className="mt-4 rounded-2xl border border-state-error/30 bg-state-error/10 px-3 py-3 text-sm text-state-error"
           >
             {generationError}
+          </div>
+        ) : null}
+
+        {generationPollingNotice ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-4 rounded-2xl border border-state-warning/30 bg-state-warning/10 px-3 py-3 text-sm text-text-primary"
+          >
+            <p>{generationPollingNotice}</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRefreshGenerationState}
+              disabled={isRefreshingGenerationState}
+              className="mt-2 rounded-xl px-2"
+            >
+              {isRefreshingGenerationState ? "Checking status..." : "Check status"}
+            </Button>
           </div>
         ) : null}
 

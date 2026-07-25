@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ArrowUp, Loader2 } from "lucide-react";
 
+import { AssistantMarkdown } from "@/components/plan/assistant-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type {
@@ -254,12 +255,17 @@ export function PlanningChatPanel({
                       : "border border-border-subtle bg-bg-subtle text-text-primary"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">
-                    <span className="sr-only">
-                      {isUser ? "You: " : "Assistant: "}
-                    </span>
-                    {message.content}
-                  </p>
+                  <span className="sr-only">
+                    {isUser ? "You: " : "Assistant: "}
+                  </span>
+                  {isUser ? (
+                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  ) : (
+                    <AssistantMarkdown
+                      content={message.content}
+                      className="break-words"
+                    />
+                  )}
                 </div>
               </article>
             );
