@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   PLANNING_SESSION_ID_MAX_LENGTH,
+  PLANNING_SESSION_MESSAGE_MAX_LENGTH,
   PLANNING_SESSION_PROMPT_MAX_LENGTH,
 } from "@/lib/planning-sessions/constants";
 
@@ -26,3 +27,26 @@ export const planningSessionIdSchema = z
   .trim()
   .min(1)
   .max(PLANNING_SESSION_ID_MAX_LENGTH);
+
+const trimmedChatMessageSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(PLANNING_SESSION_MESSAGE_MAX_LENGTH);
+
+export const clarifyPlanningSessionBodySchema = z.discriminatedUnion(
+  "action",
+  [
+    z
+      .object({
+        action: z.literal("start"),
+      })
+      .strict(),
+    z
+      .object({
+        action: z.literal("reply"),
+        message: trimmedChatMessageSchema,
+      })
+      .strict(),
+  ],
+);
