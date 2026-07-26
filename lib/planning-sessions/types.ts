@@ -349,7 +349,9 @@ export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
 
   const travellers =
     brief.travellers ??
-    (brief.travellerCount !== undefined && brief.travellerCount !== null
+    (brief.travellerCount !== undefined &&
+    brief.travellerCount !== null &&
+    brief.travellerCount <= 30
       ? {
           adults: brief.travellerCount,
           children: 0,
