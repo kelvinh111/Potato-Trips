@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev -H localhost -p 5000",
-    "trigger:dev": "set CI=1&& npx trigger.dev@4.5.7 dev start --skip-update-check",
+    "trigger:dev": "npx trigger.dev@4.5.7 dev --skip-update-check",
     "ai:smoke": "node --conditions=react-server --import tsx scripts/ai-provider-smoke.ts",
     "generation:troubleshoot": "node --conditions=react-server --import tsx scripts/planning-generation-troubleshoot.ts",
     "build": "next build",
