@@ -1,6 +1,7 @@
-import { getAiProvider } from "@/lib/ai/provider";
+import { getAiProviderRuntime } from "@/lib/ai/provider-runtime";
 import type { AiProviderMessage } from "@/lib/ai/types";
 import {
+  type AiGeneratedItinerary,
   aiGeneratedItinerarySchema,
   normalizeGeneratedItinerary,
   type PersistedItinerary,
@@ -16,10 +17,10 @@ Rules:
 - Return structured JSON only, matching the schema exactly.
 - Keep item descriptions useful and concise.`;
 
-export async function generateInitialItinerary(input: {
+export async function generateInitialItineraryDraft(input: {
   planningBrief: PlanningBrief;
-}): Promise<PersistedItinerary> {
-  const provider = getAiProvider();
+}): Promise<AiGeneratedItinerary> {
+  const provider = getAiProviderRuntime();
 
   const messages: AiProviderMessage[] = [
     {
@@ -34,7 +35,21 @@ export async function generateInitialItinerary(input: {
     outputSchema: aiGeneratedItinerarySchema,
   });
 
-  const aiItinerary = aiGeneratedItinerarySchema.parse(result.output);
+  return aiGeneratedItinerarySchema.parse(result.output);
+}
+
+export function validateAndNormalizeGeneratedItinerary(input: {
+  itinerary: AiGeneratedItinerary;
+}): PersistedItinerary {
+  const aiItinerary = aiGeneratedItinerarySchema.parse(input.itinerary);
 
   return normalizeGeneratedItinerary(aiItinerary);
+}
+
+export async function generateInitialItinerary(input: {
+  planningBrief: PlanningBrief;
+}): Promise<PersistedItinerary> {
+  const draft = await generateInitialItineraryDraft(input);
+
+  return validateAndNormalizeGeneratedItinerary({ itinerary: draft });
 }

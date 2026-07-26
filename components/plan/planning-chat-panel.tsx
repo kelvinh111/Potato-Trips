@@ -161,7 +161,11 @@ export function PlanningChatPanel({
   }, [hasAssistantMessage, startClarification, status]);
 
   const isComposerDisabled =
-    status === "GENERATING" || status === "GENERATED" || isStarting || isSubmittingReply;
+    status === "GENERATING" ||
+    status === "GENERATED" ||
+    status === "FAILED" ||
+    isStarting ||
+    isSubmittingReply;
 
   const sendReply = useCallback(async () => {
     const trimmed = draftMessage.trim();
@@ -327,6 +331,8 @@ export function PlanningChatPanel({
                 ? "Reply to confirm generation or adjust trip details"
                 : status === "GENERATING"
                   ? "Generation in progress"
+                  : status === "FAILED"
+                    ? "Generation failed. Retry from Trip Plan Status"
                   : "Share trip details"
             }
             className="resize-none rounded-2xl border-border-default bg-bg-surface text-text-primary placeholder:text-text-faint"

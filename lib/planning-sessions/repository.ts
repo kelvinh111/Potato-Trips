@@ -1,5 +1,7 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { PLANNING_SESSION_STALE_GENERATION_ERROR_MESSAGE } from "@/lib/planning-sessions/constants";
+import { isPlanningSessionGenerationStale } from "@/lib/planning-sessions/generation-recovery";
 import {
   parseClarificationMessages,
   parsePersistedItinerary,
@@ -161,16 +163,15 @@ export async function beginPlanningSessionGeneration(input: {
   sessionId: string;
   maxAttempts: number;
 }) {
-  const session = await prisma.planningSession.findUnique({
-    where: { id: input.sessionId },
-    select: planningSessionSelect,
-  });
+  const recoveredSession = await recoverStalePlanningSessionGeneration(
+    input.sessionId,
+  );
 
-  if (!session) {
+  if (!recoveredSession) {
     return null;
   }
 
-  const mappedSession = mapPlanningSessionRecord(session);
+  const mappedSession = recoveredSession;
 
   if (mappedSession.status === "GENERATING") {
     return {
@@ -251,14 +252,59 @@ export async function beginPlanningSessionGeneration(input: {
   };
 }
 
+export async function recoverStalePlanningSessionGeneration(sessionId: string) {
+  const session = await prisma.planningSession.findUnique({
+    where: { id: sessionId },
+    select: planningSessionSelect,
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  const mappedSession = mapPlanningSessionRecord(session);
+
+  if (!isPlanningSessionGenerationStale(mappedSession)) {
+    return mappedSession;
+  }
+
+  await prisma.planningSession.updateMany({
+    where: {
+      id: sessionId,
+      status: "GENERATING",
+      generationAttempts: mappedSession.generationAttempts,
+      updatedAt: mappedSession.updatedAt,
+    },
+    data: {
+      status: "FAILED",
+      generationPhase: null,
+      generationError: PLANNING_SESSION_STALE_GENERATION_ERROR_MESSAGE,
+      generatedItinerary: Prisma.DbNull,
+    },
+  });
+
+  const refreshedSession = await prisma.planningSession.findUnique({
+    where: { id: sessionId },
+    select: planningSessionSelect,
+  });
+
+  if (!refreshedSession) {
+    return null;
+  }
+
+  return mapPlanningSessionRecord(refreshedSession);
+}
+
 export async function setPlanningSessionGenerationPhase(input: {
   sessionId: string;
+  generationAttempt: number;
   phase: PlanningSessionGenerationPhaseValue;
 }) {
   const updateResult = await prisma.planningSession.updateMany({
     where: {
       id: input.sessionId,
       status: "GENERATING",
+      generationAttempts: input.generationAttempt,
     },
     data: {
       generationPhase: input.phase,
@@ -274,6 +320,7 @@ export async function setPlanningSessionGenerationPhase(input: {
 
 export async function completePlanningSessionGeneration(input: {
   sessionId: string;
+  generationAttempt: number;
   itinerary: PersistedItinerary;
 }) {
   const itinerary = persistedItinerarySchema.parse(input.itinerary);
@@ -282,6 +329,7 @@ export async function completePlanningSessionGeneration(input: {
     where: {
       id: input.sessionId,
       status: "GENERATING",
+      generationAttempts: input.generationAttempt,
     },
     data: {
       status: "GENERATED",
@@ -300,12 +348,14 @@ export async function completePlanningSessionGeneration(input: {
 
 export async function failPlanningSessionGeneration(input: {
   sessionId: string;
+  generationAttempt: number;
   errorMessage: string;
 }) {
   await prisma.planningSession.updateMany({
     where: {
       id: input.sessionId,
       status: "GENERATING",
+      generationAttempts: input.generationAttempt,
     },
     data: {
       status: "FAILED",

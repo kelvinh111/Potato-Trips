@@ -8,10 +8,10 @@ import {
   planningSessionErrorResponse,
 } from "@/lib/planning-sessions/http";
 import {
-  findPlanningSessionById,
   PlanningSessionConcurrencyError,
   PlanningSessionInvalidStateError,
   PlanningSessionUsageLimitError,
+  recoverStalePlanningSessionGeneration,
   updatePlanningSessionClarification,
 } from "@/lib/planning-sessions/repository";
 import { isClarificationStageStatus } from "@/lib/planning-sessions/types";
@@ -73,7 +73,9 @@ export async function POST(
   }
 
   try {
-    const session = await findPlanningSessionById(parsedSessionId.data);
+    const session = await recoverStalePlanningSessionGeneration(
+      parsedSessionId.data,
+    );
 
     if (!session) {
       return planningSessionErrorResponse({
@@ -133,16 +135,6 @@ export async function POST(
         expectedUpdatedAt: session.updatedAt,
       });
 
-      if (aiResult.readiness === "CONFIRMED") {
-        const generationSession = await startPlanningSessionGeneration(
-          updatedSession.id,
-        );
-
-        if (generationSession) {
-          return planningSessionClarificationSuccessResponse(generationSession, 200);
-        }
-      }
-
       return planningSessionClarificationSuccessResponse(updatedSession, 200);
     }
 
@@ -201,7 +193,10 @@ export async function POST(
       expectedUpdatedAt: session.updatedAt,
     });
 
-    if (aiResult.readiness === "CONFIRMED") {
+    if (
+      session.status === "READY_TO_GENERATE" &&
+      aiResult.readiness === "CONFIRMED"
+    ) {
       const generationSession = await startPlanningSessionGeneration(
         updatedSession.id,
       );

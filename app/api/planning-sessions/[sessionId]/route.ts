@@ -3,7 +3,7 @@ import {
   planningSessionPublicSuccessResponse,
 } from "@/lib/planning-sessions/http";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
-import { findPlanningSessionById } from "@/lib/planning-sessions/repository";
+import { recoverStalePlanningSessionGeneration } from "@/lib/planning-sessions/repository";
 import { planningSessionIdSchema } from "@/lib/planning-sessions/validation";
 
 export async function GET(
@@ -24,7 +24,9 @@ export async function GET(
   }
 
   try {
-    const session = await findPlanningSessionById(parsedSessionId.data);
+    const session = await recoverStalePlanningSessionGeneration(
+      parsedSessionId.data,
+    );
 
     if (!session) {
       return planningSessionErrorResponse({

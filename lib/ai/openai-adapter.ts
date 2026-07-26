@@ -1,4 +1,3 @@
-import "server-only";
 
 import { createOpenAI } from "@ai-sdk/openai";
 import {

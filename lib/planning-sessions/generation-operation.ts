@@ -1,7 +1,10 @@
 import { tasks } from "@trigger.dev/sdk";
 import type { initialItineraryGenerationTask } from "@/trigger/initial-itinerary-generation";
 
-import { PLANNING_SESSION_MAX_GENERATION_ATTEMPTS } from "@/lib/planning-sessions/constants";
+import {
+  PLANNING_SESSION_GENERATION_QUEUE_NAME,
+  PLANNING_SESSION_MAX_GENERATION_ATTEMPTS,
+} from "@/lib/planning-sessions/constants";
 import {
   beginPlanningSessionGeneration,
   failPlanningSessionGeneration,
@@ -25,14 +28,19 @@ export async function startPlanningSessionGeneration(
     try {
       await tasks.trigger<typeof initialItineraryGenerationTask>(
         "initial-itinerary-generation",
-        { sessionId },
+        {
+          sessionId,
+          generationAttempt: result.session.generationAttempts,
+        },
         {
           idempotencyKey: `initial-itinerary-generation:${sessionId}:attempt:${result.session.generationAttempts}`,
+          queue: PLANNING_SESSION_GENERATION_QUEUE_NAME,
         },
       );
     } catch {
       await failPlanningSessionGeneration({
         sessionId,
+        generationAttempt: result.session.generationAttempts,
         errorMessage: "Unable to start itinerary generation. Please retry.",
       });
 

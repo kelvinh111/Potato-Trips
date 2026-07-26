@@ -66,11 +66,11 @@ export async function generateClarificationTurn(
   const planningBrief = normalizePlanningBrief(output.planningBrief);
   const hasRequiredBriefData = isPlanningBriefReadyForConfirmation(planningBrief);
 
-  const readiness: ClarificationReadiness = hasRequiredBriefData
-    ? output.readiness === "CONFIRMED"
+  const readiness: ClarificationReadiness = !hasRequiredBriefData
+    ? "NEEDS_CLARIFICATION"
+    : input.status === "READY_TO_GENERATE" && output.readiness === "CONFIRMED"
       ? "CONFIRMED"
-      : "READY_FOR_CONFIRMATION"
-    : "NEEDS_CLARIFICATION";
+      : "READY_FOR_CONFIRMATION";
 
   const assistantMessage =
     readiness === "CONFIRMED"
@@ -80,7 +80,7 @@ export async function generateClarificationTurn(
   const finalizedPlanningBrief: PlanningBrief = {
     ...planningBrief,
     finalSummary:
-      readiness === "READY_FOR_CONFIRMATION" || readiness === "CONFIRMED"
+      readiness === "READY_FOR_CONFIRMATION"
         ? output.assistantMessage
         : planningBrief.finalSummary,
   };

@@ -5,8 +5,8 @@ import {
   planningSessionGenerationSuccessResponse,
 } from "@/lib/planning-sessions/http";
 import {
-  findPlanningSessionById,
   PlanningSessionInvalidStateError,
+  recoverStalePlanningSessionGeneration,
   PlanningSessionUsageLimitError,
 } from "@/lib/planning-sessions/repository";
 import {
@@ -69,7 +69,9 @@ export async function POST(
   }
 
   try {
-    const existingSession = await findPlanningSessionById(parsedSessionId.data);
+    const existingSession = await recoverStalePlanningSessionGeneration(
+      parsedSessionId.data,
+    );
 
     if (!existingSession) {
       return planningSessionErrorResponse({

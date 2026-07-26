@@ -146,6 +146,34 @@ export const planningBriefSchema = z
   })
   .strict();
 
+const planningBriefCompatibilitySchema = z
+  .object({
+    destinations: z.array(nonEmptyStringSchema).max(20).nullable().default(null),
+    startingLocation: planningBriefStartingLocationSchema.nullable().default(null),
+    travelTiming: planningBriefTravelTimingSchema.nullable().default(null),
+    tripLengthDays: z.number().int().min(1).max(14).nullable().default(null),
+    travellers: planningBriefTravellersSchema.nullable().default(null),
+    budget: nonEmptyStringSchema.nullable().default(null),
+    interestsAndStyle: z
+      .array(nonEmptyStringSchema)
+      .max(50)
+      .nullable()
+      .default(null),
+    practicality: planningBriefPracticalitySchema.nullable().default(null),
+    finalSummary: nonEmptyLongStringSchema.nullable().default(null),
+
+    // Legacy fields retained for persisted-data compatibility.
+    dateRange: planningBriefDateRangeSchema.nullable().default(null),
+    duration: planningBriefDurationSchema.nullable().default(null),
+    travellerCount: z.number().int().positive().max(50).nullable().default(null),
+    pace: nonEmptyStringSchema.nullable().default(null),
+    travelStyle: nonEmptyStringSchema.nullable().default(null),
+    interests: z.array(nonEmptyStringSchema).max(50).nullable().default(null),
+    preferences: z.array(nonEmptyStringSchema).max(50).nullable().default(null),
+    constraints: z.array(nonEmptyStringSchema).max(50).nullable().default(null),
+  })
+  .strict();
+
 export type PlanningBrief = z.infer<typeof planningBriefSchema>;
 
 export const clarificationAiOutputSchema = z
@@ -243,9 +271,10 @@ export function parsePlanningBrief(value: unknown): PlanningBrief | null {
     return null;
   }
 
-  const parsed = planningBriefSchema.parse(value);
+  const parsed = planningBriefCompatibilitySchema.parse(value);
+  const normalized = normalizePlanningBrief(parsed);
 
-  return normalizePlanningBrief(parsed);
+  return planningBriefSchema.parse(normalized);
 }
 
 export function parsePlanningSessionGenerationPhase(

@@ -172,7 +172,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- Improved traveller inference guidance for complete-party responses like "solo", "a couple", and explicit adult counts.
 	- Added Trigger dispatch failure recovery to move sessions from `GENERATING` to `FAILED` when task dispatch fails, preserving retry path and attempt limits.
 	- Reworked generation polling with failure backoff and stuck-state recovery notice/manual status check to avoid endless silent polling.
+	- Added legacy planning-brief compatibility defaults for missing nullable keys and re-validation after legacy normalization.
+	- Enforced explicit confirmation boundary: generation can only start from `READY_TO_GENERATE`, never directly from `CLARIFYING`.
+	- Added generation-attempt isolation across Trigger payload, phase updates, completion, and failure persistence guards.
+	- Updated generation workflow phase ordering so `CHECKING_PLAN` performs validation/normalization work before `SAVING_ITINERARY` persistence.
+	- Disabled clarification composer in `FAILED` state to align with retry-only recovery path.
+	- Preserved confirmed trip summary by keeping `finalSummary` stable on `CONFIRMED` turns.
+	- Removed Trigger task dependency on `server-only` modules by introducing task-safe AI provider usage path.
 	- Updated project flow documentation for confirmation-before-generation behavior.
+	- Added server-side stale generation recovery so long-idle `GENERATING` sessions auto-transition to `FAILED` with retryable messaging.
+	- Applied stale-generation reconciliation in planning-session and generation status GET APIs to self-heal stuck runs during refresh/polling.
+	- Extended stale-generation reconciliation to clarification and explicit generation-start APIs so stale sessions recover before any follow-up action.
+	- Tightened `PREPARING_TRIP` stale timeout to 7 minutes for faster recovery when Trigger runs stall before execution.
+	- Routed initial generation dispatch to explicit queue `planning-session-generation` and declared the same queue on the Trigger task definition to ensure worker subscription in dev.
+	- Added developer troubleshooting script `generation:troubleshoot` with stale-session diagnostics and optional `--repair` mode.
 
 ## Next Up
 - `13-itinerary-kanban.md`.
