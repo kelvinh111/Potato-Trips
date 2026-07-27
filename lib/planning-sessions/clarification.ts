@@ -77,12 +77,17 @@ export async function generateClarificationTurn(
       ? CONFIRMED_COMPLETION_MESSAGE
       : output.assistantMessage;
 
+  const persistedFinalSummary = input.planningBrief?.finalSummary ?? null;
+  const finalSummary =
+    readiness === "READY_FOR_CONFIRMATION"
+      ? output.assistantMessage
+      : readiness === "CONFIRMED"
+        ? persistedFinalSummary
+        : null;
+
   const finalizedPlanningBrief: PlanningBrief = {
     ...planningBrief,
-    finalSummary:
-      readiness === "READY_FOR_CONFIRMATION"
-        ? output.assistantMessage
-        : planningBrief.finalSummary,
+    finalSummary,
   };
 
   return {
