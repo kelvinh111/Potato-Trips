@@ -94,7 +94,11 @@ export function TripPlanStatusPanel({
         ) : null}
 
         {status === "GENERATING" ? (
-          <div className="mt-4 rounded-2xl border border-accent-primary/30 bg-accent-primary-dim px-3 py-3">
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-4 rounded-2xl border border-accent-primary/30 bg-accent-primary-dim px-3 py-3"
+          >
             <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
               Generation progress
             </p>
