@@ -61,6 +61,12 @@ function msToMinutes(ms: number) {
   return Math.floor(ms / 60000);
 }
 
+interface StaleGenerationCandidate {
+  id: string;
+  generationAttempts: number;
+  updatedAt: Date;
+}
+
 async function main() {
   const { prisma } = await import("../lib/prisma");
   try {
@@ -120,7 +126,7 @@ async function main() {
       ),
     );
 
-    const staleSessionIds: string[] = [];
+    const staleCandidates: StaleGenerationCandidate[] = [];
 
     for (const session of sessions) {
       const idleMs = now.getTime() - session.updatedAt.getTime();
@@ -132,7 +138,11 @@ async function main() {
       });
 
       if (stale) {
-        staleSessionIds.push(session.id);
+        staleCandidates.push({
+          id: session.id,
+          generationAttempts: session.generationAttempts,
+          updatedAt: session.updatedAt,
+        });
       }
 
       console.log(
@@ -156,35 +166,41 @@ async function main() {
 
     if (!args.repair) {
       console.log(
-        `Stale generating sessions found: ${staleSessionIds.length}. Re-run with --repair to auto-fail stale records.`,
+        `Stale generating sessions found: ${staleCandidates.length}. Re-run with --repair to auto-fail stale records.`,
       );
       return;
     }
 
-    if (staleSessionIds.length === 0) {
+    if (staleCandidates.length === 0) {
       console.log("No stale generating sessions to repair.");
       return;
     }
 
-    const repairResult = await prisma.planningSession.updateMany({
-      where: {
-        id: {
-          in: staleSessionIds,
+    let repairedCount = 0;
+
+    for (const candidate of staleCandidates) {
+      const repairResult = await prisma.planningSession.updateMany({
+        where: {
+          id: candidate.id,
+          status: "GENERATING",
+          generationAttempts: candidate.generationAttempts,
+          updatedAt: candidate.updatedAt,
         },
-        status: "GENERATING",
-      },
-      data: {
-        status: "FAILED",
-        generationPhase: null,
-        generationError: PLANNING_SESSION_STALE_GENERATION_ERROR_MESSAGE,
-        generatedItinerary: Prisma.DbNull,
-      },
-    });
+        data: {
+          status: "FAILED",
+          generationPhase: null,
+          generationError: PLANNING_SESSION_STALE_GENERATION_ERROR_MESSAGE,
+          generatedItinerary: Prisma.DbNull,
+        },
+      });
+
+      repairedCount += repairResult.count;
+    }
 
     console.log(
       JSON.stringify(
         {
-          repairedCount: repairResult.count,
+          repairedCount,
         },
         null,
         2,

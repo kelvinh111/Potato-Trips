@@ -24,7 +24,7 @@ export const initialItineraryGenerationTask = schemaTask({
   retry: { maxAttempts: 1 },
   queue: {
     name: PLANNING_SESSION_GENERATION_QUEUE_NAME,
-  }
+  },
   schema: initialItineraryGenerationPayloadSchema,
   run: async (payload) => {
     const session = await findPlanningSessionById(payload.sessionId);
