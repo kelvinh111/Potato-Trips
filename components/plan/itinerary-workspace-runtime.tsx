@@ -173,6 +173,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     null,
   );
   const [consecutivePollFailures, setConsecutivePollFailures] = useState(0);
+  const [generatingPollCycle, setGeneratingPollCycle] = useState(0);
   const [isPollingPaused, setIsPollingPaused] = useState(false);
 
   const mergedGenerationError = generationRequestError ?? state.generationError;
@@ -180,6 +181,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   const resetGenerationPollingState = useCallback(() => {
     setGenerationPollingNotice(null);
     setConsecutivePollFailures(0);
+    setGeneratingPollCycle(0);
     setIsPollingPaused(false);
   }, []);
 
@@ -219,6 +221,10 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
       }
 
       setConsecutivePollFailures(0);
+
+      if (nextGenerationState.status === "GENERATING") {
+        setGeneratingPollCycle((previousCycle) => previousCycle + 1);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -295,6 +301,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     };
   }, [
     consecutivePollFailures,
+    generatingPollCycle,
     isPollingPaused,
     refreshGenerationState,
     state.status,
