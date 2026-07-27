@@ -36,25 +36,6 @@ interface WorkspaceSessionState {
 const POLL_BASE_INTERVAL_MS = 2500;
 const POLL_MAX_BACKOFF_MS = 30000;
 const POLL_FAILURE_PAUSE_THRESHOLD = 6;
-const POLL_STUCK_PAUSE_THRESHOLD = 144;
-const POLL_STUCK_NOTICE =
-  "Generation is taking longer than expected and updates appear stuck. Auto-refresh is paused. Please check status again.";
-
-function generationSnapshotSignature(input: {
-  status: PlanningSessionStatusValue;
-  generationPhase: PlanningSessionGenerationPhaseValue | null;
-  generationAttempts: number;
-  generationError: string | null;
-  generatedItinerary: PersistedItinerary | null;
-}) {
-  return JSON.stringify({
-    status: input.status,
-    generationPhase: input.generationPhase,
-    generationAttempts: input.generationAttempts,
-    generationError: input.generationError,
-    generatedItinerary: input.generatedItinerary,
-  });
-}
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -192,7 +173,6 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     null,
   );
   const [consecutivePollFailures, setConsecutivePollFailures] = useState(0);
-  const [, setConsecutiveUnchangedGeneratingPolls] = useState(0);
   const [isPollingPaused, setIsPollingPaused] = useState(false);
 
   const mergedGenerationError = generationRequestError ?? state.generationError;
@@ -200,7 +180,6 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   const resetGenerationPollingState = useCallback(() => {
     setGenerationPollingNotice(null);
     setConsecutivePollFailures(0);
-    setConsecutiveUnchangedGeneratingPolls(0);
     setIsPollingPaused(false);
   }, []);
 
@@ -229,19 +208,6 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
 
     try {
       const nextGenerationState = await requestGenerationState(session.id);
-      const currentSnapshot = generationSnapshotSignature({
-        status: state.status,
-        generationPhase: state.generationPhase,
-        generationAttempts: state.generationAttempts,
-        generationError: state.generationError,
-        generatedItinerary: state.generatedItinerary,
-      });
-      const nextSnapshot = generationSnapshotSignature(nextGenerationState);
-      const isUnchangedGeneratingSnapshot =
-        state.status === "GENERATING" &&
-        nextGenerationState.status === "GENERATING" &&
-        currentSnapshot === nextSnapshot;
-
       setGenerationRequestError(null);
       setState((previous) => ({
         ...previous,
@@ -253,22 +219,6 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
       }
 
       setConsecutivePollFailures(0);
-
-      setConsecutiveUnchangedGeneratingPolls((previousUnchanged) => {
-        if (!isUnchangedGeneratingSnapshot) {
-          setGenerationPollingNotice(null);
-          setIsPollingPaused(false);
-          return 0;
-        }
-
-        const nextUnchanged = previousUnchanged + 1;
-        if (nextUnchanged >= POLL_STUCK_PAUSE_THRESHOLD) {
-          setGenerationPollingNotice(POLL_STUCK_NOTICE);
-          setIsPollingPaused(true);
-        }
-
-        return nextUnchanged;
-      });
     } catch (error) {
       const message =
         error instanceof Error
@@ -297,7 +247,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
         setIsRefreshingGenerationState(false);
       }
     }
-  }, [isPollingPaused, resetGenerationPollingState, session.id, state]);
+  }, [isPollingPaused, resetGenerationPollingState, session.id]);
 
   const handleGenerateTrip = useCallback(async () => {
     setGenerationRequestError(null);
