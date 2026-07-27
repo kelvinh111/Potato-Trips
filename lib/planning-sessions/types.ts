@@ -324,6 +324,11 @@ export function isPlanningBriefReadyForConfirmation(brief: PlanningBrief): boole
 }
 
 export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
+  const legacyTripLengthDays =
+    brief.duration !== undefined && brief.duration !== null
+      ? normalizeLegacyTripLengthDays(brief.duration.days)
+      : null;
+
   const monthWindowFromDateRange =
     brief.dateRange !== undefined && brief.dateRange !== null
       ? inferMonthWindow(brief.dateRange.startDate)
@@ -361,11 +366,15 @@ export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
   return {
     ...brief,
     travelTiming: brief.travelTiming ?? travelTimingFromDateRange,
-    tripLengthDays: brief.tripLengthDays ?? brief.duration?.days ?? null,
+    tripLengthDays: brief.tripLengthDays ?? legacyTripLengthDays,
     travellers,
     interestsAndStyle,
     finalSummary: brief.finalSummary ?? null,
   };
+}
+
+function normalizeLegacyTripLengthDays(days: number): number | null {
+  return days >= 1 && days <= 14 ? days : null;
 }
 
 export function normalizeGeneratedItinerary(
