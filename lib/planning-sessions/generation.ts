@@ -40,8 +40,18 @@ export async function generateInitialItineraryDraft(input: {
 
 export function validateAndNormalizeGeneratedItinerary(input: {
   itinerary: AiGeneratedItinerary;
+  expectedTripLengthDays: number | null | undefined;
 }): PersistedItinerary {
   const aiItinerary = aiGeneratedItinerarySchema.parse(input.itinerary);
+  const expectedTripLengthDays = parseExpectedTripLengthDays(
+    input.expectedTripLengthDays,
+  );
+
+  if (aiItinerary.days.length !== expectedTripLengthDays) {
+    throw new Error(
+      `Generated itinerary day count mismatch. Expected ${expectedTripLengthDays} days but received ${aiItinerary.days.length}.`,
+    );
+  }
 
   return normalizeGeneratedItinerary(aiItinerary);
 }
@@ -51,5 +61,23 @@ export async function generateInitialItinerary(input: {
 }): Promise<PersistedItinerary> {
   const draft = await generateInitialItineraryDraft(input);
 
-  return validateAndNormalizeGeneratedItinerary({ itinerary: draft });
+  return validateAndNormalizeGeneratedItinerary({
+    itinerary: draft,
+    expectedTripLengthDays: input.planningBrief.tripLengthDays,
+  });
+}
+
+function parseExpectedTripLengthDays(value: number | null | undefined): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 14
+  ) {
+    throw new Error(
+      "Expected trip length is required and must be an integer between 1 and 14 days.",
+    );
+  }
+
+  return value;
 }

@@ -69,6 +69,7 @@ export const initialItineraryGenerationTask = schemaTask({
 
       const itinerary = validateAndNormalizeGeneratedItinerary({
         itinerary: draftItinerary,
+        expectedTripLengthDays: session.planningBrief.tripLengthDays,
       });
 
       await setPlanningSessionGenerationPhase({
