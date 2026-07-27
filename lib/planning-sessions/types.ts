@@ -329,6 +329,11 @@ export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
       ? normalizeLegacyTripLengthDays(brief.duration.days)
       : null;
 
+  const normalizedTravelTiming =
+    brief.travelTiming !== undefined && brief.travelTiming !== null
+      ? normalizeCanonicalTravelTiming(brief.travelTiming)
+      : null;
+
   const monthWindowFromDateRange =
     brief.dateRange !== undefined && brief.dateRange !== null
       ? inferMonthWindow(brief.dateRange.startDate)
@@ -365,11 +370,25 @@ export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
 
   return {
     ...brief,
-    travelTiming: brief.travelTiming ?? travelTimingFromDateRange,
+    travelTiming: normalizedTravelTiming ?? travelTimingFromDateRange,
     tripLengthDays: brief.tripLengthDays ?? legacyTripLengthDays,
     travellers,
     interestsAndStyle,
     finalSummary: brief.finalSummary ?? null,
+  };
+}
+
+function normalizeCanonicalTravelTiming(
+  timing: NonNullable<PlanningBrief["travelTiming"]>,
+): NonNullable<PlanningBrief["travelTiming"]> {
+  if (timing.exactDateRange === null) {
+    return timing;
+  }
+
+  return {
+    ...timing,
+    month: Number(timing.exactDateRange.startDate.split("-")[1]),
+    year: Number(timing.exactDateRange.startDate.split("-")[0]),
   };
 }
 
