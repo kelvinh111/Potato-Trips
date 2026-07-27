@@ -152,7 +152,10 @@ export async function POST(
       (message) => message.role === "assistant",
     ).length;
 
-    if (assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS) {
+    if (
+      session.status === "CLARIFYING" &&
+      assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS
+    ) {
       return planningSessionErrorResponse({
         code: "USAGE_LIMIT_EXCEEDED",
         message:
