@@ -198,6 +198,8 @@ The generation start operation must be server-side, idempotent, and protected by
 
 Do not expose Trigger.dev identifiers, provider errors, or internal failure details to the browser.
 
+After a session first reaches `READY_TO_GENERATE`, allow at most three additional clarification AI calls for confirmation and user-requested revisions. This allowance is server-side and distinct from the pre-readiness clarification turn limit.
+
 ## Out of Scope
 
 Do not implement:

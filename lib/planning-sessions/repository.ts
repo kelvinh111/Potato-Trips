@@ -1,6 +1,9 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { PLANNING_SESSION_STALE_GENERATION_ERROR_MESSAGE } from "@/lib/planning-sessions/constants";
+import {
+  PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS,
+  PLANNING_SESSION_STALE_GENERATION_ERROR_MESSAGE,
+} from "@/lib/planning-sessions/constants";
 import { isPlanningSessionGenerationStale } from "@/lib/planning-sessions/generation-recovery";
 import {
   parseClarificationMessages,
@@ -23,6 +26,7 @@ const planningSessionSelect = {
   generatedItinerary: true,
   generationPhase: true,
   generationAttempts: true,
+  confirmationRevisionAiTurns: true,
   generationError: true,
   status: true,
   expiresAt: true,
@@ -37,6 +41,7 @@ interface RawPlanningSessionRecord {
   generatedItinerary: unknown;
   generationPhase: unknown;
   generationAttempts: number;
+  confirmationRevisionAiTurns: number;
   generationError: string | null;
   status: PlanningSessionStatusValue;
   expiresAt: Date;
@@ -51,6 +56,7 @@ export interface PlanningSessionRecord {
   generatedItinerary: PersistedItinerary | null;
   generationPhase: PlanningSessionGenerationPhaseValue | null;
   generationAttempts: number;
+  confirmationRevisionAiTurns: number;
   generationError: string | null;
   status: PlanningSessionStatusValue;
   expiresAt: Date;
@@ -252,6 +258,70 @@ export async function beginPlanningSessionGeneration(input: {
   };
 }
 
+export async function reservePlanningSessionConfirmationRevisionAiTurn(input: {
+  sessionId: string;
+  expectedUpdatedAt: Date;
+}) {
+  const reserveResult = await prisma.planningSession.updateMany({
+    where: {
+      id: input.sessionId,
+      status: {
+        in: ["CLARIFYING", "READY_TO_GENERATE"],
+      },
+      updatedAt: input.expectedUpdatedAt,
+      confirmationRevisionAiTurns: {
+        lt: PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS,
+      },
+    },
+    data: {
+      confirmationRevisionAiTurns: {
+        increment: 1,
+      },
+    },
+  });
+
+  if (reserveResult.count === 0) {
+    const refreshedSession = await prisma.planningSession.findUnique({
+      where: { id: input.sessionId },
+      select: planningSessionSelect,
+    });
+
+    if (!refreshedSession) {
+      throw new PlanningSessionDataValidationError(
+        "Planning session missing while reserving confirmation/revision AI turn.",
+      );
+    }
+
+    const mappedRefreshedSession = mapPlanningSessionRecord(refreshedSession);
+
+    if (
+      mappedRefreshedSession.confirmationRevisionAiTurns >=
+      PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS
+    ) {
+      throw new PlanningSessionUsageLimitError(
+        "Confirmation/revision AI turn limit reached for this session.",
+      );
+    }
+
+    throw new PlanningSessionConcurrencyError(
+      "Planning session was updated by another request.",
+    );
+  }
+
+  const reservedSession = await prisma.planningSession.findUnique({
+    where: { id: input.sessionId },
+    select: planningSessionSelect,
+  });
+
+  if (!reservedSession) {
+    throw new PlanningSessionDataValidationError(
+      "Planning session missing after reserving confirmation/revision AI turn.",
+    );
+  }
+
+  return mapPlanningSessionRecord(reservedSession);
+}
+
 export async function recoverStalePlanningSessionGeneration(sessionId: string) {
   const session = await prisma.planningSession.findUnique({
     where: { id: sessionId },
@@ -380,6 +450,7 @@ function mapPlanningSessionRecord(
       generatedItinerary: parsePersistedItinerary(session.generatedItinerary),
       generationPhase: parsePlanningSessionGenerationPhase(session.generationPhase),
       generationAttempts: session.generationAttempts,
+      confirmationRevisionAiTurns: session.confirmationRevisionAiTurns,
       generationError: session.generationError,
       status: session.status,
       expiresAt: session.expiresAt,

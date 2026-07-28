@@ -35,6 +35,7 @@ model PlanningSession {
   generatedItinerary    Json?
   generationPhase       PlanningSessionGenerationPhase?
   generationAttempts    Int                   @default(0)
+  confirmationRevisionAiTurns Int             @default(0)
   generationError       String?
   status                PlanningSessionStatus @default(CLARIFYING)
   expiresAt             DateTime

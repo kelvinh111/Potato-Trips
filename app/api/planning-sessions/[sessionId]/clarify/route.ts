@@ -1,5 +1,8 @@
 import { AiProviderError } from "@/lib/ai/errors";
-import { PLANNING_SESSION_MAX_ASSISTANT_TURNS } from "@/lib/planning-sessions/constants";
+import {
+  PLANNING_SESSION_MAX_ASSISTANT_TURNS,
+  PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS,
+} from "@/lib/planning-sessions/constants";
 import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import { startPlanningSessionGeneration } from "@/lib/planning-sessions/generation-operation";
@@ -12,6 +15,7 @@ import {
   PlanningSessionInvalidStateError,
   PlanningSessionUsageLimitError,
   recoverStalePlanningSessionGeneration,
+  reservePlanningSessionConfirmationRevisionAiTurn,
   updatePlanningSessionClarification,
 } from "@/lib/planning-sessions/repository";
 import { isClarificationStageStatus } from "@/lib/planning-sessions/types";
@@ -152,7 +156,12 @@ export async function POST(
       (message) => message.role === "assistant",
     ).length;
 
+    const usesConfirmationRevisionAllowance =
+      session.status === "READY_TO_GENERATE" ||
+      session.confirmationRevisionAiTurns > 0;
+
     if (
+      !usesConfirmationRevisionAllowance &&
       session.status === "CLARIFYING" &&
       assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS
     ) {
@@ -164,21 +173,42 @@ export async function POST(
       });
     }
 
+    let providerSession = session;
+
+    if (usesConfirmationRevisionAllowance) {
+      if (
+        providerSession.confirmationRevisionAiTurns >=
+        PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS
+      ) {
+        return planningSessionErrorResponse({
+          code: "USAGE_LIMIT_EXCEEDED",
+          message:
+            "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
+          status: 429,
+        });
+      }
+
+      providerSession = await reservePlanningSessionConfirmationRevisionAiTurn({
+        sessionId: providerSession.id,
+        expectedUpdatedAt: providerSession.updatedAt,
+      });
+    }
+
     const aiResult = await generateClarificationTurn({
-      initialPrompt: session.initialPrompt,
-      clarificationMessages: session.clarificationMessages,
-      planningBrief: session.planningBrief,
+      initialPrompt: providerSession.initialPrompt,
+      clarificationMessages: providerSession.clarificationMessages,
+      planningBrief: providerSession.planningBrief,
       replyMessage,
       status:
-        session.status === "READY_TO_GENERATE"
+        providerSession.status === "READY_TO_GENERATE"
           ? "READY_TO_GENERATE"
           : "CLARIFYING",
     });
 
     const updatedSession = await updatePlanningSessionClarification({
-      sessionId: session.id,
+      sessionId: providerSession.id,
       clarificationMessages: [
-        ...session.clarificationMessages,
+        ...providerSession.clarificationMessages,
         {
           role: "user",
           content: replyMessage,
@@ -193,7 +223,7 @@ export async function POST(
         aiResult.readiness === "NEEDS_CLARIFICATION"
           ? "CLARIFYING"
           : "READY_TO_GENERATE",
-      expectedUpdatedAt: session.updatedAt,
+      expectedUpdatedAt: providerSession.updatedAt,
     });
 
     if (
@@ -228,6 +258,18 @@ export async function POST(
     }
 
     if (error instanceof PlanningSessionUsageLimitError) {
+      if (
+        error.message ===
+        "Confirmation/revision AI turn limit reached for this session."
+      ) {
+        return planningSessionErrorResponse({
+          code: "USAGE_LIMIT_EXCEEDED",
+          message:
+            "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
+          status: 429,
+        });
+      }
+
       return planningSessionErrorResponse({
         code: "USAGE_LIMIT_EXCEEDED",
         message:

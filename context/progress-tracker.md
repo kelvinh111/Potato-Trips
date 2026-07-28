@@ -175,6 +175,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- Added legacy planning-brief compatibility defaults for missing nullable keys and re-validation after legacy normalization.
 	- Enforced explicit confirmation boundary: generation can only start from `READY_TO_GENERATE`, never directly from `CLARIFYING`.
 	- Added generation-attempt isolation across Trigger payload, phase updates, completion, and failure persistence guards.
+	- Added persisted post-readiness confirmation/revision AI allowance (max 3) with atomic per-request reservation and concurrency-safe exhaustion handling.
 	- Updated generation workflow phase ordering so `CHECKING_PLAN` performs validation/normalization work before `SAVING_ITINERARY` persistence.
 	- Disabled clarification composer in `FAILED` state to align with retry-only recovery path.
 	- Preserved confirmed trip summary by keeping `finalSummary` stable on `CONFIRMED` turns.
