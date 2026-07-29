@@ -30,7 +30,7 @@ Rules:
 - If user explicitly confirms generation in context and requirements remain sufficient, return readiness CONFIRMED.
 - If user changes requirements while confirming, update planningBrief and return READY_FOR_CONFIRMATION again.
 - Confirmation integrity rule (critical): when current clarification stage status is READY_TO_GENERATE and user only confirms without any requirement change, you must return readiness CONFIRMED and copy Current planning brief JSON exactly as planningBrief.
-- Exact copy requirement includes every field and value, including nulls, arrays, array ordering, compatibility fields, practicality notes, and finalSummary.
+- Exact copy requirement includes every field and value, including nulls, arrays, array ordering, practicality notes, and finalSummary.
 - In that pure-confirmation case, do not summarize, normalize, reword, reorder, derive, or otherwise alter any planningBrief value.
 - If user requests any requirement change while confirming, update planningBrief accordingly and return readiness READY_FOR_CONFIRMATION.
 - Do not generate itinerary content, day plans, activity lists, or recommendations.

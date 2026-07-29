@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 13 Canonical Planning Brief Cleanup and execute the approved pre-Kanban cleanup sequence through Spec 16B.
+- Begin Spec 14 Server Planning Workflow Refactor and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 13 Canonical Planning Brief Cleanup
-- Related spec: `context/feature-specs/13-canonical-planning-brief-cleanup.md`
+- Unit: Feature 14 Server Planning Workflow Refactor
+- Related spec: `context/feature-specs/14-server-planning-workflow-refactor.md`
 - Status: Ready / Next
 
 ## Completed
@@ -171,11 +171,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed generated itinerary remains persisted and visible after refresh/reload
 - Confirmed no Kanban rendering, map initialization, Places verification, collaboration, or saved-trip persistence was introduced in this unit
 
+### Feature 13: Canonical Planning Brief Cleanup
+- Deleted all existing development `PlanningSession` records before removing compatibility support
+- Removed legacy planning-brief fields from schema and types: `dateRange`, `duration`, `travellerCount`, `pace`, `travelStyle`, `interests`, `preferences`, `constraints`
+- Removed compatibility schema and legacy fallback/merge derivation paths from planning-brief parsing
+- Preserved canonical timing normalization, readiness checks, practicality checks, and exact-date/trip-length consistency validation
+- Added deterministic regression script `planning-brief:regression` that proves canonical briefs are accepted and legacy-shaped briefs are rejected without live AI or Trigger.dev calls
+- Confirmed no Prisma schema or migration changes were added
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 13 (`context/feature-specs/13-canonical-planning-brief-cleanup.md`)
 - Feature 14 (`context/feature-specs/14-server-planning-workflow-refactor.md`)
 - Feature 15A (`context/feature-specs/15a-client-api-extraction.md`)
 - Feature 15B (`context/feature-specs/15b-generation-state-and-polling-refactor.md`)
@@ -244,6 +251,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- correct `GENERATING` status messaging pass
 	- generated itinerary persists after refresh pass
 	- all six date-consistency manual tests passed
+- Feature 13 checks:
+  - deleted development `PlanningSession` records: `before 14`, `deleted 14`, `after 0`
+  - `npm run planning-brief:regression`: pass
+  - targeted `eslint` for changed planning-brief modules and regression script: pass
+  - `npx tsc --noEmit`: pass
+  - `npx prisma validate`: pass
+  - `npm run build`: pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
