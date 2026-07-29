@@ -1,11 +1,5 @@
 import { AiProviderError } from "@/lib/ai/errors";
-import {
-  PLANNING_SESSION_MAX_ASSISTANT_TURNS,
-  PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS,
-} from "@/lib/planning-sessions/constants";
-import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
-import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
-import { startPlanningSessionGeneration } from "@/lib/planning-sessions/generation-operation";
+import { runClarificationWorkflow } from "@/lib/planning-sessions/clarification-workflow";
 import {
   planningSessionClarificationSuccessResponse,
   planningSessionErrorResponse,
@@ -14,11 +8,7 @@ import {
   PlanningSessionConcurrencyError,
   PlanningSessionInvalidStateError,
   PlanningSessionUsageLimitError,
-  recoverStalePlanningSessionGeneration,
-  reservePlanningSessionConfirmationRevisionAiTurn,
-  updatePlanningSessionClarification,
 } from "@/lib/planning-sessions/repository";
-import { isClarificationStageStatus } from "@/lib/planning-sessions/types";
 import {
   clarifyPlanningSessionBodySchema,
   planningSessionIdSchema,
@@ -77,11 +67,16 @@ export async function POST(
   }
 
   try {
-    const session = await recoverStalePlanningSessionGeneration(
-      parsedSessionId.data,
-    );
+    const workflowResult = await runClarificationWorkflow({
+      sessionId: parsedSessionId.data,
+      action: parsedBody.data,
+    });
 
-    if (!session) {
+    if (workflowResult.type === "SUCCESS") {
+      return planningSessionClarificationSuccessResponse(workflowResult.session, 200);
+    }
+
+    if (workflowResult.type === "PLANNING_SESSION_NOT_FOUND") {
       return planningSessionErrorResponse({
         code: "PLANNING_SESSION_NOT_FOUND",
         message: "Planning session not found.",
@@ -89,7 +84,7 @@ export async function POST(
       });
     }
 
-    if (isPlanningSessionExpired(session.expiresAt)) {
+    if (workflowResult.type === "PLANNING_SESSION_EXPIRED") {
       return planningSessionErrorResponse({
         code: "PLANNING_SESSION_EXPIRED",
         message: "Planning session has expired.",
@@ -97,7 +92,7 @@ export async function POST(
       });
     }
 
-    if (!isClarificationStageStatus(session.status)) {
+    if (workflowResult.type === "INVALID_STAGE") {
       return planningSessionErrorResponse({
         code: "INVALID_REQUEST",
         message: "Planning session is not in clarification stage.",
@@ -105,44 +100,7 @@ export async function POST(
       });
     }
 
-    if (parsedBody.data.action === "start") {
-      const alreadyStarted = session.clarificationMessages.some(
-        (message) => message.role === "assistant",
-      );
-
-      if (alreadyStarted || session.status === "READY_TO_GENERATE") {
-        return planningSessionClarificationSuccessResponse(session, 200);
-      }
-
-      const aiResult = await generateClarificationTurn({
-        initialPrompt: session.initialPrompt,
-        clarificationMessages: session.clarificationMessages,
-        planningBrief: session.planningBrief,
-        replyMessage: null,
-        status: "CLARIFYING",
-      });
-
-      const updatedSession = await updatePlanningSessionClarification({
-        sessionId: session.id,
-        clarificationMessages: [
-          ...session.clarificationMessages,
-          {
-            role: "assistant",
-            content: aiResult.assistantMessage,
-          },
-        ],
-        planningBrief: aiResult.planningBrief,
-        status:
-          aiResult.readiness === "NEEDS_CLARIFICATION"
-            ? "CLARIFYING"
-            : "READY_TO_GENERATE",
-        expectedUpdatedAt: session.updatedAt,
-      });
-
-      return planningSessionClarificationSuccessResponse(updatedSession, 200);
-    }
-
-    if (session.status === "GENERATING" || session.status === "GENERATED") {
+    if (workflowResult.type === "CLARIFICATION_UNAVAILABLE") {
       return planningSessionErrorResponse({
         code: "INVALID_REQUEST",
         message: "Clarification chat is unavailable after generation has started.",
@@ -150,21 +108,7 @@ export async function POST(
       });
     }
 
-    const replyMessage = parsedBody.data.message;
-
-    const assistantTurnCount = session.clarificationMessages.filter(
-      (message) => message.role === "assistant",
-    ).length;
-
-    const usesConfirmationRevisionAllowance =
-      session.status === "READY_TO_GENERATE" ||
-      session.confirmationRevisionAiTurns > 0;
-
-    if (
-      !usesConfirmationRevisionAllowance &&
-      session.status === "CLARIFYING" &&
-      assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS
-    ) {
+    if (workflowResult.type === "USAGE_LIMIT_ASSISTANT_TURNS") {
       return planningSessionErrorResponse({
         code: "USAGE_LIMIT_EXCEEDED",
         message:
@@ -173,73 +117,12 @@ export async function POST(
       });
     }
 
-    let providerSession = session;
-
-    if (usesConfirmationRevisionAllowance) {
-      if (
-        providerSession.confirmationRevisionAiTurns >=
-        PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS
-      ) {
-        return planningSessionErrorResponse({
-          code: "USAGE_LIMIT_EXCEEDED",
-          message:
-            "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
-          status: 429,
-        });
-      }
-
-      providerSession = await reservePlanningSessionConfirmationRevisionAiTurn({
-        sessionId: providerSession.id,
-        expectedUpdatedAt: providerSession.updatedAt,
-      });
-    }
-
-    const aiResult = await generateClarificationTurn({
-      initialPrompt: providerSession.initialPrompt,
-      clarificationMessages: providerSession.clarificationMessages,
-      planningBrief: providerSession.planningBrief,
-      replyMessage,
-      status:
-        providerSession.status === "READY_TO_GENERATE"
-          ? "READY_TO_GENERATE"
-          : "CLARIFYING",
+    return planningSessionErrorResponse({
+      code: "USAGE_LIMIT_EXCEEDED",
+      message:
+        "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
+      status: 429,
     });
-
-    const updatedSession = await updatePlanningSessionClarification({
-      sessionId: providerSession.id,
-      clarificationMessages: [
-        ...providerSession.clarificationMessages,
-        {
-          role: "user",
-          content: replyMessage,
-        },
-        {
-          role: "assistant",
-          content: aiResult.assistantMessage,
-        },
-      ],
-      planningBrief: aiResult.planningBrief,
-      status:
-        aiResult.readiness === "NEEDS_CLARIFICATION"
-          ? "CLARIFYING"
-          : "READY_TO_GENERATE",
-      expectedUpdatedAt: providerSession.updatedAt,
-    });
-
-    if (
-      session.status === "READY_TO_GENERATE" &&
-      aiResult.readiness === "CONFIRMED"
-    ) {
-      const generationSession = await startPlanningSessionGeneration(
-        updatedSession.id,
-      );
-
-      if (generationSession) {
-        return planningSessionClarificationSuccessResponse(generationSession, 200);
-      }
-    }
-
-    return planningSessionClarificationSuccessResponse(updatedSession, 200);
   } catch (error) {
     if (error instanceof PlanningSessionConcurrencyError) {
       return planningSessionErrorResponse({

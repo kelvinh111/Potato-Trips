@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 14 Server Planning Workflow Refactor and continue the approved pre-Kanban cleanup sequence.
+- Begin Spec 15A Client API Extraction and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 14 Server Planning Workflow Refactor
-- Related spec: `context/feature-specs/14-server-planning-workflow-refactor.md`
+- Unit: Feature 15A Client API Extraction
+- Related spec: `context/feature-specs/15a-client-api-extraction.md`
 - Status: Ready / Next
 
 ## Completed
@@ -179,11 +179,22 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Added deterministic regression script `planning-brief:regression` that proves canonical briefs are accepted and legacy-shaped briefs are rejected without live AI or Trigger.dev calls
 - Confirmed no Prisma schema or migration changes were added
 
+### Feature 14: Server Planning Workflow Refactor
+- Extracted server-side clarification sequencing and policy from the clarify route into one application-owned workflow entrypoint at `lib/planning-sessions/clarification-workflow.ts`
+- Kept the clarify route thin: route/body validation, workflow invocation, and HTTP response mapping only
+- Preserved existing clarify request bodies, success payload shape, error payload shape, status codes, and user-facing messages
+- Preserved repeated `start` idempotency and no duplicate first assistant message behavior
+- Preserved assistant-turn and confirmation/revision limits and their existing outcomes
+- Preserved confirmation-with-revisions behavior (`READY_TO_GENERATE` confirmation path without generation start)
+- Preserved plain confirmation path using the existing idempotent generation-start operation
+- Preserved concurrency/provider/usage/invalid-state handling and no-partial-turn behavior when AI generation fails
+- Added deterministic focused workflow regression coverage using controlled dependencies in `scripts/clarification-workflow-regression.ts` (no live AI, Trigger.dev, or paid providers)
+- Confirmed no Prisma schema or migration changes and no client/UI/generation-worker changes
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 14 (`context/feature-specs/14-server-planning-workflow-refactor.md`)
 - Feature 15A (`context/feature-specs/15a-client-api-extraction.md`)
 - Feature 15B (`context/feature-specs/15b-generation-state-and-polling-refactor.md`)
 - Feature 15C (`context/feature-specs/15c-planning-chat-state-refactor.md`)
@@ -258,6 +269,14 @@ Update this file after each meaningful feature unit or architecture change, not 
   - `npx tsc --noEmit`: pass
   - `npx prisma validate`: pass
   - `npm run build`: pass
+- Feature 14 checks:
+	- `npm run clarification-workflow:regression`: pass
+	- targeted `eslint` for clarify route/workflow/regression script: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run lint`: pass
+	- `npm run build`: pass
+	- manual contract comparison of clarify route request/success/error mappings vs `main`: preserved
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
