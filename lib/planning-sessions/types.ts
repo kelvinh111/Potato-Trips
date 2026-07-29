@@ -83,12 +83,6 @@ const planningBriefDateRangeSchema = z
     },
   );
 
-const planningBriefDurationSchema = z
-  .object({
-    days: z.number().int().positive().max(365),
-  })
-  .strict();
-
 const planningBriefStartingLocationSchema = z
   .object({
     city: nonEmptyStringSchema,
@@ -133,44 +127,6 @@ export const planningBriefSchema = z
     interestsAndStyle: z.array(nonEmptyStringSchema).max(50).nullable(),
     practicality: planningBriefPracticalitySchema.nullable(),
     finalSummary: nonEmptyLongStringSchema.nullable(),
-
-    // Legacy fields retained for persisted-data compatibility.
-    dateRange: planningBriefDateRangeSchema.nullable(),
-    duration: planningBriefDurationSchema.nullable(),
-    travellerCount: z.number().int().positive().max(50).nullable(),
-    pace: nonEmptyStringSchema.nullable(),
-    travelStyle: nonEmptyStringSchema.nullable(),
-    interests: z.array(nonEmptyStringSchema).max(50).nullable(),
-    preferences: z.array(nonEmptyStringSchema).max(50).nullable(),
-    constraints: z.array(nonEmptyStringSchema).max(50).nullable(),
-  })
-  .strict();
-
-const planningBriefCompatibilitySchema = z
-  .object({
-    destinations: z.array(nonEmptyStringSchema).max(20).nullable().default(null),
-    startingLocation: planningBriefStartingLocationSchema.nullable().default(null),
-    travelTiming: planningBriefTravelTimingSchema.nullable().default(null),
-    tripLengthDays: z.number().int().min(1).max(14).nullable().default(null),
-    travellers: planningBriefTravellersSchema.nullable().default(null),
-    budget: nonEmptyStringSchema.nullable().default(null),
-    interestsAndStyle: z
-      .array(nonEmptyStringSchema)
-      .max(50)
-      .nullable()
-      .default(null),
-    practicality: planningBriefPracticalitySchema.nullable().default(null),
-    finalSummary: nonEmptyLongStringSchema.nullable().default(null),
-
-    // Legacy fields retained for persisted-data compatibility.
-    dateRange: planningBriefDateRangeSchema.nullable().default(null),
-    duration: planningBriefDurationSchema.nullable().default(null),
-    travellerCount: z.number().int().positive().max(50).nullable().default(null),
-    pace: nonEmptyStringSchema.nullable().default(null),
-    travelStyle: nonEmptyStringSchema.nullable().default(null),
-    interests: z.array(nonEmptyStringSchema).max(50).nullable().default(null),
-    preferences: z.array(nonEmptyStringSchema).max(50).nullable().default(null),
-    constraints: z.array(nonEmptyStringSchema).max(50).nullable().default(null),
   })
   .strict();
 
@@ -271,7 +227,7 @@ export function parsePlanningBrief(value: unknown): PlanningBrief | null {
     return null;
   }
 
-  const parsed = planningBriefCompatibilitySchema.parse(value);
+  const parsed = planningBriefSchema.parse(value);
   const normalized = normalizePlanningBrief(parsed);
 
   return planningBriefSchema.parse(normalized);
@@ -350,56 +306,14 @@ export function isPlanningBriefExactDateRangeConsistentWithTripLength(
 }
 
 export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
-  const legacyTripLengthDays =
-    brief.duration !== undefined && brief.duration !== null
-      ? normalizeLegacyTripLengthDays(brief.duration.days)
-      : null;
-
   const normalizedTravelTiming =
     brief.travelTiming !== undefined && brief.travelTiming !== null
       ? normalizeCanonicalTravelTiming(brief.travelTiming)
       : null;
 
-  const monthWindowFromDateRange =
-    brief.dateRange !== undefined && brief.dateRange !== null
-      ? inferMonthWindow(brief.dateRange.startDate)
-      : null;
-
-  const travelTimingFromDateRange =
-    brief.dateRange !== undefined && brief.dateRange !== null
-      ? {
-          month: Number(brief.dateRange.startDate.split("-")[1]),
-          year: Number(brief.dateRange.startDate.split("-")[0]),
-          monthWindow: monthWindowFromDateRange,
-          exactDateRange: brief.dateRange,
-        }
-      : null;
-
-  const interestsAndStyle =
-    brief.interestsAndStyle ??
-    mergeLegacyInterests({
-      interests: brief.interests,
-      travelStyle: brief.travelStyle ?? null,
-      pace: brief.pace ?? null,
-    });
-
-  const travellers =
-    brief.travellers ??
-    (brief.travellerCount !== undefined &&
-    brief.travellerCount !== null &&
-    brief.travellerCount <= 30
-      ? {
-          adults: brief.travellerCount,
-          children: 0,
-        }
-      : null);
-
   return {
     ...brief,
-    travelTiming: normalizedTravelTiming ?? travelTimingFromDateRange,
-    tripLengthDays: brief.tripLengthDays ?? legacyTripLengthDays,
-    travellers,
-    interestsAndStyle,
+    travelTiming: normalizedTravelTiming,
     finalSummary: brief.finalSummary ?? null,
   };
 }
@@ -416,10 +330,6 @@ function normalizeCanonicalTravelTiming(
     month: Number(timing.exactDateRange.startDate.split("-")[1]),
     year: Number(timing.exactDateRange.startDate.split("-")[0]),
   };
-}
-
-function normalizeLegacyTripLengthDays(days: number): number | null {
-  return days >= 1 && days <= 14 ? days : null;
 }
 
 export function normalizeGeneratedItinerary(
@@ -451,40 +361,6 @@ export function normalizeGeneratedItinerary(
 
 export function isPlanningBriefReady(brief: PlanningBrief): boolean {
   return isPlanningBriefReadyForConfirmation(brief);
-}
-
-function mergeLegacyInterests(input: {
-  interests: string[] | null;
-  travelStyle: string | null;
-  pace: string | null;
-}): string[] | null {
-  const values = [
-    ...(input.interests ?? []),
-    ...(input.travelStyle ? [input.travelStyle] : []),
-    ...(input.pace ? [input.pace] : []),
-  ]
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-
-  if (values.length === 0) {
-    return null;
-  }
-
-  return Array.from(new Set(values));
-}
-
-function inferMonthWindow(canonicalDate: string): "EARLY" | "MID" | "LATE" {
-  const day = Number(canonicalDate.split("-")[2]);
-
-  if (day <= 10) {
-    return "EARLY";
-  }
-
-  if (day <= 20) {
-    return "MID";
-  }
-
-  return "LATE";
 }
 
 export function isClarificationStageStatus(
