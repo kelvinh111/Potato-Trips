@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Close out Feature 12 and prepare for Feature 13 once its spec content is available.
+- Begin Spec 13 Canonical Planning Brief Cleanup and execute the approved pre-Kanban cleanup sequence through Spec 16B.
 
 ## Current Feature Unit
-- Unit: Feature 13 preparation
-- Related spec: `context/feature-specs/13-itinerary-kanban.md` (currently empty)
-- Status: Blocked on non-empty spec content
+- Unit: Feature 13 Canonical Planning Brief Cleanup
+- Related spec: `context/feature-specs/13-canonical-planning-brief-cleanup.md`
+- Status: Ready / Next
 
 ## Completed
 
@@ -175,10 +175,17 @@ Update this file after each meaningful feature unit or architecture change, not 
 - None.
 
 ## Next Up
-- Feature 13 (`context/feature-specs/13-itinerary-kanban.md`) once spec content is added (file currently exists but is empty).
+- Feature 13 (`context/feature-specs/13-canonical-planning-brief-cleanup.md`)
+- Feature 14 (`context/feature-specs/14-server-planning-workflow-refactor.md`)
+- Feature 15A (`context/feature-specs/15a-client-api-extraction.md`)
+- Feature 15B (`context/feature-specs/15b-generation-state-and-polling-refactor.md`)
+- Feature 15C (`context/feature-specs/15c-planning-chat-state-refactor.md`)
+- Feature 16A (`context/feature-specs/16a-current-layout-and-visual-pass.md`)
+- Feature 16B (`context/feature-specs/16b-current-chat-interaction-pass.md`)
+- Feature 17 (`context/feature-specs/17-itinerary-kanban.md`)
 
 ## Blockers
-- `context/feature-specs/13-itinerary-kanban.md` is present but empty; non-empty spec content is required before starting Feature 13.
+- None.
 
 ## Open Questions
 - Final database schema details

@@ -241,4 +241,4 @@ Do not implement:
 - live end-to-end generation succeeds through Trigger.dev
 - `context/project-overview.md` is updated for the confirmation-before-generation flow
 - `context/progress-tracker.md` is updated
-- `13-itinerary-kanban.md` is listed as next
+- `13-canonical-planning-brief-cleanup.md` is listed as next
