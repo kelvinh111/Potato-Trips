@@ -310,6 +310,8 @@ export function isPlanningBriefReadyForConfirmation(brief: PlanningBrief): boole
     Array.isArray(normalized.interestsAndStyle) &&
     normalized.interestsAndStyle.length > 0;
   const isPractical = normalized.practicality?.isPractical === true;
+  const hasConsistentExactDateRangeAndTripLength =
+    isPlanningBriefExactDateRangeConsistentWithTripLength(normalized);
 
   return (
     hasDestination &&
@@ -319,8 +321,32 @@ export function isPlanningBriefReadyForConfirmation(brief: PlanningBrief): boole
     hasTravellers &&
     hasBudget &&
     hasInterests &&
-    isPractical
+    isPractical &&
+    hasConsistentExactDateRangeAndTripLength
   );
+}
+
+export function isPlanningBriefExactDateRangeConsistentWithTripLength(
+  brief: PlanningBrief,
+): boolean {
+  const normalized = normalizePlanningBrief(brief);
+  const exactDateRange = normalized.travelTiming?.exactDateRange;
+  const tripLengthDays = normalized.tripLengthDays;
+
+  if (exactDateRange === null || exactDateRange === undefined) {
+    return true;
+  }
+
+  if (tripLengthDays === null) {
+    return true;
+  }
+
+  const startUtcEpoch = toUtcEpochDay(exactDateRange.startDate);
+  const endUtcEpoch = toUtcEpochDay(exactDateRange.endDate);
+  const inclusiveRangeLengthDays =
+    (endUtcEpoch - startUtcEpoch) / MILLISECONDS_PER_UTC_DAY + 1;
+
+  return inclusiveRangeLengthDays === tripLengthDays;
 }
 
 export function normalizePlanningBrief(brief: PlanningBrief): PlanningBrief {
@@ -500,3 +526,5 @@ function toUtcEpochDay(value: string): number {
 
   return Date.UTC(year, month - 1, day);
 }
+
+const MILLISECONDS_PER_UTC_DAY = 24 * 60 * 60 * 1000;

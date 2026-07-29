@@ -6,6 +6,7 @@ import {
 } from "@/lib/planning-sessions/constants";
 import { isPlanningSessionGenerationStale } from "@/lib/planning-sessions/generation-recovery";
 import {
+  isPlanningBriefExactDateRangeConsistentWithTripLength,
   parseClarificationMessages,
   parsePersistedItinerary,
   parsePlanningSessionGenerationPhase,
@@ -195,6 +196,16 @@ export async function beginPlanningSessionGeneration(input: {
   if (mappedSession.planningBrief === null) {
     throw new PlanningSessionInvalidStateError(
       "Planning brief is required before generation.",
+    );
+  }
+
+  if (
+    !isPlanningBriefExactDateRangeConsistentWithTripLength(
+      mappedSession.planningBrief,
+    )
+  ) {
+    throw new PlanningSessionInvalidStateError(
+      "Planning brief is not ready for generation.",
     );
   }
 
