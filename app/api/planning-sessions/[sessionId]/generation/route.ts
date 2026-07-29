@@ -1,8 +1,8 @@
+import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import {
   planningSessionErrorResponse,
-  planningSessionPublicSuccessResponse,
+  planningSessionGenerationSuccessResponse,
 } from "@/lib/planning-sessions/http";
-import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
 import { recoverStalePlanningSessionGeneration } from "@/lib/planning-sessions/repository";
 import { planningSessionIdSchema } from "@/lib/planning-sessions/validation";
 
@@ -44,7 +44,7 @@ export async function GET(
       });
     }
 
-    return planningSessionPublicSuccessResponse(session, 200);
+    return planningSessionGenerationSuccessResponse(session, 200);
   } catch {
     return planningSessionErrorResponse({
       code: "INTERNAL_ERROR",

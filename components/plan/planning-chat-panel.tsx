@@ -10,13 +10,12 @@ import {
 } from "react";
 import { ArrowUp, Loader2 } from "lucide-react";
 
+import { AssistantMarkdown } from "@/components/plan/assistant-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  planningSessionClarificationMessagesSchema,
-  planningSessionStatusSchema,
-  type PlanningSessionClarificationMessages,
-  type PlanningSessionStatusValue,
+import type {
+  PlanningSessionClarificationMessages,
+  PlanningSessionStatusValue,
 } from "@/lib/planning-sessions/types";
 
 interface PlanningChatPanelProps {
@@ -24,14 +23,10 @@ interface PlanningChatPanelProps {
   initialPrompt: string;
   status: PlanningSessionStatusValue;
   clarificationMessages: PlanningSessionClarificationMessages;
+  onSessionUpdate: (payload: unknown) => void;
 }
 
 type ClarifyRequestBody = { action: "start" } | { action: "reply"; message: string };
-
-interface ClarifyApiSession {
-  status: PlanningSessionStatusValue;
-  clarificationMessages: PlanningSessionClarificationMessages;
-}
 
 interface ChatMessageViewModel {
   id: string;
@@ -41,30 +36,6 @@ interface ChatMessageViewModel {
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function parseClarifyApiSession(payload: unknown): ClarifyApiSession {
-  if (!isObjectRecord(payload) || !isObjectRecord(payload.session)) {
-    throw new Error("Invalid clarification response.");
-  }
-
-  const statusResult = planningSessionStatusSchema.safeParse(payload.session.status);
-  if (!statusResult.success) {
-    throw new Error("Invalid clarification status in response.");
-  }
-
-  const messagesResult = planningSessionClarificationMessagesSchema.safeParse(
-    payload.session.clarificationMessages,
-  );
-
-  if (!messagesResult.success) {
-    throw new Error("Invalid clarification messages in response.");
-  }
-
-  return {
-    status: statusResult.data,
-    clarificationMessages: messagesResult.data,
-  };
 }
 
 function readApiErrorMessage(payload: unknown): string {
@@ -83,7 +54,7 @@ function readApiErrorMessage(payload: unknown): string {
 async function postClarificationRequest(
   sessionId: string,
   body: ClarifyRequestBody,
-): Promise<ClarifyApiSession> {
+): Promise<unknown> {
   const response = await fetch(`/api/planning-sessions/${sessionId}/clarify`, {
     method: "POST",
     headers: {
@@ -103,19 +74,16 @@ async function postClarificationRequest(
     throw new Error(readApiErrorMessage(payload));
   }
 
-  return parseClarifyApiSession(payload);
+  return payload;
 }
 
 export function PlanningChatPanel({
   sessionId,
   initialPrompt,
-  status: initialStatus,
-  clarificationMessages: initialClarificationMessages,
+  status,
+  clarificationMessages,
+  onSessionUpdate,
 }: PlanningChatPanelProps) {
-  const [status, setStatus] =
-    useState<PlanningSessionStatusValue>(initialStatus);
-  const [clarificationMessages, setClarificationMessages] =
-    useState<PlanningSessionClarificationMessages>(initialClarificationMessages);
   const [draftMessage, setDraftMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -149,20 +117,15 @@ export function PlanningChatPanel({
     });
   }, [conversationMessages.length, isStarting, isSubmittingReply]);
 
-  const applySessionUpdate = useCallback((nextSession: ClarifyApiSession) => {
-    setStatus(nextSession.status);
-    setClarificationMessages(nextSession.clarificationMessages);
-  }, []);
-
   const startClarification = useCallback(async () => {
     setErrorMessage(null);
     setIsStarting(true);
 
     try {
-      const nextSession = await postClarificationRequest(sessionId, {
+      const payload = await postClarificationRequest(sessionId, {
         action: "start",
       });
-      applySessionUpdate(nextSession);
+      onSessionUpdate(payload);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -172,7 +135,7 @@ export function PlanningChatPanel({
     } finally {
       setIsStarting(false);
     }
-  }, [applySessionUpdate, sessionId]);
+  }, [onSessionUpdate, sessionId]);
 
   const hasAssistantMessage = clarificationMessages.some(
     (message) => message.role === "assistant",
@@ -198,7 +161,11 @@ export function PlanningChatPanel({
   }, [hasAssistantMessage, startClarification, status]);
 
   const isComposerDisabled =
-    status !== "CLARIFYING" || isStarting || isSubmittingReply;
+    status === "GENERATING" ||
+    status === "GENERATED" ||
+    status === "FAILED" ||
+    isStarting ||
+    isSubmittingReply;
 
   const sendReply = useCallback(async () => {
     const trimmed = draftMessage.trim();
@@ -211,13 +178,13 @@ export function PlanningChatPanel({
     setIsSubmittingReply(true);
 
     try {
-      const nextSession = await postClarificationRequest(sessionId, {
+      const payload = await postClarificationRequest(sessionId, {
         action: "reply",
         message: trimmed,
       });
 
       setDraftMessage("");
-      applySessionUpdate(nextSession);
+      onSessionUpdate(payload);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -227,7 +194,7 @@ export function PlanningChatPanel({
     } finally {
       setIsSubmittingReply(false);
     }
-  }, [applySessionUpdate, draftMessage, isComposerDisabled, sessionId]);
+  }, [draftMessage, isComposerDisabled, onSessionUpdate, sessionId]);
 
   const handleComposerKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (
     event,
@@ -292,12 +259,17 @@ export function PlanningChatPanel({
                       : "border border-border-subtle bg-bg-subtle text-text-primary"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">
-                    <span className="sr-only">
-                      {isUser ? "You: " : "Assistant: "}
-                    </span>
-                    {message.content}
-                  </p>
+                  <span className="sr-only">
+                    {isUser ? "You: " : "Assistant: "}
+                  </span>
+                  {isUser ? (
+                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  ) : (
+                    <AssistantMarkdown
+                      content={message.content}
+                      className="break-words"
+                    />
+                  )}
                 </div>
               </article>
             );
@@ -356,8 +328,12 @@ export function PlanningChatPanel({
             onKeyDown={handleComposerKeyDown}
             placeholder={
               status === "READY_TO_GENERATE"
-                ? "Clarification complete. Itinerary generation comes next."
-                : "Share trip details"
+                ? "Reply to confirm generation or adjust trip details"
+                : status === "GENERATING"
+                  ? "Generation in progress"
+                  : status === "FAILED"
+                    ? "Generation failed. Retry from Trip Plan Status"
+                  : "Share trip details"
             }
             className="resize-none rounded-2xl border-border-default bg-bg-surface text-text-primary placeholder:text-text-faint"
           />

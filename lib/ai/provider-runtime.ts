@@ -1,5 +1,3 @@
-import "server-only";
-
 import { OpenAiProviderAdapter } from "@/lib/ai/openai-adapter";
 import type { AiProvider } from "@/lib/ai/types";
 

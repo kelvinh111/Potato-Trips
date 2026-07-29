@@ -50,3 +50,9 @@ export const clarifyPlanningSessionBodySchema = z.discriminatedUnion(
       .strict(),
   ],
 );
+
+export const startPlanningSessionGenerationBodySchema = z
+  .object({
+    action: z.literal("start"),
+  })
+  .strict();

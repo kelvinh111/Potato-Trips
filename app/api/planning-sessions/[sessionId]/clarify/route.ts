@@ -1,14 +1,21 @@
 import { AiProviderError } from "@/lib/ai/errors";
-import { PLANNING_SESSION_MAX_ASSISTANT_TURNS } from "@/lib/planning-sessions/constants";
+import {
+  PLANNING_SESSION_MAX_ASSISTANT_TURNS,
+  PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS,
+} from "@/lib/planning-sessions/constants";
 import { generateClarificationTurn } from "@/lib/planning-sessions/clarification";
 import { isPlanningSessionExpired } from "@/lib/planning-sessions/expiry";
+import { startPlanningSessionGeneration } from "@/lib/planning-sessions/generation-operation";
 import {
   planningSessionClarificationSuccessResponse,
   planningSessionErrorResponse,
 } from "@/lib/planning-sessions/http";
 import {
-  findPlanningSessionById,
   PlanningSessionConcurrencyError,
+  PlanningSessionInvalidStateError,
+  PlanningSessionUsageLimitError,
+  recoverStalePlanningSessionGeneration,
+  reservePlanningSessionConfirmationRevisionAiTurn,
   updatePlanningSessionClarification,
 } from "@/lib/planning-sessions/repository";
 import { isClarificationStageStatus } from "@/lib/planning-sessions/types";
@@ -70,7 +77,9 @@ export async function POST(
   }
 
   try {
-    const session = await findPlanningSessionById(parsedSessionId.data);
+    const session = await recoverStalePlanningSessionGeneration(
+      parsedSessionId.data,
+    );
 
     if (!session) {
       return planningSessionErrorResponse({
@@ -110,6 +119,7 @@ export async function POST(
         clarificationMessages: session.clarificationMessages,
         planningBrief: session.planningBrief,
         replyMessage: null,
+        status: "CLARIFYING",
       });
 
       const updatedSession = await updatePlanningSessionClarification({
@@ -122,17 +132,20 @@ export async function POST(
           },
         ],
         planningBrief: aiResult.planningBrief,
-        status: aiResult.readiness === "READY" ? "READY_TO_GENERATE" : "CLARIFYING",
+        status:
+          aiResult.readiness === "NEEDS_CLARIFICATION"
+            ? "CLARIFYING"
+            : "READY_TO_GENERATE",
         expectedUpdatedAt: session.updatedAt,
       });
 
       return planningSessionClarificationSuccessResponse(updatedSession, 200);
     }
 
-    if (session.status !== "CLARIFYING") {
+    if (session.status === "GENERATING" || session.status === "GENERATED") {
       return planningSessionErrorResponse({
         code: "INVALID_REQUEST",
-        message: "Clarification is already complete for this planning session.",
+        message: "Clarification chat is unavailable after generation has started.",
         status: 409,
       });
     }
@@ -143,7 +156,15 @@ export async function POST(
       (message) => message.role === "assistant",
     ).length;
 
-    if (assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS) {
+    const usesConfirmationRevisionAllowance =
+      session.status === "READY_TO_GENERATE" ||
+      session.confirmationRevisionAiTurns > 0;
+
+    if (
+      !usesConfirmationRevisionAllowance &&
+      session.status === "CLARIFYING" &&
+      assistantTurnCount >= PLANNING_SESSION_MAX_ASSISTANT_TURNS
+    ) {
       return planningSessionErrorResponse({
         code: "USAGE_LIMIT_EXCEEDED",
         message:
@@ -152,17 +173,42 @@ export async function POST(
       });
     }
 
+    let providerSession = session;
+
+    if (usesConfirmationRevisionAllowance) {
+      if (
+        providerSession.confirmationRevisionAiTurns >=
+        PLANNING_SESSION_MAX_CONFIRMATION_REVISION_AI_TURNS
+      ) {
+        return planningSessionErrorResponse({
+          code: "USAGE_LIMIT_EXCEEDED",
+          message:
+            "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
+          status: 429,
+        });
+      }
+
+      providerSession = await reservePlanningSessionConfirmationRevisionAiTurn({
+        sessionId: providerSession.id,
+        expectedUpdatedAt: providerSession.updatedAt,
+      });
+    }
+
     const aiResult = await generateClarificationTurn({
-      initialPrompt: session.initialPrompt,
-      clarificationMessages: session.clarificationMessages,
-      planningBrief: session.planningBrief,
+      initialPrompt: providerSession.initialPrompt,
+      clarificationMessages: providerSession.clarificationMessages,
+      planningBrief: providerSession.planningBrief,
       replyMessage,
+      status:
+        providerSession.status === "READY_TO_GENERATE"
+          ? "READY_TO_GENERATE"
+          : "CLARIFYING",
     });
 
     const updatedSession = await updatePlanningSessionClarification({
-      sessionId: session.id,
+      sessionId: providerSession.id,
       clarificationMessages: [
-        ...session.clarificationMessages,
+        ...providerSession.clarificationMessages,
         {
           role: "user",
           content: replyMessage,
@@ -173,9 +219,25 @@ export async function POST(
         },
       ],
       planningBrief: aiResult.planningBrief,
-      status: aiResult.readiness === "READY" ? "READY_TO_GENERATE" : "CLARIFYING",
-      expectedUpdatedAt: session.updatedAt,
+      status:
+        aiResult.readiness === "NEEDS_CLARIFICATION"
+          ? "CLARIFYING"
+          : "READY_TO_GENERATE",
+      expectedUpdatedAt: providerSession.updatedAt,
     });
+
+    if (
+      session.status === "READY_TO_GENERATE" &&
+      aiResult.readiness === "CONFIRMED"
+    ) {
+      const generationSession = await startPlanningSessionGeneration(
+        updatedSession.id,
+      );
+
+      if (generationSession) {
+        return planningSessionClarificationSuccessResponse(generationSession, 200);
+      }
+    }
 
     return planningSessionClarificationSuccessResponse(updatedSession, 200);
   } catch (error) {
@@ -192,6 +254,35 @@ export async function POST(
         code: "INTERNAL_ERROR",
         message: "AI service is temporarily unavailable. Please try again.",
         status: 503,
+      });
+    }
+
+    if (error instanceof PlanningSessionUsageLimitError) {
+      if (
+        error.message ===
+        "Confirmation/revision AI turn limit reached for this session."
+      ) {
+        return planningSessionErrorResponse({
+          code: "USAGE_LIMIT_EXCEEDED",
+          message:
+            "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
+          status: 429,
+        });
+      }
+
+      return planningSessionErrorResponse({
+        code: "USAGE_LIMIT_EXCEEDED",
+        message:
+          "Generation attempt limit reached for this session. Start a new session to continue.",
+        status: 429,
+      });
+    }
+
+    if (error instanceof PlanningSessionInvalidStateError) {
+      return planningSessionErrorResponse({
+        code: "INVALID_REQUEST",
+        message: "Planning session is not ready for that action.",
+        status: 409,
       });
     }
 
