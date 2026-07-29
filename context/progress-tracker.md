@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Validate and finalize initial itinerary generation flow with confirmation and Trigger.dev execution.
+- Close out Feature 12 and prepare for Feature 13 once its spec content is available.
 
 ## Current Feature Unit
-- Unit: Initial itinerary generation
-- Related spec: `context/feature-specs/12-initial-itinerary-generation.md`
-- Status: In Progress
+- Unit: Feature 13 preparation
+- Related spec: `context/feature-specs/13-itinerary-kanban.md` (currently empty)
+- Status: Blocked on non-empty spec content
 
 ## Completed
 
@@ -157,42 +157,28 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Kept conversation visible and disabled composer once status becomes `READY_TO_GENERATE`
 - Confirmed no itinerary generation, Trigger.dev generation tasks, kanban data, map data, place lookup, saved-trip, or collaboration work was added
 
+### Feature 12: Initial Itinerary Generation
+- Extended `PlanningSession` persistence for generation workflow state, attempts, failure state, and generated itinerary payload
+- Implemented confirmation-aware clarification flow, including revised-confirmation handling when users change requirements at confirmation time
+- Implemented durable Trigger.dev initial generation workflow with idempotent start semantics and guarded state transitions
+- Added persisted generation status retrieval and restore-after-refresh workflow behavior
+- Added structured AI-output validation and normalized persisted itinerary schemas before marking generation complete
+- Enforced exact itinerary day-count validation against trip length before persistence
+- Enforced inclusive exact-date and trip-length consistency checks across generation validation
+- Added Generate and Retry protection when persisted planning-session state is internally inconsistent
+- Enforced per-session generation limits and retry behavior with attempt tracking
+- Corrected user-facing `GENERATING` status messaging for active generation and recovery states
+- Confirmed generated itinerary remains persisted and visible after refresh/reload
+- Confirmed no Kanban rendering, map initialization, Places verification, collaboration, or saved-trip persistence was introduced in this unit
+
 ## In Progress
-- Feature 12: Initial Itinerary Generation
-	- Extended `PlanningSession` with generation phase, generation attempt tracking, generation error, and persisted generated itinerary JSON.
-	- Added generation APIs: `POST /api/planning-sessions/[sessionId]/generate` and `GET /api/planning-sessions/[sessionId]/generation`.
-	- Added idempotent generation-start operation with status transition guards and per-session attempt limits.
-	- Added Trigger task `initial-itinerary-generation` for long-running initial itinerary workflow.
-	- Updated clarification flow for required planning fields, ready-for-confirmation state, and explicit chat confirmation.
-	- Added planning status panel and pre-generation two-area layout (`Planning Chat | Trip Plan Status`) with map hidden before generation.
-	- Added generation-phase polling and restore-on-refresh behavior in workspace runtime.
-	- Hardened destination-scope clarification semantics so broad destination intent can require focused region/city follow-up before readiness.
-	- Updated clarification assistant style guidance to friendly, casual, concise travel-consultant tone with safe Markdown output.
-	- Added server-date context for clarification so month-only timing can resolve to next future occurrence without unnecessary year follow-up.
-	- Improved traveller inference guidance for complete-party responses like "solo", "a couple", and explicit adult counts.
-	- Added Trigger dispatch failure recovery to move sessions from `GENERATING` to `FAILED` when task dispatch fails, preserving retry path and attempt limits.
-	- Reworked generation polling with failure backoff and stuck-state recovery notice/manual status check to avoid endless silent polling.
-	- Added legacy planning-brief compatibility defaults for missing nullable keys and re-validation after legacy normalization.
-	- Enforced explicit confirmation boundary: generation can only start from `READY_TO_GENERATE`, never directly from `CLARIFYING`.
-	- Added generation-attempt isolation across Trigger payload, phase updates, completion, and failure persistence guards.
-	- Added persisted post-readiness confirmation/revision AI allowance (max 3) with atomic per-request reservation and concurrency-safe exhaustion handling.
-	- Updated generation workflow phase ordering so `CHECKING_PLAN` performs validation/normalization work before `SAVING_ITINERARY` persistence.
-	- Disabled clarification composer in `FAILED` state to align with retry-only recovery path.
-	- Preserved confirmed trip summary by keeping `finalSummary` stable on `CONFIRMED` turns.
-	- Removed Trigger task dependency on `server-only` modules by introducing task-safe AI provider usage path.
-	- Updated project flow documentation for confirmation-before-generation behavior.
-	- Added server-side stale generation recovery so long-idle `GENERATING` sessions auto-transition to `FAILED` with retryable messaging.
-	- Applied stale-generation reconciliation in planning-session and generation status GET APIs to self-heal stuck runs during refresh/polling.
-	- Extended stale-generation reconciliation to clarification and explicit generation-start APIs so stale sessions recover before any follow-up action.
-	- Tightened `PREPARING_TRIP` stale timeout to 7 minutes for faster recovery when Trigger runs stall before execution.
-	- Routed initial generation dispatch to explicit queue `planning-session-generation` and declared the same queue on the Trigger task definition to ensure worker subscription in dev.
-	- Added developer troubleshooting script `generation:troubleshoot` with stale-session diagnostics and optional `--repair` mode.
+- None.
 
 ## Next Up
-- `13-itinerary-kanban.md`.
+- Feature 13 (`context/feature-specs/13-itinerary-kanban.md`) once spec content is added (file currently exists but is empty).
 
 ## Blockers
-- None.
+- `context/feature-specs/13-itinerary-kanban.md` is present but empty; non-empty spec content is required before starting Feature 13.
 
 ## Open Questions
 - Final database schema details
@@ -240,6 +226,17 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 12 schema check: `npx prisma validate` pass
 - Feature 12 Prisma client check: `npm run prisma:generate` pass
 - Feature 12 compile check: `npm run lint` and `npm run build` pass
+- Feature 12 manual verification:
+	- clarification and revised-confirmation flow pass
+	- durable Trigger.dev generation pass
+	- validated and persisted itinerary output pass
+	- exact itinerary day-count validation pass
+	- inclusive exact-date and trip-length consistency pass
+	- Generate and Retry protection for inconsistent persisted sessions pass
+	- generation limits and retry behavior pass
+	- correct `GENERATING` status messaging pass
+	- generated itinerary persists after refresh pass
+	- all six date-consistency manual tests passed
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
