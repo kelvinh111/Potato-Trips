@@ -1,5 +1,6 @@
 import { getAiProvider } from "@/lib/ai/provider";
 import type { AiProviderMessage } from "@/lib/ai/types";
+import { isDeepStrictEqual } from "node:util";
 import {
   clarificationAiOutputSchema,
   isPlanningBriefReadyForConfirmation,
@@ -28,6 +29,10 @@ Rules:
 - Once requirements are sufficient and practical, provide concise final planning summary and return readiness READY_FOR_CONFIRMATION.
 - If user explicitly confirms generation in context and requirements remain sufficient, return readiness CONFIRMED.
 - If user changes requirements while confirming, update planningBrief and return READY_FOR_CONFIRMATION again.
+- Confirmation integrity rule (critical): when current clarification stage status is READY_TO_GENERATE and user only confirms without any requirement change, you must return readiness CONFIRMED and copy Current planning brief JSON exactly as planningBrief.
+- Exact copy requirement includes every field and value, including nulls, arrays, array ordering, compatibility fields, practicality notes, and finalSummary.
+- In that pure-confirmation case, do not summarize, normalize, reword, reorder, derive, or otherwise alter any planningBrief value.
+- If user requests any requirement change while confirming, update planningBrief accordingly and return readiness READY_FOR_CONFIRMATION.
 - Do not generate itinerary content, day plans, activity lists, or recommendations.
 - Keep assistantMessage concise.
 - Return structured output only.`;
@@ -63,12 +68,21 @@ export async function generateClarificationTurn(
   });
 
   const output = clarificationAiOutputSchema.parse(result.output);
-  const planningBrief = normalizePlanningBrief(output.planningBrief);
-  const hasRequiredBriefData = isPlanningBriefReadyForConfirmation(planningBrief);
+  const outputPlanningBrief = normalizePlanningBrief(output.planningBrief);
+  const persistedPlanningBrief =
+    input.planningBrief === null ? null : normalizePlanningBrief(input.planningBrief);
+  const hasRequiredBriefData = isPlanningBriefReadyForConfirmation(outputPlanningBrief);
+
+  const isConfirmationAttempt =
+    input.status === "READY_TO_GENERATE" && output.readiness === "CONFIRMED";
+  const hasUnchangedRequirementsForConfirmation =
+    isConfirmationAttempt &&
+    persistedPlanningBrief !== null &&
+    arePlanningBriefRequirementsEqual(persistedPlanningBrief, outputPlanningBrief);
 
   const readiness: ClarificationReadiness = !hasRequiredBriefData
     ? "NEEDS_CLARIFICATION"
-    : input.status === "READY_TO_GENERATE" && output.readiness === "CONFIRMED"
+    : hasUnchangedRequirementsForConfirmation
       ? "CONFIRMED"
       : "READY_FOR_CONFIRMATION";
 
@@ -77,7 +91,7 @@ export async function generateClarificationTurn(
       ? CONFIRMED_COMPLETION_MESSAGE
       : output.assistantMessage;
 
-  const persistedFinalSummary = input.planningBrief?.finalSummary ?? null;
+  const persistedFinalSummary = persistedPlanningBrief?.finalSummary ?? null;
   const finalSummary =
     readiness === "READY_FOR_CONFIRMATION"
       ? output.assistantMessage
@@ -85,10 +99,16 @@ export async function generateClarificationTurn(
         ? persistedFinalSummary
         : null;
 
-  const finalizedPlanningBrief: PlanningBrief = {
-    ...planningBrief,
-    finalSummary,
-  };
+  const finalizedPlanningBrief: PlanningBrief =
+    readiness === "CONFIRMED" && persistedPlanningBrief !== null
+      ? {
+          ...persistedPlanningBrief,
+          finalSummary,
+        }
+      : {
+          ...outputPlanningBrief,
+          finalSummary,
+        };
 
   return {
     assistantMessage,
@@ -96,6 +116,22 @@ export async function generateClarificationTurn(
     readiness,
     missingInformation: output.missingInformation,
   };
+}
+
+function arePlanningBriefRequirementsEqual(
+  left: PlanningBrief,
+  right: PlanningBrief,
+): boolean {
+  return isDeepStrictEqual(
+    withoutFinalSummary(left),
+    withoutFinalSummary(right),
+  );
+}
+
+function withoutFinalSummary(brief: PlanningBrief): Omit<PlanningBrief, "finalSummary"> {
+  return Object.fromEntries(
+    Object.entries(brief).filter(([key]) => key !== "finalSummary"),
+  ) as Omit<PlanningBrief, "finalSummary">;
 }
 
 function buildProviderMessages(

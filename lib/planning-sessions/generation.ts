@@ -1,5 +1,6 @@
 import { getAiProviderRuntime } from "@/lib/ai/provider-runtime";
 import type { AiProviderMessage } from "@/lib/ai/types";
+import { z } from "zod";
 import {
   type AiGeneratedItinerary,
   aiGeneratedItinerarySchema,
@@ -15,27 +16,34 @@ Rules:
 - Do not claim verification for maps/addresses/opening hours/ratings/photos/flights/fares/live inventory.
 - Include major transport items only where useful at planning level.
 - Return structured JSON only, matching the schema exactly.
+- Return exactly the required number of ordered day objects; do not combine days and do not omit days.
 - Keep item descriptions useful and concise.`;
 
 export async function generateInitialItineraryDraft(input: {
   planningBrief: PlanningBrief;
 }): Promise<AiGeneratedItinerary> {
   const provider = getAiProviderRuntime();
+  const expectedTripLengthDays = parseExpectedTripLengthDays(
+    input.planningBrief.tripLengthDays,
+  );
+  const exactLengthOutputSchema = buildExactLengthAiItinerarySchema(
+    expectedTripLengthDays,
+  );
 
   const messages: AiProviderMessage[] = [
     {
       role: "user",
-      content: `Confirmed planning brief JSON:\n${JSON.stringify(input.planningBrief)}`,
+      content: `Confirmed planning brief JSON:\n${JSON.stringify(input.planningBrief)}\n\nGeneration contract:\n- You must return exactly ${expectedTripLengthDays} day objects in order.\n- Do not combine multiple days into one day object.\n- Do not omit any day.`,
     },
   ];
 
   const result = await provider.generateStructured({
     systemInstructions: INITIAL_ITINERARY_SYSTEM_INSTRUCTIONS,
     messages,
-    outputSchema: aiGeneratedItinerarySchema,
+    outputSchema: exactLengthOutputSchema,
   });
 
-  return aiGeneratedItinerarySchema.parse(result.output);
+  return exactLengthOutputSchema.parse(result.output);
 }
 
 export function validateAndNormalizeGeneratedItinerary(input: {
@@ -80,4 +88,10 @@ function parseExpectedTripLengthDays(value: number | null | undefined): number {
   }
 
   return value;
+}
+
+function buildExactLengthAiItinerarySchema(expectedTripLengthDays: number) {
+  return aiGeneratedItinerarySchema.extend({
+    days: aiGeneratedItinerarySchema.shape.days.length(expectedTripLengthDays),
+  }) as z.ZodType<AiGeneratedItinerary>;
 }
