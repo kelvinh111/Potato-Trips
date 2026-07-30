@@ -13,6 +13,11 @@ import { ArrowUp, Loader2 } from "lucide-react";
 import { AssistantMarkdown } from "@/components/plan/assistant-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  requestPlanningSessionClarificationReply,
+  requestPlanningSessionClarificationStart,
+  type PlanningSessionClarificationApiSession,
+} from "@/lib/planning-sessions/client-api";
 import type {
   PlanningSessionClarificationMessages,
   PlanningSessionStatusValue,
@@ -23,10 +28,8 @@ interface PlanningChatPanelProps {
   initialPrompt: string;
   status: PlanningSessionStatusValue;
   clarificationMessages: PlanningSessionClarificationMessages;
-  onSessionUpdate: (payload: unknown) => void;
+  onSessionUpdate: (payload: PlanningSessionClarificationApiSession) => void;
 }
-
-type ClarifyRequestBody = { action: "start" } | { action: "reply"; message: string };
 
 interface ChatMessageViewModel {
   id: string;
@@ -34,48 +37,6 @@ interface ChatMessageViewModel {
   content: string;
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function readApiErrorMessage(payload: unknown): string {
-  if (!isObjectRecord(payload) || !isObjectRecord(payload.error)) {
-    return "Unable to complete that request. Please try again.";
-  }
-
-  const maybeMessage = payload.error.message;
-  if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
-    return maybeMessage;
-  }
-
-  return "Unable to complete that request. Please try again.";
-}
-
-async function postClarificationRequest(
-  sessionId: string,
-  body: ClarifyRequestBody,
-): Promise<unknown> {
-  const response = await fetch(`/api/planning-sessions/${sessionId}/clarify`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(readApiErrorMessage(payload));
-  }
-
-  return payload;
-}
 
 export function PlanningChatPanel({
   sessionId,
@@ -122,9 +83,7 @@ export function PlanningChatPanel({
     setIsStarting(true);
 
     try {
-      const payload = await postClarificationRequest(sessionId, {
-        action: "start",
-      });
+      const payload = await requestPlanningSessionClarificationStart(sessionId);
       onSessionUpdate(payload);
     } catch (error) {
       setErrorMessage(
@@ -178,10 +137,10 @@ export function PlanningChatPanel({
     setIsSubmittingReply(true);
 
     try {
-      const payload = await postClarificationRequest(sessionId, {
-        action: "reply",
-        message: trimmed,
-      });
+      const payload = await requestPlanningSessionClarificationReply(
+        sessionId,
+        trimmed,
+      );
 
       setDraftMessage("");
       onSessionUpdate(payload);
