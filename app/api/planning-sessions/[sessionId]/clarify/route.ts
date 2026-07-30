@@ -117,12 +117,17 @@ export async function POST(
       });
     }
 
-    return planningSessionErrorResponse({
-      code: "USAGE_LIMIT_EXCEEDED",
-      message:
-        "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
-      status: 429,
-    });
+    if (workflowResult.type === "USAGE_LIMIT_CONFIRMATION_REVISION") {
+      return planningSessionErrorResponse({
+        code: "USAGE_LIMIT_EXCEEDED",
+        message:
+          "Confirmation/revision AI turn limit reached for this session. Use Generate my trip or start a new session to continue.",
+        status: 429,
+      });
+    }
+
+    const exhaustiveCheck: never = workflowResult;
+    return exhaustiveCheck;
   } catch (error) {
     if (error instanceof PlanningSessionConcurrencyError) {
       return planningSessionErrorResponse({
