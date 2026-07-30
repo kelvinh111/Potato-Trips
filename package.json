@@ -11,6 +11,7 @@
     "ai:smoke": "node --conditions=react-server --import tsx scripts/ai-provider-smoke.ts",
     "planning-brief:regression": "node --conditions=react-server --import tsx scripts/planning-brief-canonical-regression.ts",
     "clarification-workflow:regression": "node --conditions=react-server --import tsx scripts/clarification-workflow-regression.ts",
+    "planning-session-client-api:regression": "node --conditions=react-server --import tsx scripts/planning-session-client-api-regression.ts",
     "generation:troubleshoot": "node --conditions=react-server --import tsx scripts/planning-generation-troubleshoot.ts",
     "build": "next build",
     "start": "next start",

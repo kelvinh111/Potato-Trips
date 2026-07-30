@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 15A Client API Extraction and continue the approved pre-Kanban cleanup sequence.
+- Begin Spec 15B Generation State and Polling Refactor and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 15A Client API Extraction
-- Related spec: `context/feature-specs/15a-client-api-extraction.md`
+- Unit: Feature 15B Generation State and Polling Refactor
+- Related spec: `context/feature-specs/15b-generation-state-and-polling-refactor.md`
 - Status: Ready / Next
 
 ## Completed
@@ -191,11 +191,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Added deterministic focused workflow regression coverage using controlled dependencies in `scripts/clarification-workflow-regression.ts` (no live AI, Trigger.dev, or paid providers)
 - Confirmed no Prisma schema or migration changes and no client/UI/generation-worker changes
 
+### Feature 15A: Client API Extraction
+- Added one application-owned browser planning-session API boundary at `lib/planning-sessions/client-api.ts`
+- Moved clarification and generation endpoint fetch/response parsing out of UI components into the client API boundary
+- Added runtime validation for success payloads and safe parsing for error payloads while keeping untrusted response data as `unknown` until validated
+- Returned typed client session data and normalized client errors so components no longer parse raw JSON
+- Updated planning chat and workspace runtime components to use the new boundary without changing state ownership, timers, polling policy, or rendering behavior
+- Preserved endpoint paths, methods, request bodies, user-facing error messages, retry paths, clarification auto-start/reply timing, and generation start/status polling behavior
+- Added deterministic focused regression coverage in `scripts/planning-session-client-api-regression.ts` with mocked fetch (no live network/provider usage)
+- Confirmed no server route, Prisma, AI, Trigger.dev, dependency, or UI-system changes
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 15A (`context/feature-specs/15a-client-api-extraction.md`)
 - Feature 15B (`context/feature-specs/15b-generation-state-and-polling-refactor.md`)
 - Feature 15C (`context/feature-specs/15c-planning-chat-state-refactor.md`)
 - Feature 16A (`context/feature-specs/16a-current-layout-and-visual-pass.md`)
@@ -277,6 +286,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run lint`: pass
 	- `npm run build`: pass
 	- manual contract comparison of clarify route request/success/error mappings vs `main`: preserved
+- Feature 15A checks:
+	- `npm run planning-session-client-api:regression`: pass
+	- targeted `eslint` for client API boundary and updated planning components: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run build`: pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.

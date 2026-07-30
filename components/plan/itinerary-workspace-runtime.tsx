@@ -5,13 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlanningChatPanel } from "@/components/plan/planning-chat-panel";
 import { ReservedMapSlot } from "@/components/plan/reserved-map-slot";
 import { TripPlanStatusPanel } from "@/components/plan/trip-plan-status-panel";
+import {
+  requestPlanningSessionGenerationStart,
+  requestPlanningSessionGenerationState,
+  type PlanningSessionClarificationApiSession,
+} from "@/lib/planning-sessions/client-api";
 import type { PlanningSessionRecord } from "@/lib/planning-sessions/repository";
 import {
-  parsePersistedItinerary,
-  parsePlanningBrief,
-  parsePlanningSessionGenerationPhase,
-  planningSessionClarificationMessagesSchema,
-  planningSessionStatusSchema,
   type PersistedItinerary,
   type PlanningBrief,
   type PlanningSessionClarificationMessages,
@@ -36,122 +36,6 @@ interface WorkspaceSessionState {
 const POLL_BASE_INTERVAL_MS = 2500;
 const POLL_MAX_BACKOFF_MS = 30000;
 const POLL_FAILURE_PAUSE_THRESHOLD = 6;
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function parseClarifyApiSession(payload: unknown): WorkspaceSessionState {
-  if (!isObjectRecord(payload) || !isObjectRecord(payload.session)) {
-    throw new Error("Invalid clarification response.");
-  }
-
-  const session = payload.session;
-
-  const statusResult = planningSessionStatusSchema.safeParse(session.status);
-  const messagesResult = planningSessionClarificationMessagesSchema.safeParse(
-    session.clarificationMessages,
-  );
-  const generationAttempts = Number(session.generationAttempts ?? 0);
-
-  if (!statusResult.success || !messagesResult.success || !Number.isInteger(generationAttempts)) {
-    throw new Error("Invalid clarification response.");
-  }
-
-  return {
-    status: statusResult.data,
-    clarificationMessages: messagesResult.data,
-    planningBrief: parsePlanningBrief(session.planningBrief),
-    generationPhase: parsePlanningSessionGenerationPhase(session.generationPhase),
-    generatedItinerary: parsePersistedItinerary(session.generatedItinerary),
-    generationAttempts,
-    generationError:
-      typeof session.generationError === "string" ? session.generationError : null,
-  };
-}
-
-function parseGenerationApiSession(payload: unknown): Omit<
-  WorkspaceSessionState,
-  "clarificationMessages"
-> {
-  if (!isObjectRecord(payload) || !isObjectRecord(payload.session)) {
-    throw new Error("Invalid generation response.");
-  }
-
-  const session = payload.session;
-
-  const statusResult = planningSessionStatusSchema.safeParse(session.status);
-  const generationAttempts = Number(session.generationAttempts ?? 0);
-
-  if (!statusResult.success || !Number.isInteger(generationAttempts)) {
-    throw new Error("Invalid generation response.");
-  }
-
-  return {
-    status: statusResult.data,
-    planningBrief: parsePlanningBrief(session.planningBrief),
-    generationPhase: parsePlanningSessionGenerationPhase(session.generationPhase),
-    generatedItinerary: parsePersistedItinerary(session.generatedItinerary),
-    generationAttempts,
-    generationError:
-      typeof session.generationError === "string" ? session.generationError : null,
-  };
-}
-
-function readApiErrorMessage(payload: unknown): string {
-  if (!isObjectRecord(payload) || !isObjectRecord(payload.error)) {
-    return "Unable to complete that request. Please try again.";
-  }
-
-  const maybeMessage = payload.error.message;
-  if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
-    return maybeMessage;
-  }
-
-  return "Unable to complete that request. Please try again.";
-}
-
-async function requestGenerationState(sessionId: string) {
-  const response = await fetch(`/api/planning-sessions/${sessionId}/generation`, {
-    method: "GET",
-  });
-
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(readApiErrorMessage(payload));
-  }
-
-  return parseGenerationApiSession(payload);
-}
-
-async function requestGenerate(sessionId: string) {
-  const response = await fetch(`/api/planning-sessions/${sessionId}/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action: "start" }),
-  });
-
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(readApiErrorMessage(payload));
-  }
-
-  return parseGenerationApiSession(payload);
-}
 
 export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntimeProps) {
   const [state, setState] = useState<WorkspaceSessionState>({
@@ -185,12 +69,11 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     setIsPollingPaused(false);
   }, []);
 
-  const applyClarificationSession = useCallback((nextSession: unknown) => {
-    const parsed = parseClarifyApiSession(nextSession);
+  const applyClarificationSession = useCallback((nextSession: PlanningSessionClarificationApiSession) => {
     setGenerationRequestError(null);
-    setState(parsed);
+    setState(nextSession);
 
-    if (parsed.status !== "GENERATING") {
+    if (nextSession.status !== "GENERATING") {
       resetGenerationPollingState();
     }
   }, [resetGenerationPollingState]);
@@ -209,7 +92,9 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     }
 
     try {
-      const nextGenerationState = await requestGenerationState(session.id);
+      const nextGenerationState = await requestPlanningSessionGenerationState(
+        session.id,
+      );
       setGenerationRequestError(null);
       setState((previous) => ({
         ...previous,
@@ -261,7 +146,9 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     setIsStartingGeneration(true);
 
     try {
-      const nextGenerationState = await requestGenerate(session.id);
+      const nextGenerationState = await requestPlanningSessionGenerationStart(
+        session.id,
+      );
       setState((previous) => ({
         ...previous,
         ...nextGenerationState,
