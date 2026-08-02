@@ -308,6 +308,10 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run lint`: pass
 	- `git diff --check`: pass
 	- `npm run build`: pass
+	- manual browser verification: generation start produced exactly one `POST /api/planning-sessions/[sessionId]/generate` and exactly one Trigger.dev run
+	- manual browser verification: refresh during `GENERATING` restored generation UI and resumed automatic `GET /api/planning-sessions/[sessionId]/generation` polling without another generation `POST` or additional Trigger.dev run
+	- manual browser verification: automatic polling paused after six consecutive blocked generation-status requests and displayed the existing paused polling notice
+	- manual browser verification: `Check status` recovered immediately after unblocking, reached `GENERATED`, and generated itinerary result persisted after refresh
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
