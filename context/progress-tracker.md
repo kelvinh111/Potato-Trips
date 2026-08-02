@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 15B Generation State and Polling Refactor and continue the approved pre-Kanban cleanup sequence.
+- Begin Spec 15C Planning Chat State Refactor and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 15B Generation State and Polling Refactor
-- Related spec: `context/feature-specs/15b-generation-state-and-polling-refactor.md`
+- Unit: Feature 15C Planning Chat State Refactor
+- Related spec: `context/feature-specs/15c-planning-chat-state-refactor.md`
 - Status: Ready / Next
 
 ## Completed
@@ -201,11 +201,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Added deterministic focused regression coverage in `scripts/planning-session-client-api-regression.ts` with mocked fetch (no live network/provider usage)
 - Confirmed no server route, Prisma, AI, Trigger.dev, dependency, or UI-system changes
 
+### Feature 15B: Generation State and Polling Refactor
+- Added one focused client generation controller at `lib/planning-sessions/generation-controller.ts` to own generation request state, server-state reconciliation, polling timers, backoff, pause, and recovery actions
+- Moved polling timer scheduling and cleanup, failure counting, backoff calculation, pause threshold, pause notice, and manual refresh reset behavior out of `components/plan/itinerary-workspace-runtime.tsx`
+- Preserved server-authoritative reconciliation for `GENERATING`, `GENERATED`, and `FAILED` generation responses without creating a competing itinerary state
+- Kept the workspace runtime responsible for composition/rendering while consuming one typed generation controller interface
+- Updated `components/plan/trip-plan-status-panel.tsx` to execute generation start/manual refresh through controller actions without changing visible behavior
+- Added deterministic focused regression coverage in `scripts/generation-controller-regression.ts` for successful progression, transient poll failure/backoff, pause threshold, manual recovery reset, completion, failure, and polling stop conditions
+- Preserved existing generation start/retry behavior, polling cadence/backoff values, paused polling notice and manual recovery path, refresh restoration from persisted state, and generated/failure display outcomes
+- Confirmed no server endpoint, persistence schema, generation-attempt policy, or Trigger.dev behavior changes
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 15B (`context/feature-specs/15b-generation-state-and-polling-refactor.md`)
 - Feature 15C (`context/feature-specs/15c-planning-chat-state-refactor.md`)
 - Feature 16A (`context/feature-specs/16a-current-layout-and-visual-pass.md`)
 - Feature 16B (`context/feature-specs/16b-current-chat-interaction-pass.md`)
@@ -290,6 +299,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run planning-session-client-api:regression`: pass
 	- targeted `eslint` for client API boundary and updated planning components: pass
 	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run build`: pass
+- Feature 15B checks:
+	- `npm run generation-controller:regression`: pass
+	- targeted `eslint` for generation controller/runtime/status-panel/regression files: pass
+	- `npx tsc --noEmit`: pass
+	- `npm run lint`: pass
 	- `git diff --check`: pass
 	- `npm run build`: pass
 
