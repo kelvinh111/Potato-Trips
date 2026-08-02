@@ -33,8 +33,8 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   const showMapSlot = useMemo(() => state.status === "GENERATED", [state.status]);
 
   const gridClassName = showMapSlot
-    ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-4 overflow-x-hidden overflow-y-auto p-4 sm:gap-5 sm:p-5 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(16rem,22rem)] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:p-6"
-    : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-4 overflow-x-hidden overflow-y-auto p-4 sm:gap-5 sm:p-5 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:p-6";
+    ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(16rem,22rem)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4"
+    : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4";
 
   return (
     <main className="flex min-h-0 flex-1 overflow-hidden">
@@ -52,10 +52,11 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
             generationController={generationController}
           />
         ) : (
-          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-border-default bg-bg-surface shadow-sm">
-            <header className="border-b border-border-subtle px-4 py-4 sm:px-6">
-              <h1 className="text-lg font-semibold text-text-primary">Itinerary Plan</h1>
-            </header>
+          <section
+            aria-label="Itinerary panel"
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl bg-bg-surface"
+          >
+            <h1 className="sr-only">Itinerary Plan</h1>
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
               <div className="flex h-full min-h-48 items-center justify-center rounded-3xl border border-dashed border-border-default bg-bg-subtle/50 p-8 text-center">
                 <div className="space-y-2">

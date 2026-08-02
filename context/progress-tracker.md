@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 16A Current Layout and Visual Pass and continue the approved pre-Kanban cleanup sequence.
+- Begin Spec 16B Current Chat Interaction Pass and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 16A Current Layout and Visual Pass
-- Related spec: `context/feature-specs/16a-current-layout-and-visual-pass.md`
+- Unit: Feature 16B Current Chat Interaction Pass
+- Related spec: `context/feature-specs/16b-current-chat-interaction-pass.md`
 - Status: Ready / Next
 
 ## Completed
@@ -221,11 +221,19 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Added deterministic focused regression coverage in `scripts/planning-chat-controller-regression.ts` for auto-start scheduling/request behavior, start success/failure/retry, status-based disabling, and duplicate start/reply submission prevention without live network, AI, or Trigger.dev
 - Confirmed no server endpoint, repository, Prisma schema, provider, generation controller, or UI visual-system changes
 
+### Feature 16A: Current Layout and Visual Pass
+- Fixed header logo rendering to keep intrinsic logo image proportions with no forced square/circle crop in `components/app/app-header.tsx`
+- Removed visible outer border/shadow framing from planning workspace columns while preserving accessible region names in `components/plan/planning-chat-panel.tsx`, `components/plan/trip-plan-status-panel.tsx`, and `components/plan/reserved-map-slot.tsx`
+- Removed redundant visible planning column headings while keeping screen-reader-only labels for chat/status/itinerary regions
+- Reduced workspace grid gaps and outer padding for pre-generation and generated layouts in `components/plan/itinerary-workspace-runtime.tsx` without introducing horizontal overflow
+- Removed Home prompt outer card border/shadow treatment while keeping centered layout hierarchy and clear textarea boundary in `components/home/trip-prompt.tsx`
+- Applied selective secondary/warm palette accents through semantic tokens (yellow secondary action emphasis and small warm logo accent) while keeping teal as primary and warning/orange usage scoped
+- Preserved Home and planning behavior (validation, submission, clarification/generation/retry/polling flows, responsive stacking, and map visibility rules)
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 16A (`context/feature-specs/16a-current-layout-and-visual-pass.md`)
 - Feature 16B (`context/feature-specs/16b-current-chat-interaction-pass.md`)
 - Feature 17 (`context/feature-specs/17-itinerary-kanban.md`)
 
@@ -332,6 +340,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- manual browser verification: reply failure preserved draft text and successful retry cleared draft only after persisted reply success
 	- manual browser verification: persisted messages restored in expected prompt-plus-history order across refresh
 	- manual browser verification: composer availability/disabled states matched existing status and in-flight request behavior
+- Feature 16A checks:
+	- targeted `eslint` for changed layout/visual components: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run build`: pass
+	- browser visual pass: Home prompt layout/outer-card treatment and pre-generation planning workspace framing/accessible regions verified
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
