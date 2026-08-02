@@ -1,11 +1,8 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
-  useMemo,
   useRef,
-  useState,
   type KeyboardEventHandler,
 } from "react";
 import { ArrowUp, Loader2 } from "lucide-react";
@@ -14,14 +11,10 @@ import { AssistantMarkdown } from "@/components/plan/assistant-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  requestPlanningSessionClarificationReply,
-  requestPlanningSessionClarificationStart,
-  type PlanningSessionClarificationApiSession,
-} from "@/lib/planning-sessions/client-api";
-import type {
-  PlanningSessionClarificationMessages,
-  PlanningSessionStatusValue,
-} from "@/lib/planning-sessions/types";
+  usePlanningChatController,
+} from "@/lib/planning-sessions/planning-chat-controller";
+import type { PlanningSessionClarificationApiSession } from "@/lib/planning-sessions/client-api";
+import type { PlanningSessionClarificationMessages, PlanningSessionStatusValue } from "@/lib/planning-sessions/types";
 
 interface PlanningChatPanelProps {
   sessionId: string;
@@ -31,13 +24,6 @@ interface PlanningChatPanelProps {
   onSessionUpdate: (payload: PlanningSessionClarificationApiSession) => void;
 }
 
-interface ChatMessageViewModel {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-}
-
-
 export function PlanningChatPanel({
   sessionId,
   initialPrompt,
@@ -45,115 +31,27 @@ export function PlanningChatPanel({
   clarificationMessages,
   onSessionUpdate,
 }: PlanningChatPanelProps) {
-  const [draftMessage, setDraftMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
-  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const chatController = usePlanningChatController({
+    sessionId,
+    initialPrompt,
+    status,
+    clarificationMessages,
+    onSessionUpdate,
+  });
 
-  const didAutoStartRef = useRef(false);
   const isImeComposingRef = useRef(false);
   const conversationBottomRef = useRef<HTMLDivElement | null>(null);
-
-  const conversationMessages = useMemo<ChatMessageViewModel[]>(() => {
-    const persisted = clarificationMessages.map((message, index) => ({
-      id: `persisted-${index}`,
-      role: message.role,
-      content: message.content,
-    }));
-
-    return [
-      {
-        id: "initial-prompt",
-        role: "user",
-        content: initialPrompt,
-      },
-      ...persisted,
-    ];
-  }, [clarificationMessages, initialPrompt]);
 
   useEffect(() => {
     conversationBottomRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
-  }, [conversationMessages.length, isStarting, isSubmittingReply]);
-
-  const startClarification = useCallback(async () => {
-    setErrorMessage(null);
-    setIsStarting(true);
-
-    try {
-      const payload = await requestPlanningSessionClarificationStart(sessionId);
-      onSessionUpdate(payload);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to start clarification. Please try again.",
-      );
-    } finally {
-      setIsStarting(false);
-    }
-  }, [onSessionUpdate, sessionId]);
-
-  const hasAssistantMessage = clarificationMessages.some(
-    (message) => message.role === "assistant",
-  );
-
-  useEffect(() => {
-    if (didAutoStartRef.current) {
-      return;
-    }
-
-    if (status !== "CLARIFYING") {
-      return;
-    }
-
-    if (hasAssistantMessage) {
-      return;
-    }
-
-    didAutoStartRef.current = true;
-    window.setTimeout(() => {
-      void startClarification();
-    }, 0);
-  }, [hasAssistantMessage, startClarification, status]);
-
-  const isComposerDisabled =
-    status === "GENERATING" ||
-    status === "GENERATED" ||
-    status === "FAILED" ||
-    isStarting ||
-    isSubmittingReply;
-
-  const sendReply = useCallback(async () => {
-    const trimmed = draftMessage.trim();
-
-    if (!trimmed || isComposerDisabled) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsSubmittingReply(true);
-
-    try {
-      const payload = await requestPlanningSessionClarificationReply(
-        sessionId,
-        trimmed,
-      );
-
-      setDraftMessage("");
-      onSessionUpdate(payload);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to send message. Please try again.",
-      );
-    } finally {
-      setIsSubmittingReply(false);
-    }
-  }, [draftMessage, isComposerDisabled, onSessionUpdate, sessionId]);
+  }, [
+    chatController.conversationMessages.length,
+    chatController.isStarting,
+    chatController.isSubmittingReply,
+  ]);
 
   const handleComposerKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (
     event,
@@ -180,14 +78,8 @@ export function PlanningChatPanel({
     }
 
     event.preventDefault();
-    void sendReply();
+    void chatController.sendReply();
   };
-
-  const shouldShowStartRetry =
-    status === "CLARIFYING" && !hasAssistantMessage && !isStarting;
-
-  const sendButtonDisabled =
-    isComposerDisabled || draftMessage.trim().length === 0;
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border-default bg-bg-surface shadow-sm">
@@ -203,7 +95,7 @@ export function PlanningChatPanel({
           aria-atomic="false"
           className="space-y-3"
         >
-          {conversationMessages.map((message) => {
+          {chatController.conversationMessages.map((message) => {
             const isUser = message.role === "user";
 
             return (
@@ -238,21 +130,21 @@ export function PlanningChatPanel({
       </div>
 
       <div className="border-t border-border-subtle px-4 py-4 sm:px-5">
-        {errorMessage ? (
+        {chatController.errorMessage ? (
           <div
             role="alert"
             aria-live="assertive"
             aria-atomic="true"
             className="mb-3 rounded-2xl border border-state-error/30 bg-state-error/10 px-3 py-2 text-sm text-state-error"
           >
-            <p>{errorMessage}</p>
-            {shouldShowStartRetry ? (
+            <p>{chatController.errorMessage}</p>
+            {chatController.shouldShowStartRetry ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  void startClarification();
+                  void chatController.startClarification();
                 }}
                 className="mt-2 h-8 rounded-xl px-2 text-state-error hover:bg-state-error/20"
               >
@@ -270,10 +162,10 @@ export function PlanningChatPanel({
             id="planning-chat-message"
             name="planning-chat-message"
             rows={2}
-            value={draftMessage}
-            disabled={isComposerDisabled}
+            value={chatController.draftMessage}
+            disabled={chatController.isComposerDisabled}
             onChange={(event) => {
-              setDraftMessage(event.target.value);
+              chatController.setDraftMessage(event.target.value);
             }}
             onCompositionStart={() => {
               isImeComposingRef.current = true;
@@ -299,14 +191,14 @@ export function PlanningChatPanel({
           <Button
             type="button"
             size="icon-sm"
-            disabled={sendButtonDisabled}
+            disabled={chatController.sendButtonDisabled}
             onClick={() => {
-              void sendReply();
+              void chatController.sendReply();
             }}
             aria-label="Send message"
             className="rounded-full"
           >
-            {isStarting || isSubmittingReply ? (
+            {chatController.isStarting || chatController.isSubmittingReply ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <ArrowUp className="h-4 w-4" />

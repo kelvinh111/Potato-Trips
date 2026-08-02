@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 15C Planning Chat State Refactor and continue the approved pre-Kanban cleanup sequence.
+- Begin Spec 16A Current Layout and Visual Pass and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 15C Planning Chat State Refactor
-- Related spec: `context/feature-specs/15c-planning-chat-state-refactor.md`
+- Unit: Feature 16A Current Layout and Visual Pass
+- Related spec: `context/feature-specs/16a-current-layout-and-visual-pass.md`
 - Status: Ready / Next
 
 ## Completed
@@ -211,11 +211,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved existing generation start/retry behavior, polling cadence/backoff values, paused polling notice and manual recovery path, refresh restoration from persisted state, and generated/failure display outcomes
 - Confirmed no server endpoint, persistence schema, generation-attempt policy, or Trigger.dev behavior changes
 
+### Feature 15C: Planning Chat State Refactor
+- Added one focused client chat controller at `lib/planning-sessions/planning-chat-controller.ts` to own auto-start, draft state, submission state, request errors, and chat actions
+- Moved clarification start and reply API orchestration, auto-start sequencing, duplicate-submission guard, and request-state transitions out of `components/plan/planning-chat-panel.tsx`
+- Preserved composer availability for `CLARIFYING` and `READY_TO_GENERATE`, with existing disabled behavior for `GENERATING`, `GENERATED`, `FAILED`, and in-flight requests
+- Preserved message order and typed view-model derivation from initial prompt plus persisted clarification messages
+- Preserved existing Enter, Shift+Enter, and IME submission handling in the planning workspace presentation component
+- Preserved existing error and start-retry behavior and draft clear-on-success-only behavior
+- Added deterministic focused regression coverage in `scripts/planning-chat-controller-regression.ts` for auto-start gating, reply success, reply failure, retry, status-based disabling, and duplicate-submission prevention without live network, AI, or Trigger.dev
+- Confirmed no server endpoint, repository, Prisma schema, provider, generation controller, or UI visual-system changes
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 15C (`context/feature-specs/15c-planning-chat-state-refactor.md`)
 - Feature 16A (`context/feature-specs/16a-current-layout-and-visual-pass.md`)
 - Feature 16B (`context/feature-specs/16b-current-chat-interaction-pass.md`)
 - Feature 17 (`context/feature-specs/17-itinerary-kanban.md`)
@@ -312,6 +321,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- manual browser verification: refresh during `GENERATING` restored generation UI and resumed automatic `GET /api/planning-sessions/[sessionId]/generation` polling without another generation `POST` or additional Trigger.dev run
 	- manual browser verification: automatic polling paused after six consecutive blocked generation-status requests and displayed the existing paused polling notice
 	- manual browser verification: `Check status` recovered immediately after unblocking, reached `GENERATED`, and generated itinerary result persisted after refresh
+- Feature 15C checks:
+	- `npm run planning-chat-controller:regression`: pass
+	- targeted `eslint` for planning chat controller/panel/regression files: pass
+	- `npx tsc --noEmit`: pass
+	- `npm run lint`: pass
+	- `npm run build`: pass
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
