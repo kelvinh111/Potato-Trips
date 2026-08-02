@@ -57,6 +57,36 @@ interface PlanningChatSubmitLock {
   isLocked: () => boolean;
 }
 
+export interface PlanningChatStartLock {
+  acquire: () => boolean;
+  release: () => void;
+  isLocked: () => boolean;
+}
+
+export interface PlanningChatAutoStartState {
+  didAutoStart: boolean;
+}
+
+export interface PerformPlanningChatStartInput {
+  sessionId: string;
+  startLock: PlanningChatStartLock;
+  requestStart: (
+    sessionId: string,
+  ) => Promise<PlanningSessionClarificationApiSession>;
+  onStart: () => void;
+  onSuccess: (payload: PlanningSessionClarificationApiSession) => void;
+  onError: (message: string) => void;
+  onFinish: () => void;
+}
+
+export interface RunPlanningChatAutoStartInput {
+  autoStartState: PlanningChatAutoStartState;
+  status: PlanningSessionStatusValue;
+  hasAssistantMessage: boolean;
+  scheduleAutoStart: (callback: () => void) => void;
+  onAutoStart: () => void;
+}
+
 export interface PerformPlanningChatReplyInput {
   sessionId: string;
   draftMessage: string;
@@ -83,6 +113,27 @@ function createDefaultPlanningChatDependencies(): PlanningChatControllerDependen
 }
 
 export function createPlanningChatSubmitLock(): PlanningChatSubmitLock {
+  let locked = false;
+
+  return {
+    acquire() {
+      if (locked) {
+        return false;
+      }
+
+      locked = true;
+      return true;
+    },
+    release() {
+      locked = false;
+    },
+    isLocked() {
+      return locked;
+    },
+  };
+}
+
+export function createPlanningChatStartLock(): PlanningChatStartLock {
   let locked = false;
 
   return {
@@ -161,6 +212,53 @@ export function shouldShowPlanningChatStartRetry(input: {
   );
 }
 
+export function runPlanningChatAutoStart(
+  input: RunPlanningChatAutoStartInput,
+): boolean {
+  if (
+    !shouldAutoStartPlanningChat({
+      didAutoStart: input.autoStartState.didAutoStart,
+      status: input.status,
+      hasAssistantMessage: input.hasAssistantMessage,
+    })
+  ) {
+    return false;
+  }
+
+  input.autoStartState.didAutoStart = true;
+  input.scheduleAutoStart(() => {
+    input.onAutoStart();
+  });
+
+  return true;
+}
+
+export async function performPlanningChatStart(
+  input: PerformPlanningChatStartInput,
+): Promise<boolean> {
+  if (!input.startLock.acquire()) {
+    return false;
+  }
+
+  input.onStart();
+
+  try {
+    const payload = await input.requestStart(input.sessionId);
+    input.onSuccess(payload);
+    return true;
+  } catch (error) {
+    input.onError(
+      error instanceof Error
+        ? error.message
+        : "Unable to start clarification. Please try again.",
+    );
+    return false;
+  } finally {
+    input.startLock.release();
+    input.onFinish();
+  }
+}
+
 export async function performPlanningChatReply(
   input: PerformPlanningChatReplyInput,
 ): Promise<boolean> {
@@ -206,7 +304,10 @@ export function usePlanningChatController(
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
-  const didAutoStartRef = useRef(false);
+  const autoStartStateRef = useRef<PlanningChatAutoStartState>({
+    didAutoStart: false,
+  });
+  const startLockRef = useRef<PlanningChatStartLock>(createPlanningChatStartLock());
   const submitLockRef = useRef<PlanningChatSubmitLock>(createPlanningChatSubmitLock());
 
   const hasAssistantMessage = useMemo(
@@ -225,37 +326,35 @@ export function usePlanningChatController(
   );
 
   const startClarification = useCallback(async () => {
-    setErrorMessage(null);
-    setIsStarting(true);
-
-    try {
-      const payload = await dependencies.requestStart(input.sessionId);
-      input.onSessionUpdate(payload);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to start clarification. Please try again.",
-      );
-    } finally {
-      setIsStarting(false);
-    }
+    await performPlanningChatStart({
+      sessionId: input.sessionId,
+      startLock: startLockRef.current,
+      requestStart: dependencies.requestStart,
+      onStart: () => {
+        setErrorMessage(null);
+        setIsStarting(true);
+      },
+      onSuccess: (payload) => {
+        input.onSessionUpdate(payload);
+      },
+      onError: (message) => {
+        setErrorMessage(message);
+      },
+      onFinish: () => {
+        setIsStarting(false);
+      },
+    });
   }, [dependencies, input]);
 
   useEffect(() => {
-    if (
-      !shouldAutoStartPlanningChat({
-        didAutoStart: didAutoStartRef.current,
-        status: input.status,
-        hasAssistantMessage,
-      })
-    ) {
-      return;
-    }
-
-    didAutoStartRef.current = true;
-    dependencies.scheduleAutoStart(() => {
-      void startClarification();
+    runPlanningChatAutoStart({
+      autoStartState: autoStartStateRef.current,
+      status: input.status,
+      hasAssistantMessage,
+      scheduleAutoStart: dependencies.scheduleAutoStart,
+      onAutoStart: () => {
+        void startClarification();
+      },
     });
   }, [dependencies, hasAssistantMessage, input.status, startClarification]);
 

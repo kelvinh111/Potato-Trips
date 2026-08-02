@@ -3,9 +3,12 @@ import assert from "node:assert/strict";
 import type { PlanningSessionClarificationApiSession } from "@/lib/planning-sessions/client-api";
 import {
   buildPlanningChatMessageViewModels,
+  createPlanningChatStartLock,
   createPlanningChatSubmitLock,
   isPlanningChatComposerDisabled,
+  performPlanningChatStart,
   performPlanningChatReply,
+  runPlanningChatAutoStart,
   shouldAutoStartPlanningChat,
   shouldShowPlanningChatStartRetry,
 } from "@/lib/planning-sessions/planning-chat-controller";
@@ -63,6 +66,88 @@ async function autoStartAndViewModelChecks() {
   assert.equal(viewModels[0]?.content, "Plan a Japan trip");
   assert.equal(viewModels[1]?.role, "assistant");
   assert.equal(viewModels[2]?.role, "user");
+}
+
+async function autoStartSchedulingAndStartRequestChecks() {
+  const scheduledCallbacks: Array<() => void> = [];
+  const autoStartState = { didAutoStart: false };
+  const startLock = createPlanningChatStartLock();
+
+  let requestCount = 0;
+  let startCount = 0;
+  let finishCount = 0;
+  let updateCount = 0;
+  let errorMessage: string | null = null;
+
+  const scheduled = runPlanningChatAutoStart({
+    autoStartState,
+    status: "CLARIFYING",
+    hasAssistantMessage: false,
+    scheduleAutoStart: (callback) => {
+      scheduledCallbacks.push(callback);
+    },
+    onAutoStart: () => {
+      void performPlanningChatStart({
+        sessionId: "session-auto",
+        startLock,
+        requestStart: async () => {
+          requestCount += 1;
+          return createSessionPayload("CLARIFYING");
+        },
+        onStart: () => {
+          startCount += 1;
+          errorMessage = null;
+        },
+        onSuccess: () => {
+          updateCount += 1;
+        },
+        onError: (message) => {
+          errorMessage = message;
+        },
+        onFinish: () => {
+          finishCount += 1;
+        },
+      });
+    },
+  });
+
+  assert.equal(scheduled, true);
+  assert.equal(scheduledCallbacks.length, 1);
+  assert.equal(autoStartState.didAutoStart, true);
+
+  const scheduledAgain = runPlanningChatAutoStart({
+    autoStartState,
+    status: "CLARIFYING",
+    hasAssistantMessage: false,
+    scheduleAutoStart: (callback) => {
+      scheduledCallbacks.push(callback);
+    },
+    onAutoStart: () => {},
+  });
+
+  assert.equal(scheduledAgain, false);
+  assert.equal(scheduledCallbacks.length, 1);
+
+  scheduledCallbacks[0]?.();
+  await Promise.resolve();
+
+  assert.equal(requestCount, 1);
+  assert.equal(startCount, 1);
+  assert.equal(finishCount, 1);
+  assert.equal(updateCount, 1);
+  assert.equal(errorMessage, null);
+
+  const blockedByAssistant = runPlanningChatAutoStart({
+    autoStartState: { didAutoStart: false },
+    status: "CLARIFYING",
+    hasAssistantMessage: true,
+    scheduleAutoStart: (callback) => {
+      scheduledCallbacks.push(callback);
+    },
+    onAutoStart: () => {},
+  });
+
+  assert.equal(blockedByAssistant, false);
 }
 
 async function statusDisablingChecks() {
@@ -274,9 +359,154 @@ async function replySuccessFailureRetryAndDuplicateChecks() {
   assert.equal(await sharedFirst, true);
 }
 
+async function startSuccessFailureRetryAndDuplicateChecks() {
+  const lock = createPlanningChatStartLock();
+  let startCalls = 0;
+  let starts = 0;
+  let finishes = 0;
+  let updates = 0;
+  let errorMessage: string | null = null;
+
+  const success = await performPlanningChatStart({
+    sessionId: "session-start-success",
+    startLock: lock,
+    requestStart: async () => {
+      startCalls += 1;
+      return createSessionPayload("CLARIFYING");
+    },
+    onStart: () => {
+      starts += 1;
+      errorMessage = null;
+    },
+    onSuccess: () => {
+      updates += 1;
+    },
+    onError: (message) => {
+      errorMessage = message;
+    },
+    onFinish: () => {
+      finishes += 1;
+    },
+  });
+
+  assert.equal(success, true);
+  assert.equal(startCalls, 1);
+  assert.equal(starts, 1);
+  assert.equal(updates, 1);
+  assert.equal(finishes, 1);
+  assert.equal(errorMessage, null);
+
+  const failure = await performPlanningChatStart({
+    sessionId: "session-start-failure",
+    startLock: lock,
+    requestStart: async () => {
+      startCalls += 1;
+      throw new Error("Start failed");
+    },
+    onStart: () => {
+      starts += 1;
+      errorMessage = null;
+    },
+    onSuccess: () => {
+      updates += 1;
+    },
+    onError: (message) => {
+      errorMessage = message;
+    },
+    onFinish: () => {
+      finishes += 1;
+    },
+  });
+
+  assert.equal(failure, false);
+  assert.equal(errorMessage, "Start failed");
+
+  const retrySuccess = await performPlanningChatStart({
+    sessionId: "session-start-retry",
+    startLock: lock,
+    requestStart: async () => {
+      startCalls += 1;
+      return createSessionPayload("READY_TO_GENERATE");
+    },
+    onStart: () => {
+      starts += 1;
+      errorMessage = null;
+    },
+    onSuccess: () => {
+      updates += 1;
+    },
+    onError: (message) => {
+      errorMessage = message;
+    },
+    onFinish: () => {
+      finishes += 1;
+    },
+  });
+
+  assert.equal(retrySuccess, true);
+  assert.equal(errorMessage, null);
+
+  const sharedLock = createPlanningChatStartLock();
+  let concurrentRequests = 0;
+  let resolvePendingStart!: (value: PlanningSessionClarificationApiSession) => void;
+  const pendingStart = new Promise<PlanningSessionClarificationApiSession>((resolve) => {
+    resolvePendingStart = resolve;
+  });
+
+  const first = performPlanningChatStart({
+    sessionId: "session-start-dup",
+    startLock: sharedLock,
+    requestStart: async () => {
+      concurrentRequests += 1;
+      return await pendingStart;
+    },
+    onStart: () => {
+      starts += 1;
+    },
+    onSuccess: () => {
+      updates += 1;
+    },
+    onError: (message) => {
+      errorMessage = message;
+    },
+    onFinish: () => {
+      finishes += 1;
+    },
+  });
+
+  const second = await performPlanningChatStart({
+    sessionId: "session-start-dup",
+    startLock: sharedLock,
+    requestStart: async () => {
+      concurrentRequests += 1;
+      return createSessionPayload("CLARIFYING");
+    },
+    onStart: () => {
+      starts += 1;
+    },
+    onSuccess: () => {
+      updates += 1;
+    },
+    onError: (message) => {
+      errorMessage = message;
+    },
+    onFinish: () => {
+      finishes += 1;
+    },
+  });
+
+  assert.equal(second, false);
+  assert.equal(concurrentRequests, 1);
+
+  resolvePendingStart(createSessionPayload("CLARIFYING"));
+  assert.equal(await first, true);
+}
+
 async function run() {
   await autoStartAndViewModelChecks();
+  await autoStartSchedulingAndStartRequestChecks();
   await statusDisablingChecks();
+  await startSuccessFailureRetryAndDuplicateChecks();
   await replySuccessFailureRetryAndDuplicateChecks();
 
   console.log("planning-chat-controller-regression: pass");
