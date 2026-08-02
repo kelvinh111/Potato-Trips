@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import logoImage from "@/public/img/logo.png";
 
 function UserAvatarFallback({ initials }: { initials: string }) {
   return (
@@ -48,14 +49,16 @@ export function AppHeader() {
           className="inline-flex items-center gap-2 rounded-xl px-1 py-1 text-sm font-semibold tracking-wide text-text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent-primary-dim sm:text-base"
         >
           <Image
-            src="/img/logo.png"
+            src={logoImage}
             alt=""
             aria-hidden="true"
-            width={28}
-            height={28}
-            className="h-7 w-7 rounded-full"
+            className="h-7 w-auto"
           />
           <span>Potato Trips</span>
+          <span
+            aria-hidden="true"
+            className="size-2 rounded-full bg-accent-warm"
+          />
         </Link>
 
         {isSignedIn === false && (
@@ -66,7 +69,10 @@ export function AppHeader() {
               </Button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <Button type="button" className="rounded-xl">
+              <Button
+                type="button"
+                className="rounded-xl bg-accent-secondary text-text-primary hover:bg-accent-secondary-hover"
+              >
                 Sign Up
               </Button>
             </SignUpButton>

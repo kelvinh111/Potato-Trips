@@ -82,10 +82,11 @@ export function PlanningChatPanel({
   };
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-border-default bg-bg-surface shadow-sm">
-      <header className="border-b border-border-subtle px-4 py-4 sm:px-5">
-        <h2 className="text-base font-semibold text-text-primary">Planning Chat</h2>
-      </header>
+    <section
+      aria-label="Planning chat panel"
+      className="flex min-h-0 flex-col overflow-hidden rounded-3xl bg-bg-surface"
+    >
+      <h2 className="sr-only">Planning Chat</h2>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
         <div
@@ -129,7 +130,7 @@ export function PlanningChatPanel({
         </div>
       </div>
 
-      <div className="border-t border-border-subtle px-4 py-4 sm:px-5">
+      <div className="border-t border-border-subtle/70 px-4 py-4 sm:px-5">
         {chatController.errorMessage ? (
           <div
             role="alert"

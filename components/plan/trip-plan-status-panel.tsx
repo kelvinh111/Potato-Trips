@@ -50,14 +50,20 @@ export function TripPlanStatusPanel({
   const canGenerate =
     status === "READY_TO_GENERATE" || status === "FAILED";
 
+  const generateButtonClassName =
+    status === "READY_TO_GENERATE"
+      ? "w-full rounded-2xl bg-accent-secondary text-text-primary hover:bg-accent-secondary-hover"
+      : "w-full rounded-2xl";
+
   return (
-    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-border-default bg-bg-surface shadow-sm">
-      <header className="border-b border-border-subtle px-4 py-4 sm:px-6">
-        <h2 className="text-base font-semibold text-text-primary">Trip Plan Status</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Review captured trip requirements before generation.
-        </p>
-      </header>
+    <section
+      aria-label="Trip plan status panel"
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl bg-bg-surface"
+    >
+      <h2 className="sr-only">Trip Plan Status</h2>
+      <p className="px-4 pt-4 text-sm text-text-secondary sm:px-6">
+        Review captured trip requirements before generation.
+      </p>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
         <ul className="space-y-3">
@@ -145,7 +151,7 @@ export function TripPlanStatusPanel({
                 void startGeneration();
               }}
               disabled={!canGenerate || isStartingGeneration}
-              className="w-full rounded-2xl"
+              className={generateButtonClassName}
             >
               {isStartingGeneration ? (
                 <span className="inline-flex items-center gap-2">

@@ -155,7 +155,7 @@ export function TripPrompt() {
 
   return (
     <section className="flex w-full flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-2xl rounded-3xl border border-border-default bg-bg-surface shadow-sm">
+      <Card className="w-full max-w-2xl rounded-3xl border-0 bg-bg-surface shadow-none ring-0">
         <CardContent className="space-y-5 px-4 pb-5 pt-6 sm:px-6 sm:pt-7">
           <div className="space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
