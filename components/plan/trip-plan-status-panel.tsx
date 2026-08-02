@@ -61,6 +61,9 @@ export function TripPlanStatusPanel({
       className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl bg-bg-surface"
     >
       <h2 className="sr-only">Trip Plan Status</h2>
+      <p className="px-4 pt-4 text-sm text-text-secondary sm:px-6">
+        Review captured trip requirements before generation.
+      </p>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
         <ul className="space-y-3">
