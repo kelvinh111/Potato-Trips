@@ -1,198 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { PlanningChatPanel } from "@/components/plan/planning-chat-panel";
 import { ReservedMapSlot } from "@/components/plan/reserved-map-slot";
 import { TripPlanStatusPanel } from "@/components/plan/trip-plan-status-panel";
 import {
-  requestPlanningSessionGenerationStart,
-  requestPlanningSessionGenerationState,
-  type PlanningSessionClarificationApiSession,
-} from "@/lib/planning-sessions/client-api";
+  usePlanningSessionGenerationController,
+} from "@/lib/planning-sessions/generation-controller";
 import type { PlanningSessionRecord } from "@/lib/planning-sessions/repository";
-import {
-  type PersistedItinerary,
-  type PlanningBrief,
-  type PlanningSessionClarificationMessages,
-  type PlanningSessionGenerationPhaseValue,
-  type PlanningSessionStatusValue,
-} from "@/lib/planning-sessions/types";
 
 interface ItineraryWorkspaceRuntimeProps {
   session: PlanningSessionRecord;
 }
 
-interface WorkspaceSessionState {
-  status: PlanningSessionStatusValue;
-  clarificationMessages: PlanningSessionClarificationMessages;
-  planningBrief: PlanningBrief | null;
-  generationPhase: PlanningSessionGenerationPhaseValue | null;
-  generatedItinerary: PersistedItinerary | null;
-  generationAttempts: number;
-  generationError: string | null;
-}
-
-const POLL_BASE_INTERVAL_MS = 2500;
-const POLL_MAX_BACKOFF_MS = 30000;
-const POLL_FAILURE_PAUSE_THRESHOLD = 6;
-
 export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntimeProps) {
-  const [state, setState] = useState<WorkspaceSessionState>({
-    status: session.status,
-    clarificationMessages: session.clarificationMessages,
-    planningBrief: session.planningBrief,
-    generationPhase: session.generationPhase,
-    generatedItinerary: session.generatedItinerary,
-    generationAttempts: session.generationAttempts,
-    generationError: session.generationError,
+  const generationController = usePlanningSessionGenerationController({
+    sessionId: session.id,
+    initialSessionState: {
+      status: session.status,
+      clarificationMessages: session.clarificationMessages,
+      planningBrief: session.planningBrief,
+      generationPhase: session.generationPhase,
+      generatedItinerary: session.generatedItinerary,
+      generationAttempts: session.generationAttempts,
+      generationError: session.generationError,
+    },
   });
-  const [isStartingGeneration, setIsStartingGeneration] = useState(false);
-  const [isRefreshingGenerationState, setIsRefreshingGenerationState] =
-    useState(false);
-  const [generationRequestError, setGenerationRequestError] = useState<string | null>(
-    null,
-  );
-  const [generationPollingNotice, setGenerationPollingNotice] = useState<string | null>(
-    null,
-  );
-  const [consecutivePollFailures, setConsecutivePollFailures] = useState(0);
-  const [generatingPollCycle, setGeneratingPollCycle] = useState(0);
-  const [isPollingPaused, setIsPollingPaused] = useState(false);
-
-  const mergedGenerationError = generationRequestError ?? state.generationError;
-
-  const resetGenerationPollingState = useCallback(() => {
-    setGenerationPollingNotice(null);
-    setConsecutivePollFailures(0);
-    setGeneratingPollCycle(0);
-    setIsPollingPaused(false);
-  }, []);
-
-  const applyClarificationSession = useCallback((nextSession: PlanningSessionClarificationApiSession) => {
-    setGenerationRequestError(null);
-    setState(nextSession);
-
-    if (nextSession.status !== "GENERATING") {
-      resetGenerationPollingState();
-    }
-  }, [resetGenerationPollingState]);
-
-  const refreshGenerationState = useCallback(async (options?: { fromPolling?: boolean }) => {
-    const fromPolling = options?.fromPolling ?? false;
-
-    if (fromPolling && isPollingPaused) {
-      return;
-    }
-
-    if (!fromPolling) {
-      setIsRefreshingGenerationState(true);
-      setGenerationRequestError(null);
-      resetGenerationPollingState();
-    }
-
-    try {
-      const nextGenerationState = await requestPlanningSessionGenerationState(
-        session.id,
-      );
-      setGenerationRequestError(null);
-      setState((previous) => ({
-        ...previous,
-        ...nextGenerationState,
-      }));
-
-      if (nextGenerationState.status !== "GENERATING") {
-        resetGenerationPollingState();
-      }
-
-      setConsecutivePollFailures(0);
-
-      if (nextGenerationState.status === "GENERATING") {
-        setGeneratingPollCycle((previousCycle) => previousCycle + 1);
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to refresh generation status.";
-
-      setGenerationRequestError(message);
-
-      if (!fromPolling) {
-        return;
-      }
-
-      setConsecutivePollFailures((previousFailures) => {
-        const nextFailures = previousFailures + 1;
-        if (nextFailures >= POLL_FAILURE_PAUSE_THRESHOLD) {
-          setGenerationPollingNotice(
-            "Unable to refresh generation status right now. Auto-refresh is paused. Please check status again.",
-          );
-          setIsPollingPaused(true);
-        }
-
-        return nextFailures;
-      });
-    } finally {
-      if (!fromPolling) {
-        setIsRefreshingGenerationState(false);
-      }
-    }
-  }, [isPollingPaused, resetGenerationPollingState, session.id]);
-
-  const handleGenerateTrip = useCallback(async () => {
-    setGenerationRequestError(null);
-    resetGenerationPollingState();
-    setIsStartingGeneration(true);
-
-    try {
-      const nextGenerationState = await requestPlanningSessionGenerationStart(
-        session.id,
-      );
-      setState((previous) => ({
-        ...previous,
-        ...nextGenerationState,
-      }));
-
-      if (nextGenerationState.status !== "GENERATING") {
-        resetGenerationPollingState();
-      }
-    } catch (error) {
-      setGenerationRequestError(
-        error instanceof Error
-          ? error.message
-          : "Unable to start generation. Please try again.",
-      );
-    } finally {
-      setIsStartingGeneration(false);
-    }
-  }, [resetGenerationPollingState, session.id]);
-
-  useEffect(() => {
-    if (state.status !== "GENERATING" || isPollingPaused) {
-      return;
-    }
-
-    const backoffExponent = Math.max(0, consecutivePollFailures - 1);
-    const nextDelay = Math.min(
-      POLL_MAX_BACKOFF_MS,
-      POLL_BASE_INTERVAL_MS * 2 ** backoffExponent,
-    );
-
-    const timeoutId = window.setTimeout(() => {
-      void refreshGenerationState({ fromPolling: true });
-    }, nextDelay);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    consecutivePollFailures,
-    generatingPollCycle,
-    isPollingPaused,
-    refreshGenerationState,
-    state.status,
-  ]);
+  const state = generationController.sessionState;
 
   const showStatusPanel = useMemo(() => state.status !== "GENERATED", [state.status]);
   const showMapSlot = useMemo(() => state.status === "GENERATED", [state.status]);
@@ -209,25 +44,12 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
           initialPrompt={session.initialPrompt}
           status={state.status}
           clarificationMessages={state.clarificationMessages}
-          onSessionUpdate={applyClarificationSession}
+          onSessionUpdate={generationController.applyClarificationSession}
         />
 
         {showStatusPanel ? (
           <TripPlanStatusPanel
-            status={state.status}
-            planningBrief={state.planningBrief}
-            generationPhase={state.generationPhase}
-            generationError={mergedGenerationError}
-            generationPollingNotice={generationPollingNotice}
-            isRefreshingGenerationState={isRefreshingGenerationState}
-            generationAttempts={state.generationAttempts}
-            isStartingGeneration={isStartingGeneration}
-            onGenerateTrip={() => {
-              void handleGenerateTrip();
-            }}
-            onRefreshGenerationState={() => {
-              void refreshGenerationState();
-            }}
+            generationController={generationController}
           />
         ) : (
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-border-default bg-bg-surface shadow-sm">

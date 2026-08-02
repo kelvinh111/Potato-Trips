@@ -4,23 +4,14 @@ import { Loader2 } from "lucide-react";
 
 import { AssistantMarkdown } from "@/components/plan/assistant-markdown";
 import { Button } from "@/components/ui/button";
+import type { PlanningSessionGenerationController } from "@/lib/planning-sessions/generation-controller";
 import type {
   PlanningBrief,
   PlanningSessionGenerationPhaseValue,
-  PlanningSessionStatusValue,
 } from "@/lib/planning-sessions/types";
 
 interface TripPlanStatusPanelProps {
-  status: PlanningSessionStatusValue;
-  planningBrief: PlanningBrief | null;
-  generationPhase: PlanningSessionGenerationPhaseValue | null;
-  generationError: string | null;
-  generationPollingNotice: string | null;
-  isRefreshingGenerationState: boolean;
-  generationAttempts: number;
-  isStartingGeneration: boolean;
-  onGenerateTrip: () => void;
-  onRefreshGenerationState: () => void;
+  generationController: PlanningSessionGenerationController;
 }
 
 interface RequirementViewModel {
@@ -37,17 +28,23 @@ const generationPhaseLabels: Record<PlanningSessionGenerationPhaseValue, string>
 };
 
 export function TripPlanStatusPanel({
-  status,
-  planningBrief,
-  generationPhase,
-  generationError,
-  generationPollingNotice,
-  isRefreshingGenerationState,
-  generationAttempts,
-  isStartingGeneration,
-  onGenerateTrip,
-  onRefreshGenerationState,
+  generationController,
 }: TripPlanStatusPanelProps) {
+  const {
+    sessionState,
+    generationError,
+    generationPollingNotice,
+    isRefreshingGenerationState,
+    isStartingGeneration,
+    startGeneration,
+    refreshGenerationState,
+  } = generationController;
+
+  const status = sessionState.status;
+  const planningBrief = sessionState.planningBrief;
+  const generationPhase = sessionState.generationPhase;
+  const generationAttempts = sessionState.generationAttempts;
+
   const requirements = buildRequirementRows(planningBrief);
 
   const canGenerate =
@@ -129,7 +126,9 @@ export function TripPlanStatusPanel({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={onRefreshGenerationState}
+              onClick={() => {
+                void refreshGenerationState();
+              }}
               disabled={isRefreshingGenerationState}
               className="mt-2 rounded-xl px-2"
             >
@@ -142,7 +141,9 @@ export function TripPlanStatusPanel({
           <div className="mt-4">
             <Button
               type="button"
-              onClick={onGenerateTrip}
+              onClick={() => {
+                void startGeneration();
+              }}
               disabled={!canGenerate || isStartingGeneration}
               className="w-full rounded-2xl"
             >
