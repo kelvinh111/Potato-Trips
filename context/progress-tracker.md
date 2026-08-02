@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete Feature 15C manual browser verification before starting Spec 16A.
+- Begin Spec 16A Current Layout and Visual Pass and continue the approved pre-Kanban cleanup sequence.
 
 ## Current Feature Unit
-- Unit: Feature 15C Planning Chat State Refactor
-- Related spec: `context/feature-specs/15c-planning-chat-state-refactor.md`
-- Status: Pending Manual Verification
+- Unit: Feature 16A Current Layout and Visual Pass
+- Related spec: `context/feature-specs/16a-current-layout-and-visual-pass.md`
+- Status: Ready / Next
 
 ## Completed
 
@@ -222,7 +222,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Confirmed no server endpoint, repository, Prisma schema, provider, generation controller, or UI visual-system changes
 
 ## In Progress
-- Feature 15C manual browser verification.
+- None.
 
 ## Next Up
 - Feature 16A (`context/feature-specs/16a-current-layout-and-visual-pass.md`)
@@ -327,7 +327,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npx tsc --noEmit`: pass
 	- `npm run lint`: pass
 	- `npm run build`: pass
-	- manual browser verification: pending
+	- manual browser verification: auto-start remained idempotent across refresh and did not create duplicate first-assistant clarification requests
+	- manual browser verification: start failure surfaced existing error state and Retry successfully resumed clarification start behavior
+	- manual browser verification: reply failure preserved draft text and successful retry cleared draft only after persisted reply success
+	- manual browser verification: persisted messages restored in expected prompt-plus-history order across refresh
+	- manual browser verification: composer availability/disabled states matched existing status and in-flight request behavior
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
