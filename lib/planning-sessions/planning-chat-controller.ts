@@ -51,7 +51,7 @@ interface PlanningChatControllerDependencies {
   scheduleAutoStart: (callback: () => void) => void;
 }
 
-interface PlanningChatSubmitLock {
+export interface PlanningChatSubmitLock {
   acquire: () => boolean;
   release: () => void;
   isLocked: () => boolean;
