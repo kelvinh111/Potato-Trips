@@ -3,6 +3,7 @@
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import {
   FormEvent,
+  KeyboardEventHandler,
   useEffect,
   useRef,
   useState,
@@ -36,6 +37,8 @@ export function TripPrompt() {
   const [errorKind, setErrorKind] = useState<PromptErrorKind | null>(null);
   const errorSequenceRef = useRef(0);
   const errorTimerRef = useRef<number | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const isImeComposingRef = useRef(false);
 
   const scheduleErrorMessage = (message: string, kind: PromptErrorKind) => {
     errorSequenceRef.current += 1;
@@ -153,6 +156,34 @@ export function TripPrompt() {
     }
   };
 
+  const handlePromptKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (
+    event,
+  ) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    const nativeEvent = event.nativeEvent as KeyboardEvent;
+    const isComposingIme =
+      nativeEvent.isComposing || nativeEvent.keyCode === 229;
+
+    if (isImeComposingRef.current) {
+      if (!isComposingIme) {
+        // Treat this Enter as IME candidate confirmation and require another Enter to submit.
+        isImeComposingRef.current = false;
+      }
+
+      return;
+    }
+
+    if (isComposingIme) {
+      return;
+    }
+
+    event.preventDefault();
+    formRef.current?.requestSubmit();
+  };
+
   return (
     <section className="flex w-full flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
       <Card className="w-full max-w-2xl rounded-3xl border-0 bg-bg-surface shadow-none ring-0">
@@ -167,7 +198,7 @@ export function TripPrompt() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="relative space-y-3">
+          <form ref={formRef} onSubmit={handleSubmit} className="relative space-y-3">
             <label htmlFor="trip-prompt" className="sr-only">
               Describe your trip
             </label>
@@ -180,6 +211,16 @@ export function TripPrompt() {
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 disabled={isSubmitting}
+                onCompositionStart={() => {
+                  isImeComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  isImeComposingRef.current = false;
+                }}
+                onBlur={() => {
+                  isImeComposingRef.current = false;
+                }}
+                onKeyDown={handlePromptKeyDown}
                 aria-invalid={errorKind === "validation" ? "true" : "false"}
                 aria-describedby={errorMessage ? "trip-prompt-error" : undefined}
                 className="resize-none rounded-2xl border-border-default bg-bg-surface pr-12 text-text-primary placeholder:text-text-faint"
