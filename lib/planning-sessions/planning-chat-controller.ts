@@ -184,12 +184,12 @@ export function buildPlanningChatConversationMessages(
       ? []
       : [
           {
-            id: "pending-user",
+            id: `persisted-${persistedMessages.length}`,
             role: "user",
             content: pendingReply.message,
           },
           {
-            id: "pending-assistant",
+            id: `persisted-${persistedMessages.length + 1}`,
             role: "assistant",
             content: "Thinking...",
           },
