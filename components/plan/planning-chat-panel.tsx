@@ -84,7 +84,7 @@ export function PlanningChatPanel({
   return (
     <section
       aria-label="Planning chat panel"
-      className="flex min-h-0 flex-col overflow-hidden rounded-3xl bg-bg-surface"
+      className="flex min-h-0 flex-col overflow-hidden rounded-3xl bg-bg-surface lg:h-full"
     >
       <h2 className="sr-only">Planning Chat</h2>
 

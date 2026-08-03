@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import type { PlanningSessionClarificationApiSession } from "@/lib/planning-sessions/client-api";
 import {
+  buildPlanningChatConversationMessages,
   buildPlanningChatMessageViewModels,
   createPlanningChatStartLock,
   createPlanningChatSubmitLock,
@@ -66,6 +67,18 @@ async function autoStartAndViewModelChecks() {
   assert.equal(viewModels[0]?.content, "Plan a Japan trip");
   assert.equal(viewModels[1]?.role, "assistant");
   assert.equal(viewModels[2]?.role, "user");
+
+  const withPending = buildPlanningChatConversationMessages(
+    "Plan a Japan trip",
+    persisted,
+    { message: "Please include Nara" },
+  );
+
+  assert.equal(withPending.length, 5);
+  assert.equal(withPending[3]?.role, "user");
+  assert.equal(withPending[3]?.content, "Please include Nara");
+  assert.equal(withPending[4]?.role, "assistant");
+  assert.equal(withPending[4]?.content, "Thinking...");
 }
 
 async function autoStartSchedulingAndStartRequestChecks() {
@@ -215,16 +228,19 @@ async function replySuccessFailureRetryAndDuplicateChecks() {
       sentMessages.push(message);
       return createSessionPayload("CLARIFYING");
     },
-    onStart: () => {
+    onStart: (submittedMessage) => {
       errorMessage = null;
       submitting = true;
-    },
-    onSuccess: () => {
       draftMessage = "";
+      assert.equal(submittedMessage, "Tokyo in April");
+    },
+    onSuccess: (_payload, submittedMessage) => {
+      assert.equal(submittedMessage, "Tokyo in April");
       sessionUpdates += 1;
     },
-    onError: (message) => {
+    onError: (message, submittedMessage) => {
       errorMessage = message;
+      draftMessage = submittedMessage;
     },
     onFinish: () => {
       submitting = false;
@@ -248,15 +264,19 @@ async function replySuccessFailureRetryAndDuplicateChecks() {
       attempts += 1;
       throw new Error("Temporary outage");
     },
-    onStart: () => {
+    onStart: (submittedMessage) => {
       submitting = true;
       errorMessage = null;
+      draftMessage = "";
+      assert.equal(submittedMessage, "Need vegetarian options");
     },
-    onSuccess: () => {
+    onSuccess: (_payload, submittedMessage) => {
+      assert.equal(submittedMessage, "Need vegetarian options");
       sessionUpdates += 1;
     },
-    onError: (message) => {
+    onError: (message, submittedMessage) => {
       errorMessage = message;
+      draftMessage = submittedMessage;
     },
     onFinish: () => {
       submitting = false;
@@ -267,6 +287,7 @@ async function replySuccessFailureRetryAndDuplicateChecks() {
   assert.equal(attempts, 1);
   assert.equal(errorMessage, "Temporary outage");
   assert.equal(submitting, false);
+  assert.equal(draftMessage, "Need vegetarian options");
 
   const retried = await performPlanningChatReply({
     sessionId: "session-2",
@@ -277,16 +298,19 @@ async function replySuccessFailureRetryAndDuplicateChecks() {
       attempts += 1;
       return createSessionPayload("READY_TO_GENERATE");
     },
-    onStart: () => {
+    onStart: (submittedMessage) => {
       submitting = true;
       errorMessage = null;
-    },
-    onSuccess: () => {
-      sessionUpdates += 1;
       draftMessage = "";
+      assert.equal(submittedMessage, "Need vegetarian options");
     },
-    onError: (message) => {
+    onSuccess: (_payload, submittedMessage) => {
+      assert.equal(submittedMessage, "Need vegetarian options");
+      sessionUpdates += 1;
+    },
+    onError: (message, submittedMessage) => {
       errorMessage = message;
+      draftMessage = submittedMessage;
     },
     onFinish: () => {
       submitting = false;

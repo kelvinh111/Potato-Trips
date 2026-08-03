@@ -17,7 +17,7 @@ type PlanViewState = "unavailable" | "expired";
 
 function PlanPageFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-bg-base">
+    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-bg-base lg:h-screen lg:overflow-hidden">
       <AppHeader />
       {children}
     </div>

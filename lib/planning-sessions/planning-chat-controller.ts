@@ -18,6 +18,10 @@ export interface PlanningChatMessageViewModel {
   content: string;
 }
 
+export interface PendingPlanningChatReply {
+  message: string;
+}
+
 export interface PlanningChatController {
   conversationMessages: PlanningChatMessageViewModel[];
   draftMessage: string;
@@ -96,9 +100,12 @@ export interface PerformPlanningChatReplyInput {
     sessionId: string,
     message: string,
   ) => Promise<PlanningSessionClarificationApiSession>;
-  onStart: () => void;
-  onSuccess: (payload: PlanningSessionClarificationApiSession) => void;
-  onError: (message: string) => void;
+  onStart: (submittedMessage: string) => void;
+  onSuccess: (
+    payload: PlanningSessionClarificationApiSession,
+    submittedMessage: string,
+  ) => void;
+  onError: (message: string, submittedMessage: string) => void;
   onFinish: () => void;
 }
 
@@ -158,11 +165,35 @@ export function buildPlanningChatMessageViewModels(
   initialPrompt: string,
   clarificationMessages: PlanningSessionClarificationMessages,
 ): PlanningChatMessageViewModel[] {
+  return buildPlanningChatConversationMessages(initialPrompt, clarificationMessages, null);
+}
+
+export function buildPlanningChatConversationMessages(
+  initialPrompt: string,
+  clarificationMessages: PlanningSessionClarificationMessages,
+  pendingReply: PendingPlanningChatReply | null,
+): PlanningChatMessageViewModel[] {
   const persistedMessages = clarificationMessages.map((message, index) => ({
     id: `persisted-${index}`,
     role: message.role,
     content: message.content,
   }));
+
+  const pendingMessages: PlanningChatMessageViewModel[] =
+    pendingReply === null
+      ? []
+      : [
+          {
+            id: "pending-user",
+            role: "user",
+            content: pendingReply.message,
+          },
+          {
+            id: "pending-assistant",
+            role: "assistant",
+            content: "Thinking...",
+          },
+        ];
 
   return [
     {
@@ -171,6 +202,7 @@ export function buildPlanningChatMessageViewModels(
       content: initialPrompt,
     },
     ...persistedMessages,
+    ...pendingMessages,
   ];
 }
 
@@ -268,17 +300,18 @@ export async function performPlanningChatReply(
     return false;
   }
 
-  input.onStart();
+  input.onStart(trimmed);
 
   try {
     const payload = await input.requestReply(input.sessionId, trimmed);
-    input.onSuccess(payload);
+    input.onSuccess(payload, trimmed);
     return true;
   } catch (error) {
     input.onError(
       error instanceof Error
         ? error.message
         : "Unable to send message. Please try again.",
+      trimmed,
     );
     return false;
   } finally {
@@ -303,6 +336,9 @@ export function usePlanningChatController(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [pendingReply, setPendingReply] = useState<PendingPlanningChatReply | null>(
+    null,
+  );
 
   const autoStartStateRef = useRef<PlanningChatAutoStartState>({
     didAutoStart: false,
@@ -318,11 +354,12 @@ export function usePlanningChatController(
 
   const conversationMessages = useMemo(
     () =>
-      buildPlanningChatMessageViewModels(
+      buildPlanningChatConversationMessages(
         input.initialPrompt,
         input.clarificationMessages,
+        pendingReply,
       ),
-    [input.clarificationMessages, input.initialPrompt],
+    [input.clarificationMessages, input.initialPrompt, pendingReply],
   );
 
   const startClarification = useCallback(async () => {
@@ -371,15 +408,20 @@ export function usePlanningChatController(
       isComposerDisabled,
       submitLock: submitLockRef.current,
       requestReply: dependencies.requestReply,
-      onStart: () => {
+      onStart: (submittedMessage) => {
         setErrorMessage(null);
+        setPendingReply({ message: submittedMessage });
+        setDraftMessage("");
         setIsSubmittingReply(true);
       },
       onSuccess: (payload) => {
+        setPendingReply(null);
         setDraftMessage("");
         input.onSessionUpdate(payload);
       },
-      onError: (message) => {
+      onError: (message, submittedMessage) => {
+        setPendingReply(null);
+        setDraftMessage(submittedMessage);
         setErrorMessage(message);
       },
       onFinish: () => {

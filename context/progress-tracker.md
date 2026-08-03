@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Spec 16B Current Chat Interaction Pass and continue the approved pre-Kanban cleanup sequence.
+- Complete manual browser verification for Spec 16B Current Chat Interaction Pass.
 
 ## Current Feature Unit
 - Unit: Feature 16B Current Chat Interaction Pass
 - Related spec: `context/feature-specs/16b-current-chat-interaction-pass.md`
-- Status: Ready / Next
+- Status: Implemented / Pending manual verification
 
 ## Completed
 
@@ -230,11 +230,21 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Applied selective secondary/warm palette accents through semantic tokens (yellow secondary action emphasis and small warm logo accent) while keeping teal as primary and warning/orange usage scoped
 - Preserved Home and planning behavior (validation, submission, clarification/generation/retry/polling flows, responsive stacking, and map visibility rules)
 
+### Feature 16B: Current Chat Interaction Pass
+- Added temporary optimistic clarification reply rendering in `lib/planning-sessions/planning-chat-controller.ts` by appending a pending user bubble and assistant `Thinking...` bubble immediately after valid submit
+- Preserved server-authoritative reconciliation by clearing pending bubbles and replacing view state with persisted server messages on successful clarification reply
+- Added failure rollback behavior in `lib/planning-sessions/planning-chat-controller.ts` to remove temporary bubbles, restore submitted draft text, and retain existing error reporting behavior
+- Added explicit conversation builder support for pending reply view state in `buildPlanningChatConversationMessages()` and covered it in deterministic regression
+- Constrained desktop planning-page overflow in `app/plan/[sessionId]/page.tsx` so the planning workspace columns can maintain internal panel scrolling
+- Preserved planning chat panel internal scrolling and ensured full-height desktop containment in `components/plan/planning-chat-panel.tsx`
+- Added Home prompt keyboard behavior in `components/home/trip-prompt.tsx`: Enter submits valid prompt, Shift+Enter keeps newline, IME composition does not accidentally submit
+- Extended deterministic checks in `scripts/planning-chat-controller-regression.ts` for pending bubble composition and reply lifecycle callbacks (start/success/error draft behavior)
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 16B (`context/feature-specs/16b-current-chat-interaction-pass.md`)
+- Feature 16B manual browser verification (`context/feature-specs/16b-current-chat-interaction-pass.md`)
 - Feature 17 (`context/feature-specs/17-itinerary-kanban.md`)
 
 ## Blockers
@@ -318,6 +328,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npx tsc --noEmit`: pass
 	- `git diff --check`: pass
 	- `npm run build`: pass
+- Feature 16B checks:
+	- `npm run planning-chat-controller:regression`: pass
+	- `npm run lint`: pass
+	- `npm run build`: pass
+	- `git diff --check`: pass
+	- manual browser verification: pending
 - Feature 15B checks:
 	- `npm run generation-controller:regression`: pass
 	- targeted `eslint` for generation controller/runtime/status-panel/regression files: pass
