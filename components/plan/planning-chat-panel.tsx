@@ -84,31 +84,32 @@ export function PlanningChatPanel({
   return (
     <section
       aria-label="Planning chat panel"
-      className="flex min-h-0 flex-col overflow-hidden rounded-3xl bg-bg-surface lg:h-full"
+      className="flex min-h-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-chat lg:h-full"
     >
       <h2 className="sr-only">Planning Chat</h2>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-        <div
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
-          aria-atomic="false"
-          className="space-y-3"
-        >
-          {chatController.conversationMessages.map((message) => {
-            const isUser = message.role === "user";
+      <div className="min-h-0 flex-1 py-6 pl-6 pr-3 sm:py-5 sm:pl-5 sm:pr-3">
+        <div className="h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.95)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/95 [&::-webkit-scrollbar-corner]:bg-transparent sm:pr-2">
+          <div
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions text"
+            aria-atomic="false"
+            className="space-y-3"
+          >
+            {chatController.conversationMessages.map((message) => {
+              const isUser = message.role === "user";
 
-            return (
-              <article
-                key={message.id}
-                className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-              >
-                <div
+              return (
+                <article
+                  key={message.id}
+                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                >
+                  <div
                   className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[85%] ${
                     isUser
-                      ? "bg-accent-primary text-white"
-                      : "border border-border-subtle bg-bg-subtle text-text-primary"
+                        ? "bg-accent-warm text-white"
+                        : "bg-white text-black"
                   }`}
                 >
                   <span className="sr-only">
@@ -128,6 +129,7 @@ export function PlanningChatPanel({
           })}
           <div ref={conversationBottomRef} />
         </div>
+      </div>
       </div>
 
       <div className="border-t border-border-subtle/70 px-4 py-4 sm:px-5">
@@ -187,7 +189,7 @@ export function PlanningChatPanel({
                     ? "Generation failed. Retry from Trip Plan Status"
                   : "Share trip details"
             }
-            className="resize-none rounded-2xl border-border-default bg-bg-surface text-text-primary placeholder:text-text-faint"
+                   className="resize-none rounded-2xl border-0 bg-white text-black placeholder:text-text-faint disabled:cursor-not-allowed disabled:bg-white disabled:text-black disabled:opacity-50"
           />
           <Button
             type="button"
@@ -197,7 +199,7 @@ export function PlanningChatPanel({
               void chatController.sendReply();
             }}
             aria-label="Send message"
-            className="rounded-full"
+            className="cursor-pointer rounded-full bg-black text-white hover:bg-black/90"
           >
             {chatController.isStarting || chatController.isSubmittingReply ? (
               <Loader2 className="h-4 w-4 animate-spin" />

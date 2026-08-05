@@ -186,13 +186,13 @@ export function TripPrompt() {
 
   return (
     <section className="flex w-full flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-2xl rounded-3xl border-0 bg-bg-surface shadow-none ring-0">
+      <Card className="w-full max-w-2xl rounded-[3rem] border-0 bg-accent-secondary shadow-[0_30px_120px_rgba(0,0,0,0.15)] ring-0">
         <CardContent className="space-y-5 px-4 pb-5 pt-6 sm:px-6 sm:pt-7">
           <div className="space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
               What trip do you want?
             </h1>
-            <p className="mx-auto max-w-lg text-sm text-text-secondary sm:text-base">
+            <p className="mx-auto max-w-lg text-sm text-black sm:text-base">
               Tell me what you have in mind and I&apos;ll create an itinerary for
               you.
             </p>
@@ -207,7 +207,7 @@ export function TripPrompt() {
                 id="trip-prompt"
                 name="trip-prompt"
                 placeholder="A solo 7-day trip to Osaka in August..."
-                rows={5}
+                rows={1}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 disabled={isSubmitting}
@@ -223,14 +223,14 @@ export function TripPrompt() {
                 onKeyDown={handlePromptKeyDown}
                 aria-invalid={errorKind === "validation" ? "true" : "false"}
                 aria-describedby={errorMessage ? "trip-prompt-error" : undefined}
-                className="resize-none rounded-2xl border-border-default bg-bg-surface pr-12 text-text-primary placeholder:text-text-faint"
+                className="min-h-0 resize-none rounded-4xl border-0 bg-white px-5 py-3 pr-14 text-text-primary placeholder:text-text-faint outline-none focus-visible:ring-0"
               />
               <Button
                 type="submit"
                 size="icon-sm"
                 aria-label="Submit trip prompt"
                 disabled={isSubmitting}
-                className="absolute right-3 bottom-3 rounded-full"
+                className="absolute top-1/2 right-4 -translate-y-1/2 cursor-pointer rounded-full bg-black text-white hover:bg-black/90"
               >
                 {isSubmitting ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" />

@@ -42,7 +42,7 @@ export function AppHeader() {
     "U";
 
   return (
-    <header className="w-full border-b border-border-default/70 bg-bg-base">
+    <header className="w-full">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -55,23 +55,19 @@ export function AppHeader() {
             className="h-7 w-auto"
           />
           <span>Potato Trips</span>
-          <span
-            aria-hidden="true"
-            className="size-2 rounded-full bg-accent-warm"
-          />
         </Link>
 
         {isSignedIn === false && (
           <div className="flex items-center gap-2 sm:gap-3">
             <SignInButton mode="modal">
-              <Button type="button" variant="ghost" className="rounded-xl">
+              <Button type="button" variant="ghost" className="cursor-pointer rounded-xl">
                 Sign In
               </Button>
             </SignInButton>
             <SignUpButton mode="modal">
               <Button
                 type="button"
-                className="rounded-xl bg-accent-secondary text-text-primary hover:bg-accent-secondary-hover"
+                className="cursor-pointer rounded-xl bg-accent-secondary text-text-primary hover:bg-accent-secondary-hover"
               >
                 Sign Up
               </Button>
@@ -86,7 +82,7 @@ export function AppHeader() {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="rounded-full p-0"
+                  className="cursor-pointer rounded-full p-0"
                   aria-label="Open account menu"
                 />
               }
