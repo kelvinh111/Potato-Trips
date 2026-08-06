@@ -194,9 +194,6 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
                 <li key={day.id} className="w-[18rem] shrink-0 sm:w-[19rem] lg:w-[20rem]">
                   <article className="flex flex-col rounded-2xl border border-border-subtle bg-bg-surface p-3">
                     <header className="space-y-1 border-b border-border-subtle pb-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                        Day {day.dayNumber}
-                      </p>
                       <h3 className="text-base font-semibold text-text-primary">
                         {day.dayLabel}
                       </h3>

@@ -24,7 +24,7 @@ This unit is limited to presentation of the existing controller-reconciled `gene
 
 1. When session status is `GENERATED` and `generatedItinerary` is present, replace the placeholder with the itinerary title, summary, derived day and total-item counts, and one column for every persisted day.
 2. Present days by ascending `dayNumber` and items within each day by ascending `order`. Keep day columns fixed and non-interactive; neither columns nor cards can be reordered in this feature.
-3. Each day column must show its day number, persisted `dayLabel`, optional summary, and all of its items. Each item must show a user-friendly type label, title, description, planning text, and any available suggested time or duration.
+3. Each day column must show the persisted `dayLabel` as the visible day heading, optional summary, and all of its items. Each item must show a user-friendly type label, title, description, planning text, and any available suggested time or duration.
 4. Keep the board usable for 1–14 days by containing horizontal scrolling inside the centre panel. Preserve the existing desktop three-area layout and narrow stacked layout without page-level horizontal overflow, clipped content, or inaccessible columns.
 5. Render directly from the current server-authoritative/controller-reconciled payload so the same itinerary returns after refresh. If status is `GENERATED` but no itinerary is available, show a stable accessible unavailable state without inventing content or changing session state.
 6. Match the accepted planning chat scrollbar spacing treatment for centre-panel kanban scrolling surfaces: thin low-chrome scrollbar with transparent track, white thumb, and inset edge gap (not flush to panel edges).
