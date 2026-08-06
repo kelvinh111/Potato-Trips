@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete focused automated and manual browser verification for Spec 16C Manual Visual Refinement Baseline.
+- Start Feature 17 Itinerary Kanban implementation.
 
 ## Current Feature Unit
-- Unit: Feature 16C Manual Visual Refinement Baseline
-- Related spec: `context/feature-specs/16c-manual-visual-refinement-baseline.md`
-- Status: In Progress / Implemented visuals pending verification
+- Unit: Feature 17 Itinerary Kanban
+- Related spec: `context/feature-specs/17-itinerary-kanban.md`
+- Status: Ready / Not started
 
 ## Completed
 
@@ -239,20 +239,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved planning chat panel internal scrolling and ensured full-height desktop containment in `components/plan/planning-chat-panel.tsx`
 - Added Home prompt keyboard behavior in `components/home/trip-prompt.tsx`: Enter submits valid prompt, Shift+Enter keeps newline, IME composition does not accidentally submit
 - Extended deterministic checks in `scripts/planning-chat-controller-regression.ts` for pending bubble composition and reply lifecycle callbacks (start/success/error draft behavior)
+- Project owner confirmed manual browser verification for Feature 16B acceptance criteria
+- Feature 16B merged to `main`
+
+### Feature 16C: Manual Visual Refinement Baseline
+- Final accepted visual baseline documented in `context/feature-specs/16c-manual-visual-refinement-baseline.md`
+- Stable shared visual rules recorded in `context/ui-context.md`
+- Global semantic background behavior restored while scoping white canvas treatment to Home and Plan frames
+- Project owner confirmed manual browser verification for Feature 16C accepted visual baseline
+- Feature 16C merged to `main`
 
 ## In Progress
-- Feature 16C: Manual Visual Refinement Baseline
-	- Branch visual baseline accepted and treated as source of truth for documentation.
-	- Home and Planning canvas moved to plain white presentation.
-	- Shared header simplified (no bottom border treatment and no decorative warm dot) with pointer affordance on header action controls.
-	- Home prompt surface updated to warm highlighted card style, black subtitle text, compact single-row-start composer, and vertically centered black submit action.
-	- Planning workspace columns updated to semantic pastel surfaces: `--column-chat` `#F5C634`, `--column-center` `#88D9E0`, `--column-map` `#F2D2DE`.
-	- Planning chat/status/generated/map column shells aligned to reduced corner radius (`2rem`) and reduced outer framing.
-	- Planning chat visual language finalized: user warm bubble / assistant white bubble, thin inset white scrollbar on transparent track, white composer input, black send action, and half-opaque disabled textarea state.
-	- Verification still pending: automated checks and browser validation across desktop, short-desktop, tablet, and mobile states.
+- None.
 
 ## Next Up
-- Feature 16C focused verification completion (`context/feature-specs/16c-manual-visual-refinement-baseline.md`)
 - Feature 17 (`context/feature-specs/17-itinerary-kanban.md`)
 
 ## Blockers
@@ -341,7 +341,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run lint`: pass
 	- `npm run build`: pass
 	- `git diff --check`: pass
-	- manual browser verification: pending
+	- manual browser verification: project owner confirmed pass for all Feature 16B acceptance checks
+	- merge status: merged to `main`
+- Feature 16C checks:
+	- manual browser verification: project owner confirmed pass for accepted visual baseline across affected states
+	- merge status: merged to `main`
 - Feature 15B checks:
 	- `npm run generation-controller:regression`: pass
 	- targeted `eslint` for generation controller/runtime/status-panel/regression files: pass
