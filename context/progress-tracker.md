@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete manual browser verification for Spec 16B Current Chat Interaction Pass.
+- Complete focused automated and manual browser verification for Spec 16C Manual Visual Refinement Baseline.
 
 ## Current Feature Unit
-- Unit: Feature 16B Current Chat Interaction Pass
-- Related spec: `context/feature-specs/16b-current-chat-interaction-pass.md`
-- Status: Implemented / Pending manual verification
+- Unit: Feature 16C Manual Visual Refinement Baseline
+- Related spec: `context/feature-specs/16c-manual-visual-refinement-baseline.md`
+- Status: In Progress / Implemented visuals pending verification
 
 ## Completed
 
@@ -241,10 +241,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Extended deterministic checks in `scripts/planning-chat-controller-regression.ts` for pending bubble composition and reply lifecycle callbacks (start/success/error draft behavior)
 
 ## In Progress
-- None.
+- Feature 16C: Manual Visual Refinement Baseline
+	- Branch visual baseline accepted and treated as source of truth for documentation.
+	- Home and Planning canvas moved to plain white presentation.
+	- Shared header simplified (no bottom border treatment and no decorative warm dot) with pointer affordance on header action controls.
+	- Home prompt surface updated to warm highlighted card style, black subtitle text, compact single-row-start composer, and vertically centered black submit action.
+	- Planning workspace columns updated to semantic pastel surfaces: `--column-chat` `#F5C634`, `--column-center` `#88D9E0`, `--column-map` `#F2D2DE`.
+	- Planning chat/status/generated/map column shells aligned to reduced corner radius (`2rem`) and reduced outer framing.
+	- Planning chat visual language finalized: user warm bubble / assistant white bubble, thin inset white scrollbar on transparent track, white composer input, black send action, and half-opaque disabled textarea state.
+	- Verification still pending: automated checks and browser validation across desktop, short-desktop, tablet, and mobile states.
 
 ## Next Up
-- Feature 16B manual browser verification (`context/feature-specs/16b-current-chat-interaction-pass.md`)
+- Feature 16C focused verification completion (`context/feature-specs/16c-manual-visual-refinement-baseline.md`)
 - Feature 17 (`context/feature-specs/17-itinerary-kanban.md`)
 
 ## Blockers

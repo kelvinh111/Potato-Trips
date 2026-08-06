@@ -23,9 +23,13 @@
   --color-accent-primary: var(--accent-primary);
   --color-accent-primary-hover: var(--accent-primary-hover);
   --color-accent-primary-dim: var(--accent-primary-dim);
+  --color-accent-sky: var(--accent-sky);
   --color-accent-secondary: var(--accent-secondary);
   --color-accent-secondary-hover: var(--accent-secondary-hover);
   --color-accent-secondary-dim: var(--accent-secondary-dim);
+  --color-column-chat: var(--column-chat);
+  --color-column-center: var(--column-center);
+  --color-column-map: var(--column-map);
   --color-accent-warm: var(--accent-warm);
   --color-accent-warm-dim: var(--accent-warm-dim);
   --color-state-error: var(--state-error);
@@ -75,9 +79,13 @@
   --accent-primary: #219ebc;
   --accent-primary-hover: #1887a2;
   --accent-primary-dim: rgba(33, 158, 188, 0.12);
+  --accent-sky: #8ecae6;
   --accent-secondary: #ffb703;
   --accent-secondary-hover: #e5a400;
   --accent-secondary-dim: rgba(255, 183, 3, 0.16);
+  --column-chat: #f5c634;
+  --column-center: #88d9e0;
+  --column-map: #f2d2de;
   --accent-warm: #fb8500;
   --accent-warm-dim: rgba(251, 133, 0, 0.14);
   --state-error: #d94c4c;

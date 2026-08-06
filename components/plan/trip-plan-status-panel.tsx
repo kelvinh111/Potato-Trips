@@ -58,7 +58,7 @@ export function TripPlanStatusPanel({
   return (
     <section
       aria-label="Trip plan status panel"
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl bg-bg-surface"
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
     >
       <h2 className="sr-only">Trip Plan Status</h2>
       <p className="px-4 pt-4 text-sm text-text-secondary sm:px-6">
