@@ -223,7 +223,7 @@ export function TripPrompt() {
                 onKeyDown={handlePromptKeyDown}
                 aria-invalid={errorKind === "validation" ? "true" : "false"}
                 aria-describedby={errorMessage ? "trip-prompt-error" : undefined}
-                className="min-h-0 resize-none rounded-4xl border-0 bg-white px-5 py-3 pr-14 text-text-primary placeholder:text-text-faint outline-none focus-visible:ring-0"
+                className="min-h-0 resize-none rounded-4xl border-0 bg-bg-surface px-5 py-3 pr-14 text-text-primary placeholder:text-text-faint outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <Button
                 type="submit"
