@@ -41,6 +41,43 @@ Inspect `Home page.png` and `Itinerary plan.png` when working on the correspondi
 3. Keep responsive and short-viewport behaviour intentional, with no accidental clipping, overlap, inaccessible content, or unwanted page overflow.
 4. Treat the final approved implementation as the visual baseline that later features must extend unless an active feature spec explicitly replaces part of it.
 
+## Accepted Visual Baseline (Current Implementation)
+
+### Global Canvas and Header
+
+* App canvas for Home and Planning uses a plain white page background.
+* Shared header removes the bottom divider treatment.
+* Shared logo row keeps text + image only (no trailing decorative dot).
+* Header call-to-action and account-trigger buttons use explicit pointer cursor affordance.
+
+### Home Prompt Surface and Composer
+
+* Home prompt card uses a warm highlighted surface with large rounded corners and a soft diffuse shadow.
+* Home subtitle line under the title uses dark text for stronger contrast.
+* Home composer starts as a compact single-row textarea, grows with content, and keeps Enter submit / Shift+Enter newline / IME behavior unchanged.
+* Home composer field uses a white borderless surface.
+* Home submit button is black, circular, and vertically centered relative to the textarea body.
+
+### Planning Workspace Surface System
+
+* Planning workspace columns use semantic pastel surfaces:
+	* `--column-chat` / `bg-column-chat`: `#F5C634`
+	* `--column-center` / `bg-column-center`: `#88D9E0`
+	* `--column-map` / `bg-column-map`: `#F2D2DE`
+* Planning chat, status, generated-center, and map shell all use medium-large panel rounding (implemented at `2rem`).
+* Column shells remove the prior outer shadow framing.
+* Generated-state center panel uses the same center-column surface token as the status panel.
+
+### Planning Chat Visual Language
+
+* Bubble contrast mapping is:
+	* User bubble: warm orange surface + white text
+	* Assistant bubble: white surface + black text
+* Composer textarea uses a white borderless surface and black text.
+* Disabled composer textarea remains visible with reduced opacity (half-opaque) rather than disappearing.
+* Chat send button is black with white icon/text and pointer cursor.
+* Internal chat scrollbar is thin, transparent-track, white-thumb, and inset from the panel edge.
+
 ## Behaviour to Preserve
 
 * Authentication, account menu, and navigation
@@ -72,6 +109,40 @@ Inspect `Home page.png` and `Itinerary plan.png` when working on the correspondi
 * Update `ui-context.md` only with stable shared patterns that future features must preserve.
 * Derive focused visual checks from the final diff and affected responsive states.
 * Update `progress-tracker.md` only after the required automated and manual verification has actually passed.
+
+## Focused Verification Checklist (From Current Diff)
+
+### Automated
+
+* `npm run lint`
+* `npx tsc --noEmit`
+* `npm run build`
+* `git diff --check`
+
+### Browser — Home (`components/home/trip-prompt.tsx`, `components/app/app-header.tsx`, `app/page.tsx`)
+
+* Header shows no bottom border and no trailing orange logo dot.
+* Sign In, Sign Up, and avatar/menu trigger all show pointer cursor on hover.
+* Home canvas remains plain white.
+* Prompt card retains centered layout and updated warm highlighted surface treatment.
+* One-line textarea text appears vertically centered.
+* Submit button stays vertically centered for one-line and multi-line content.
+* Enter/Shift+Enter/IME submit rules remain unchanged.
+
+### Browser — Planning Workspace (`app/plan/[sessionId]/page.tsx`, planning panel components)
+
+* Column surfaces render as `#F5C634`, `#88D9E0`, `#F2D2DE`.
+* All three panel shells keep reduced radius and no outer column shadow.
+* Chat bubble mapping is flipped as accepted (user warm, assistant white).
+* Composer disabled state remains readable at half opacity.
+* Scrollbar appears thin white with transparent track and remains inset (not flush to panel edge).
+* Pre-generation and generated layouts keep panel containment with internal scroll working.
+
+### Responsive / Viewport States
+
+* Desktop wide (`lg`): three-column layout with preserved internal chat scrolling.
+* Short desktop height: chat/status areas stay scrollable without clipping composer.
+* Tablet/mobile stacked layouts: no overlap or accidental horizontal overflow.
 
 ## Check When Done
 

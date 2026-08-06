@@ -31,6 +31,9 @@ All colors must be defined as CSS custom properties in `globals.css` and mapped 
 | Secondary accent | `--accent-secondary` | `#FFB703` |
 | Secondary accent hover | `--accent-secondary-hover` | `#E5A400` |
 | Secondary accent dim | `--accent-secondary-dim` | `rgba(255, 183, 3, 0.16)` |
+| Planning chat column surface | `--column-chat` | `#F5C634` |
+| Planning center column surface | `--column-center` | `#88D9E0` |
+| Planning map column surface | `--column-map` | `#F2D2DE` |
 | Warm accent | `--accent-warm` | `#FB8500` |
 | Warm accent dim | `--accent-warm-dim` | `rgba(251, 133, 0, 0.14)` |
 | Error | `--state-error` | `#D94C4C` |
@@ -81,6 +84,17 @@ Use shadcn/ui on top of Tailwind CSS.
 - My Trips uses a responsive card grid with three columns on wide desktop screens.
 - The Itinerary Plan workspace uses a full-height three-area layout: left chat, center workspace, and right map.
 - Refer to `context/ui-design/` for page structure and panel placement.
+
+## Current Shared Baseline (16C)
+
+- Home and Planning pages use a plain white canvas background.
+- Shared header uses a minimal surface without a visible bottom divider.
+- Header interactive controls must provide clear pointer affordance.
+- Planning workspace columns use distinct semantic pastel surfaces (`--column-chat`, `--column-center`, `--column-map`) to preserve area hierarchy.
+- Planning column shells use medium-large rounded corners with reduced framing effects.
+- Planning chat uses high-contrast role separation between user and assistant bubbles.
+- Planning chat composer keeps a white input surface and black primary send action.
+- Planning chat scrollbar treatment stays low-chrome: thin, white thumb, transparent track, and inset from the panel edge.
 
 ## Icons
 
