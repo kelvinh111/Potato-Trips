@@ -14,6 +14,7 @@
     "planning-session-client-api:regression": "node --conditions=react-server --import tsx scripts/planning-session-client-api-regression.ts",
     "generation-controller:regression": "node --conditions=react-server --import tsx scripts/generation-controller-regression.ts",
     "planning-chat-controller:regression": "node --conditions=react-server --import tsx scripts/planning-chat-controller-regression.ts",
+    "itinerary-kanban:regression": "node --conditions=react-server --import tsx scripts/itinerary-kanban-regression.ts",
     "generation:troubleshoot": "node --conditions=react-server --import tsx scripts/planning-generation-troubleshoot.ts",
     "build": "next build",
     "start": "next start",
