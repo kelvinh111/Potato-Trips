@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete Feature 17 focused manual browser verification after implementation and automated checks.
+- Begin Feature 18 implementation planning.
 
 ## Current Feature Unit
 - Unit: Feature 17 Itinerary Kanban
 - Related spec: `context/feature-specs/17-itinerary-kanban.md`
-- Status: In Progress / Implemented and pending manual browser verification
+- Status: Completed
 
 ## Completed
 
@@ -249,19 +249,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Project owner confirmed manual browser verification for Feature 16C accepted visual baseline
 - Feature 16C merged to `main`
 
+### Feature 17: Itinerary Kanban
+- Replaced generated-state placeholder with read-only itinerary kanban rendering in the center workspace.
+- Added deterministic kanban view-model derivation for persisted itinerary ordering, counts, type labels, and duration formatting.
+- Added generated-without-itinerary accessible fallback state.
+- Matched generated-state kanban scrollbar spacing and low-chrome treatment to accepted chat scrollbar baseline (inset from panel edges, white thumb, transparent track).
+- Added panel-wide middle-mouse horizontal panning so left/right board panning can start from header/title/summary area and day-column area.
+- Removed duplicated day-header label so each day card shows only one visible day heading.
+- Project owner confirmed complete Feature 17 manual browser verification pass with no unexpected regressions.
+
 ## In Progress
-- Feature 17: Itinerary Kanban
-	- Replaced generated-state placeholder with read-only itinerary kanban rendering in the center workspace.
-	- Added deterministic kanban view-model derivation for persisted itinerary ordering, counts, type labels, and duration formatting.
-	- Added generated-without-itinerary accessible fallback state.
-	- Matched generated-state kanban scrollbar spacing and low-chrome treatment to accepted chat scrollbar baseline (inset from panel edges, white thumb, transparent track).
-	- Added panel-wide middle-mouse horizontal panning so left/right board panning can start from header/title/summary area and day-column area.
-	- Kept existing chat panel behavior and reserved map panel behavior unchanged.
-	- Manual browser verification pending before completion.
+- None.
 
 ## Next Up
-- Feature 17 manual browser verification close-out (`context/feature-specs/17-itinerary-kanban.md`)
-- Feature 18 (next feature after Feature 17 close-out)
+- Feature 18
 
 ## Blockers
 - None.
@@ -388,7 +389,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npx tsc --noEmit`: pass
 	- `git diff --check`: pass (non-blocking CRLF warning on pre-existing `context/feature-specs/17-itinerary-kanban.md` working-copy normalization)
 	- `npm run build`: pass
-	- manual browser verification: pending project owner confirmation
+	- manual browser verification: project owner confirmed full Feature 17 pass with no unexpected regressions
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
