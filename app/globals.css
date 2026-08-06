@@ -131,7 +131,6 @@
   }
 
   body {
-    @apply text-text-primary font-sans antialiased;
-    background-color: #ffffff;
+    @apply bg-bg-base text-text-primary font-sans antialiased;
   }
 }
