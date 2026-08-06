@@ -95,6 +95,8 @@ Use shadcn/ui on top of Tailwind CSS.
 - Planning chat uses high-contrast role separation between user and assistant bubbles.
 - Planning chat composer keeps a white input surface and black primary send action.
 - Planning chat scrollbar treatment stays low-chrome: thin, white thumb, transparent track, and inset from the panel edge.
+- Generated-state itinerary kanban keeps the same low-chrome scrollbar language (thin, white thumb, transparent track) and inset edge-gap treatment for vertical and horizontal scrolling surfaces.
+- Generated-state itinerary kanban supports panel-wide middle-mouse horizontal panning, including interactions started above day columns.
 
 ## Icons
 
