@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Feature 18 implementation planning.
+- Complete Feature 18 focused manual browser verification after implementation and automated checks.
 
 ## Current Feature Unit
-- Unit: Feature 17 Itinerary Kanban
-- Related spec: `context/feature-specs/17-itinerary-kanban.md`
-- Status: Completed
+- Unit: Feature 18 Google Maps Foundation
+- Related spec: `context/feature-specs/18-google-maps-foundation.md`
+- Status: In Progress / Implemented and pending manual browser verification
 
 ## Completed
 
@@ -223,7 +223,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 
 ### Feature 16A: Current Layout and Visual Pass
 - Fixed header logo rendering to keep intrinsic logo image proportions with no forced square/circle crop in `components/app/app-header.tsx`
-- Removed visible outer border/shadow framing from planning workspace columns while preserving accessible region names in `components/plan/planning-chat-panel.tsx`, `components/plan/trip-plan-status-panel.tsx`, and `components/plan/reserved-map-slot.tsx`
+- Removed visible outer border/shadow framing from planning workspace columns while preserving accessible region names in `components/plan/planning-chat-panel.tsx`, `components/plan/trip-plan-status-panel.tsx`, and the generated-state map panel area
 - Removed redundant visible planning column headings while keeping screen-reader-only labels for chat/status/itinerary regions
 - Reduced workspace grid gaps and outer padding for pre-generation and generated layouts in `components/plan/itinerary-workspace-runtime.tsx` without introducing horizontal overflow
 - Removed Home prompt outer card border/shadow treatment while keeping centered layout hierarchy and clear textarea boundary in `components/home/trip-prompt.tsx`
@@ -259,10 +259,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Project owner confirmed complete Feature 17 manual browser verification pass with no unexpected regressions.
 
 ## In Progress
-- None.
+- Feature 18: Google Maps Foundation
+	- Replaced generated desktop reserved map slot with a lazily initialized Google Map panel using the official `@googlemaps/js-api-loader` package.
+	- Added application-owned Maps foundation boundaries for public config parsing, desktop layout eligibility (media-query aligned to `lg` workspace layout), and map initialization rules.
+	- Hardened map lifecycle readiness/failure handling: map no longer reports ready on constructor alone, and now explicitly handles auth failure, SDK load failure, render timeout failure, stale async completion, and cleanup without duplicate loader retries or map instances.
+	- Added stable map-panel loading, missing-config, and SDK-failure states without impacting chat or kanban behavior.
+	- Added deterministic regression checks for pre-generation, generated desktop, narrow layout, missing-config eligibility, and lifecycle/failure decision helpers.
+	- Added local setup guidance for required public Maps key and map ID configuration in README.
+	- Manual browser verification pending before completion.
 
 ## Next Up
-- Feature 18
+- Feature 18 manual browser verification close-out (`context/feature-specs/18-google-maps-foundation.md`)
+- Feature 19 (`context/feature-specs/19-generated-place-resolution.md`)
 
 ## Blockers
 - None.
@@ -390,6 +398,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `git diff --check`: pass (non-blocking CRLF warning on pre-existing `context/feature-specs/17-itinerary-kanban.md` working-copy normalization)
 	- `npm run build`: pass
 	- manual browser verification: project owner confirmed full Feature 17 pass with no unexpected regressions
+- Feature 18 checks:
+	- `npm run google-maps-foundation:regression`: pass
+	- targeted `eslint` for Feature 18 changed source files: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass (non-blocking LF/CRLF working-copy warning on `README.md`)
+	- `npm run build`: pass
+	- manual browser verification: pending project owner confirmation
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.

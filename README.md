@@ -20,6 +20,22 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Google Maps Foundation Configuration
+
+Feature 18 map rendering requires these public environment variables:
+
+```bash
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-browser-maps-key
+NEXT_PUBLIC_GOOGLE_MAP_ID=your-google-map-id
+```
+
+Security and API setup requirements:
+
+- Treat `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` as browser-public configuration.
+- In Google Cloud, apply HTTP referrer restrictions to this key.
+- Restrict the key to the Maps JavaScript API only.
+- Do not commit real credential values to source control.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
