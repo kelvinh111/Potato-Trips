@@ -7,6 +7,7 @@ import {
   deriveGeneratedMapPanelStatus,
   isStaleMapInitializationResult,
   readGoogleMapsPublicConfig,
+  shouldAttemptMapInitialization,
   shouldInitializeGoogleMap,
   type GeneratedMapPanelStatus,
 } from "@/lib/maps/google-maps-foundation";
@@ -20,7 +21,8 @@ interface WindowWithGoogleMapsAuthFailure extends Window {
 export function GeneratedMapPanel() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const hasInitializationAttemptedRef = useRef(false);
+  const hasInitializationFailureRef = useRef(false);
+  const isInitializingRef = useRef(false);
   const mapReadyTimeoutRef = useRef<number | null>(null);
   const activeRequestIdRef = useRef(0);
   const hasMapReadySignalRef = useRef(false);
@@ -44,14 +46,20 @@ export function GeneratedMapPanel() {
       return;
     }
 
-    if (hasInitializationAttemptedRef.current) {
+    if (!shouldAttemptMapInitialization({
+      hasConfig: true,
+      hasMapReadySignal: hasMapReadySignalRef.current,
+      hasInitializationFailure: hasInitializationFailureRef.current,
+      hasInFlightInitialization: isInitializingRef.current,
+      hasMapInstance: mapInstanceRef.current !== null,
+    })) {
       return;
     }
 
+    isInitializingRef.current = true;
     const requestId = activeRequestIdRef.current + 1;
     activeRequestIdRef.current = requestId;
     let isComponentActive = true;
-    hasInitializationAttemptedRef.current = true;
     const windowWithAuthFailure = window as WindowWithGoogleMapsAuthFailure;
     const previousAuthFailureHandler = windowWithAuthFailure.gm_authFailure;
     let readyListener: google.maps.MapsEventListener | null = null;
@@ -61,6 +69,7 @@ export function GeneratedMapPanel() {
     setHasRenderFailure(false);
     setHasMapReadySignal(false);
     hasMapReadySignalRef.current = false;
+    hasInitializationFailureRef.current = false;
 
     windowWithAuthFailure.gm_authFailure = () => {
       if (isStaleMapInitializationResult({
@@ -71,6 +80,9 @@ export function GeneratedMapPanel() {
         return;
       }
 
+      hasInitializationFailureRef.current = true;
+      isInitializingRef.current = false;
+      clearReadyTimeout();
       setHasAuthFailure(true);
     };
 
@@ -91,6 +103,8 @@ export function GeneratedMapPanel() {
       }
 
       if (!hasMapReadySignalRef.current) {
+        hasInitializationFailureRef.current = true;
+        isInitializingRef.current = false;
         setHasRenderFailure(true);
       }
     }, MAP_READY_TIMEOUT_MS);
@@ -106,6 +120,8 @@ export function GeneratedMapPanel() {
         }
 
         if (!mapContainerRef.current) {
+          hasInitializationFailureRef.current = true;
+          isInitializingRef.current = false;
           setHasRenderFailure(true);
           return;
         }
@@ -124,6 +140,8 @@ export function GeneratedMapPanel() {
             mapTypeControl: true,
           });
         } catch {
+          hasInitializationFailureRef.current = true;
+          isInitializingRef.current = false;
           setHasRenderFailure(true);
           return;
         }
@@ -139,6 +157,7 @@ export function GeneratedMapPanel() {
 
           setHasMapReadySignal(true);
           hasMapReadySignalRef.current = true;
+          isInitializingRef.current = false;
           clearReadyTimeout();
 
           if (readyListener) {
@@ -156,11 +175,14 @@ export function GeneratedMapPanel() {
           return;
         }
 
+        hasInitializationFailureRef.current = true;
+        isInitializingRef.current = false;
         setHasLoadFailure(true);
       });
 
     return () => {
       isComponentActive = false;
+      isInitializingRef.current = false;
       clearReadyTimeout();
 
       if (readyListener) {
@@ -193,15 +215,17 @@ export function GeneratedMapPanel() {
       <div className="relative h-full w-full">
         <div
           ref={mapContainerRef}
-          className={`h-full w-full ${resolvedPanelStatus === "ready" ? "opacity-100" : "opacity-0"}`}
+          className={`h-full w-full ${resolvedPanelStatus === "ready" ? "opacity-100" : "opacity-0 pointer-events-none"}`}
           aria-hidden={resolvedPanelStatus !== "ready"}
+          tabIndex={resolvedPanelStatus === "ready" ? undefined : -1}
+          style={resolvedPanelStatus === "ready" ? undefined : { visibility: "hidden" }}
         />
 
         {resolvedPanelStatus === "loading" ? (
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-0 flex items-center justify-center bg-column-map px-6 text-center"
+            className="absolute inset-0 z-10 flex items-center justify-center bg-column-map px-6 text-center"
           >
             <div className="space-y-2">
               <h2 className="text-base font-semibold text-text-primary">Loading map</h2>
@@ -216,7 +240,7 @@ export function GeneratedMapPanel() {
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-0 flex items-center justify-center bg-column-map px-6 text-center"
+            className="absolute inset-0 z-10 flex items-center justify-center bg-column-map px-6 text-center"
           >
             <div className="space-y-2">
               <h2 className="text-base font-semibold text-text-primary">Map unavailable</h2>
@@ -231,7 +255,7 @@ export function GeneratedMapPanel() {
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-0 flex items-center justify-center bg-column-map px-6 text-center"
+            className="absolute inset-0 z-10 flex items-center justify-center bg-column-map px-6 text-center"
           >
             <div className="space-y-2">
               <h2 className="text-base font-semibold text-text-primary">Map failed to load</h2>

@@ -7,6 +7,9 @@ export interface GoogleMapsPublicConfig {
   mapId: string;
 }
 
+const NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const NEXT_PUBLIC_GOOGLE_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID;
+
 interface ShouldInitializeGoogleMapInput {
   status: PlanningSessionStatusValue;
   isMapPanelDisplayed: boolean;
@@ -27,6 +30,14 @@ interface IsStaleMapInitializationResultInput {
   activeRequestId: number;
 }
 
+interface ShouldAttemptMapInitializationInput {
+  hasConfig: boolean;
+  hasMapReadySignal: boolean;
+  hasInitializationFailure: boolean;
+  hasInFlightInitialization: boolean;
+  hasMapInstance: boolean;
+}
+
 export type GeneratedMapPanelStatus = "loading" | "ready" | "unavailable" | "error";
 
 function normalizePublicValue(value: string | undefined): string | null {
@@ -40,18 +51,30 @@ function normalizePublicValue(value: string | undefined): string | null {
 }
 
 export function readGoogleMapsPublicConfig(
-  env: Record<string, string | undefined> = process.env,
 ): GoogleMapsPublicConfig | null {
-  const apiKey = normalizePublicValue(env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
-  const mapId = normalizePublicValue(env.NEXT_PUBLIC_GOOGLE_MAP_ID);
+  return parseGoogleMapsPublicConfig({
+    apiKey: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    mapId: NEXT_PUBLIC_GOOGLE_MAP_ID,
+  });
+}
 
-  if (!apiKey || !mapId) {
+export function parseGoogleMapsPublicConfig({
+  apiKey,
+  mapId,
+}: {
+  apiKey: string | undefined;
+  mapId: string | undefined;
+}): GoogleMapsPublicConfig | null {
+  const normalizedApiKey = normalizePublicValue(apiKey);
+  const normalizedMapId = normalizePublicValue(mapId);
+
+  if (!normalizedApiKey || !normalizedMapId) {
     return null;
   }
 
   return {
-    apiKey,
-    mapId,
+    apiKey: normalizedApiKey,
+    mapId: normalizedMapId,
   };
 }
 
@@ -98,4 +121,20 @@ export function isStaleMapInitializationResult({
   activeRequestId,
 }: IsStaleMapInitializationResultInput): boolean {
   return !isComponentActive || requestId !== activeRequestId;
+}
+
+export function shouldAttemptMapInitialization({
+  hasConfig,
+  hasMapReadySignal,
+  hasInitializationFailure,
+  hasInFlightInitialization,
+  hasMapInstance,
+}: ShouldAttemptMapInitializationInput): boolean {
+  return (
+    hasConfig
+    && !hasMapReadySignal
+    && !hasInitializationFailure
+    && !hasInFlightInitialization
+    && !hasMapInstance
+  );
 }

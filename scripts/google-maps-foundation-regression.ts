@@ -4,7 +4,9 @@ import {
   WORKSPACE_DESKTOP_MEDIA_QUERY,
   deriveGeneratedMapPanelStatus,
   isStaleMapInitializationResult,
+  parseGoogleMapsPublicConfig,
   readGoogleMapsPublicConfig,
+  shouldAttemptMapInitialization,
   shouldDisplayGeneratedDesktopMapPanel,
   shouldInitializeGoogleMap,
 } from "@/lib/maps/google-maps-foundation";
@@ -12,31 +14,37 @@ import type { PlanningSessionStatusValue } from "@/lib/planning-sessions/types";
 
 function testConfigParsing() {
   assert.equal(
-    readGoogleMapsPublicConfig({
-      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: "",
-      NEXT_PUBLIC_GOOGLE_MAP_ID: "demo-map-id",
+    parseGoogleMapsPublicConfig({
+      apiKey: "",
+      mapId: "demo-map-id",
     }),
     null,
   );
 
   assert.equal(
-    readGoogleMapsPublicConfig({
-      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: "demo-key",
-      NEXT_PUBLIC_GOOGLE_MAP_ID: "",
+    parseGoogleMapsPublicConfig({
+      apiKey: "demo-key",
+      mapId: "",
     }),
     null,
   );
 
   assert.deepEqual(
-    readGoogleMapsPublicConfig({
-      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: " demo-key ",
-      NEXT_PUBLIC_GOOGLE_MAP_ID: " demo-map-id ",
+    parseGoogleMapsPublicConfig({
+      apiKey: " demo-key ",
+      mapId: " demo-map-id ",
     }),
     {
       apiKey: "demo-key",
       mapId: "demo-map-id",
     },
   );
+
+  const fromRuntimeEnv = readGoogleMapsPublicConfig();
+  if (fromRuntimeEnv !== null) {
+    assert.notEqual(fromRuntimeEnv.apiKey.length, 0);
+    assert.notEqual(fromRuntimeEnv.mapId.length, 0);
+  }
 }
 
 function testDesktopMediaQuery() {
@@ -191,6 +199,74 @@ function testStaleInitializationGuard() {
   );
 }
 
+function testInitializationAttemptPolicy() {
+  assert.equal(
+    shouldAttemptMapInitialization({
+      hasConfig: true,
+      hasMapReadySignal: false,
+      hasInitializationFailure: false,
+      hasInFlightInitialization: false,
+      hasMapInstance: false,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldAttemptMapInitialization({
+      hasConfig: false,
+      hasMapReadySignal: false,
+      hasInitializationFailure: false,
+      hasInFlightInitialization: false,
+      hasMapInstance: false,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldAttemptMapInitialization({
+      hasConfig: true,
+      hasMapReadySignal: true,
+      hasInitializationFailure: false,
+      hasInFlightInitialization: false,
+      hasMapInstance: false,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldAttemptMapInitialization({
+      hasConfig: true,
+      hasMapReadySignal: false,
+      hasInitializationFailure: true,
+      hasInFlightInitialization: false,
+      hasMapInstance: false,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldAttemptMapInitialization({
+      hasConfig: true,
+      hasMapReadySignal: false,
+      hasInitializationFailure: false,
+      hasInFlightInitialization: true,
+      hasMapInstance: false,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldAttemptMapInitialization({
+      hasConfig: true,
+      hasMapReadySignal: false,
+      hasInitializationFailure: false,
+      hasInFlightInitialization: false,
+      hasMapInstance: true,
+    }),
+    false,
+  );
+}
+
 function run() {
   testConfigParsing();
   testDesktopMediaQuery();
@@ -198,6 +274,7 @@ function run() {
   testInitializationEligibility();
   testDerivedPanelStatus();
   testStaleInitializationGuard();
+  testInitializationAttemptPolicy();
 
   console.log("google-maps-foundation-regression: pass");
 }
