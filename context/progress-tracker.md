@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Feature 18 implementation planning.
+- Begin Feature 19 implementation planning.
 
 ## Current Feature Unit
-- Unit: Feature 17 Itinerary Kanban
-- Related spec: `context/feature-specs/17-itinerary-kanban.md`
+- Unit: Feature 18 Google Maps Foundation
+- Related spec: `context/feature-specs/18-google-maps-foundation.md`
 - Status: Completed
 
 ## Completed
@@ -223,7 +223,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 
 ### Feature 16A: Current Layout and Visual Pass
 - Fixed header logo rendering to keep intrinsic logo image proportions with no forced square/circle crop in `components/app/app-header.tsx`
-- Removed visible outer border/shadow framing from planning workspace columns while preserving accessible region names in `components/plan/planning-chat-panel.tsx`, `components/plan/trip-plan-status-panel.tsx`, and `components/plan/reserved-map-slot.tsx`
+- Removed visible outer border/shadow framing from planning workspace columns while preserving accessible region names in `components/plan/planning-chat-panel.tsx`, `components/plan/trip-plan-status-panel.tsx`, and the generated-state map panel area
 - Removed redundant visible planning column headings while keeping screen-reader-only labels for chat/status/itinerary regions
 - Reduced workspace grid gaps and outer padding for pre-generation and generated layouts in `components/plan/itinerary-workspace-runtime.tsx` without introducing horizontal overflow
 - Removed Home prompt outer card border/shadow treatment while keeping centered layout hierarchy and clear textarea boundary in `components/home/trip-prompt.tsx`
@@ -258,11 +258,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Removed duplicated day-header label so each day card shows only one visible day heading.
 - Project owner confirmed complete Feature 17 manual browser verification pass with no unexpected regressions.
 
+### Feature 18: Google Maps Foundation
+- Replaced the generated desktop reserved map slot with a lazily initialized Google Map panel using `@googlemaps/js-api-loader`.
+- Added application-owned map foundation boundaries for static public config access, desktop media-query eligibility, and map initialization decisions.
+- Hardened lifecycle and failure handling (auth/load/render timeout, stale async completion, no duplicate loader or map instance behavior).
+- Preserved stable loading/unavailable/error map-panel states without impacting chat or kanban behavior.
+- Project owner confirmed complete Feature 18 manual browser verification pass with no unexpected regressions.
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 18
+- Feature 19 (`context/feature-specs/19-generated-place-resolution.md`)
 
 ## Blockers
 - None.
@@ -390,6 +397,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `git diff --check`: pass (non-blocking CRLF warning on pre-existing `context/feature-specs/17-itinerary-kanban.md` working-copy normalization)
 	- `npm run build`: pass
 	- manual browser verification: project owner confirmed full Feature 17 pass with no unexpected regressions
+- Feature 18 checks:
+	- `npm run google-maps-foundation:regression`: pass
+	- targeted `eslint` for Feature 18 changed source files: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass (non-blocking LF/CRLF working-copy warning on `README.md`)
+	- `npm run build`: pass
+	- manual browser verification: project owner confirmed full Feature 18 pass with no unexpected regressions
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
