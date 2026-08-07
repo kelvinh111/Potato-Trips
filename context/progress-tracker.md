@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete Feature 18 focused manual browser verification after implementation and automated checks.
+- Begin Feature 19 implementation planning.
 
 ## Current Feature Unit
 - Unit: Feature 18 Google Maps Foundation
 - Related spec: `context/feature-specs/18-google-maps-foundation.md`
-- Status: In Progress / Implemented and pending manual browser verification
+- Status: Completed
 
 ## Completed
 
@@ -258,20 +258,17 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Removed duplicated day-header label so each day card shows only one visible day heading.
 - Project owner confirmed complete Feature 17 manual browser verification pass with no unexpected regressions.
 
+### Feature 18: Google Maps Foundation
+- Replaced the generated desktop reserved map slot with a lazily initialized Google Map panel using `@googlemaps/js-api-loader`.
+- Added application-owned map foundation boundaries for static public config access, desktop media-query eligibility, and map initialization decisions.
+- Hardened lifecycle and failure handling (auth/load/render timeout, stale async completion, no duplicate loader or map instance behavior).
+- Preserved stable loading/unavailable/error map-panel states without impacting chat or kanban behavior.
+- Project owner confirmed complete Feature 18 manual browser verification pass with no unexpected regressions.
+
 ## In Progress
-- Feature 18: Google Maps Foundation
-	- Replaced generated desktop reserved map slot with a lazily initialized Google Map panel using the official `@googlemaps/js-api-loader` package.
-	- Added application-owned Maps foundation boundaries for public config parsing, desktop layout eligibility (media-query aligned to `lg` workspace layout), and map initialization rules.
-	- Hardened map lifecycle readiness/failure handling: map no longer reports ready on constructor alone, and now explicitly handles auth failure, SDK load failure, render timeout failure, stale async completion, and cleanup without duplicate loader retries or map instances.
-	- Updated public Maps config access so `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` and `NEXT_PUBLIC_GOOGLE_MAP_ID` are read through statically referenced client-bundle values while preserving deterministic config parsing coverage.
-	- Prevented hidden non-ready map DOM from exposing native map controls behind status overlays.
-	- Added stable map-panel loading, missing-config, and SDK-failure states without impacting chat or kanban behavior.
-	- Added deterministic regression checks for pre-generation, generated desktop, narrow layout, missing-config eligibility, and lifecycle/failure decision helpers.
-	- Added local setup guidance for required public Maps key and map ID configuration in README.
-	- Manual browser verification pending before completion.
+- None.
 
 ## Next Up
-- Feature 18 manual browser verification close-out (`context/feature-specs/18-google-maps-foundation.md`)
 - Feature 19 (`context/feature-specs/19-generated-place-resolution.md`)
 
 ## Blockers
@@ -406,7 +403,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npx tsc --noEmit`: pass
 	- `git diff --check`: pass (non-blocking LF/CRLF working-copy warning on `README.md`)
 	- `npm run build`: pass
-	- manual browser verification: pending project owner confirmation
+	- manual browser verification: project owner confirmed full Feature 18 pass with no unexpected regressions
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
