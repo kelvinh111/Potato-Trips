@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Feature 19 implementation planning.
+- Complete Feature 19 focused live/manual verification after implementation and automated checks.
 
 ## Current Feature Unit
-- Unit: Feature 18 Google Maps Foundation
-- Related spec: `context/feature-specs/18-google-maps-foundation.md`
-- Status: Completed
+- Unit: Feature 19 Generated Place Resolution
+- Related spec: `context/feature-specs/19-generated-place-resolution.md`
+- Status: In Progress / Implemented and pending live/manual verification
 
 ## Completed
 
@@ -266,10 +266,19 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Project owner confirmed complete Feature 18 manual browser verification pass with no unexpected regressions.
 
 ## In Progress
-- None.
+- Feature 19: Generated Place Resolution
+	- Extended generated itinerary items with nullable `placeSearchQuery` and nullable `placeReference`, while preserving legacy payload compatibility by normalizing missing fields to `null`.
+	- Added server-only Google Places Text Search boundary with minimal field mask, strict response validation, coordinate-range checks, and provider-wide configuration/auth failure signaling.
+	- Integrated bounded, capped place resolution directly inside the existing Trigger initial-generation task before final persistence (single canonical itinerary write preserved).
+	- Added per-attempt structured place-resolution summary logging (`attempted`, `verified`, `unverified`, `skipped`, `failed`) without secrets, raw provider responses, or full user-query logging.
+	- Added deterministic regression coverage for provider-boundary outcomes, query normalization, cap/concurrency behavior, provider-wide failure stop, and legacy payload parsing.
+	- Added server configuration documentation for `GOOGLE_PLACES_API_KEY` and restriction guidance.
+	- Live Places smoke + generated-session persisted payload inspection pending because server Places credential is not configured locally.
+	- Manual browser verification pending before completion.
 
 ## Next Up
-- Feature 19 (`context/feature-specs/19-generated-place-resolution.md`)
+- Feature 19 live/manual verification close-out (`context/feature-specs/19-generated-place-resolution.md`)
+- Feature 20 (`context/feature-specs/20-map-markers-and-kanban-sync.md`)
 
 ## Blockers
 - None.
@@ -404,6 +413,15 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `git diff --check`: pass (non-blocking LF/CRLF working-copy warning on `README.md`)
 	- `npm run build`: pass
 	- manual browser verification: project owner confirmed full Feature 18 pass with no unexpected regressions
+- Feature 19 checks:
+	- `npm run generated-place-resolution:regression`: pass
+	- targeted `eslint` for Feature 19 changed source files: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run build`: pass
+	- controlled live Places smoke: pending (server `GOOGLE_PLACES_API_KEY` not configured locally)
+	- generated-session persisted payload inspection for verified/unverified outcomes: pending
+	- manual browser verification: pending project owner confirmation
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.

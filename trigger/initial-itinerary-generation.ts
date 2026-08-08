@@ -1,11 +1,13 @@
 import { logger, schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 
+import { searchGooglePlaceByText } from "@/lib/maps/google-places-server";
 import { PLANNING_SESSION_GENERATION_QUEUE_NAME } from "@/lib/planning-sessions/constants";
 import {
   generateInitialItineraryDraft,
   validateAndNormalizeGeneratedItinerary,
 } from "@/lib/planning-sessions/generation";
+import { resolveGeneratedItineraryPlaces } from "@/lib/planning-sessions/generated-place-resolution";
 import {
   failPlanningSessionGeneration,
   findPlanningSessionById,
@@ -73,6 +75,24 @@ export const initialItineraryGenerationTask = schemaTask({
         expectedTripLengthDays: session.planningBrief.tripLengthDays,
       });
 
+      const resolution = await resolveGeneratedItineraryPlaces({
+        itinerary,
+        sessionExpiresAt: session.expiresAt,
+        resolveQuery: async (query) => {
+          return searchGooglePlaceByText({ query });
+        },
+      });
+
+      logger.info("Generated place resolution summary", {
+        sessionId: payload.sessionId,
+        generationAttempt: payload.generationAttempt,
+        attempted: resolution.summary.attempted,
+        verified: resolution.summary.verified,
+        unverified: resolution.summary.unverified,
+        skipped: resolution.summary.skipped,
+        failed: resolution.summary.failed,
+      });
+
       await setPlanningSessionGenerationPhase({
         sessionId: payload.sessionId,
         generationAttempt: payload.generationAttempt,
@@ -82,7 +102,7 @@ export const initialItineraryGenerationTask = schemaTask({
       await completePlanningSessionGeneration({
         sessionId: payload.sessionId,
         generationAttempt: payload.generationAttempt,
-        itinerary,
+        itinerary: resolution.itinerary,
       });
 
       logger.info("Initial itinerary generation completed", {

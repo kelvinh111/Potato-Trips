@@ -154,12 +154,26 @@ export const itineraryItemTypeSchema = z.enum([
 
 export type ItineraryItemType = z.infer<typeof itineraryItemTypeSchema>;
 
+const googlePlaceReferenceSchema = z
+  .object({
+    provider: z.literal("GOOGLE"),
+    placeId: nonEmptyStringSchema,
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    coordinatesCachedAt: z.string().datetime({ offset: true }),
+    coordinatesExpireAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+export type GooglePlaceReference = z.infer<typeof googlePlaceReferenceSchema>;
+
 const aiGeneratedItineraryItemSchema = z
   .object({
     type: itineraryItemTypeSchema,
     title: nonEmptyStringSchema,
     description: nonEmptyLongStringSchema,
     planningText: nonEmptyLongStringSchema,
+    placeSearchQuery: nonEmptyStringSchema.nullable(),
     suggestedTime: nonEmptyStringSchema.nullable(),
     suggestedDurationMinutes: z.number().int().min(1).max(24 * 60).nullable(),
   })
@@ -191,6 +205,8 @@ export const persistedItineraryItemSchema = z
     title: nonEmptyStringSchema,
     description: nonEmptyLongStringSchema,
     planningText: nonEmptyLongStringSchema,
+    placeSearchQuery: nonEmptyStringSchema.nullable().optional(),
+    placeReference: googlePlaceReferenceSchema.nullable().optional(),
     suggestedTime: nonEmptyStringSchema.nullable(),
     suggestedDurationMinutes: z.number().int().min(1).max(24 * 60).nullable(),
   })
@@ -248,7 +264,19 @@ export function parsePersistedItinerary(value: unknown): PersistedItinerary | nu
     return null;
   }
 
-  return persistedItinerarySchema.parse(value);
+  const parsed = persistedItinerarySchema.parse(value);
+
+  return {
+    ...parsed,
+    days: parsed.days.map((day) => ({
+      ...day,
+      items: day.items.map((item) => ({
+        ...item,
+        placeSearchQuery: item.placeSearchQuery ?? null,
+        placeReference: item.placeReference ?? null,
+      })),
+    })),
+  };
 }
 
 export function isPlanningBriefReadyForConfirmation(brief: PlanningBrief): boolean {
@@ -347,6 +375,8 @@ export function normalizeGeneratedItinerary(
       title: item.title,
       description: item.description,
       planningText: item.planningText,
+      placeSearchQuery: item.placeSearchQuery,
+      placeReference: null,
       suggestedTime: item.suggestedTime,
       suggestedDurationMinutes: item.suggestedDurationMinutes,
     })),
