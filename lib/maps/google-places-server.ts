@@ -34,6 +34,14 @@ type GooglePlacesLookupResult =
       providerWide: boolean;
     };
 
+type GooglePlacesProviderAvailability =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "CONFIGURATION";
+      providerWide: true;
+    };
+
 const placesTextSearchResponseSchema = z
   .object({
     places: z
@@ -71,6 +79,22 @@ export function parseGooglePlacesServerConfig(
   }
 
   return { apiKey };
+}
+
+export function getGooglePlacesProviderAvailability(
+  env: Record<string, string | undefined> = process.env,
+): GooglePlacesProviderAvailability {
+  const config = parseGooglePlacesServerConfig(env);
+
+  if (!config) {
+    return {
+      ok: false,
+      reason: "CONFIGURATION",
+      providerWide: true,
+    };
+  }
+
+  return { ok: true };
 }
 
 export function isValidGooglePlaceCoordinates(

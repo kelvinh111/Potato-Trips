@@ -1,7 +1,10 @@
 import { logger, schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 
-import { searchGooglePlaceByText } from "@/lib/maps/google-places-server";
+import {
+  getGooglePlacesProviderAvailability,
+  searchGooglePlaceByText,
+} from "@/lib/maps/google-places-server";
 import { PLANNING_SESSION_GENERATION_QUEUE_NAME } from "@/lib/planning-sessions/constants";
 import {
   generateInitialItineraryDraft,
@@ -78,6 +81,9 @@ export const initialItineraryGenerationTask = schemaTask({
       const resolution = await resolveGeneratedItineraryPlaces({
         itinerary,
         sessionExpiresAt: session.expiresAt,
+        checkProviderAvailability: async () => {
+          return getGooglePlacesProviderAvailability();
+        },
         resolveQuery: async (query) => {
           return searchGooglePlaceByText({ query });
         },

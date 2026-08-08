@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  getGooglePlacesProviderAvailability,
   isDisplayNameCompatibleWithQuery,
   isValidGooglePlaceCoordinates,
   parseGooglePlacesServerConfig,
@@ -41,35 +42,57 @@ function createFixtureItinerary(): PersistedItinerary {
           {
             id: "item-2",
             order: 1,
-            type: "FOOD",
-            title: "Lunch",
-            description: "Generic lunch",
-            planningText: "Eat nearby",
-            placeSearchQuery: "lunch in asakusa",
-            suggestedTime: "12:00",
-            suggestedDurationMinutes: 60,
+            type: "PLACE",
+            title: "Tokyo Station",
+            description: "Station",
+            planningText: "Take train",
+            placeSearchQuery: "Tokyo Station",
+            suggestedTime: "11:00",
+            suggestedDurationMinutes: 40,
           },
           {
             id: "item-3",
             order: 2,
-            type: "TRANSPORT",
-            title: "Transfer",
-            description: "Generic transfer",
-            planningText: "Move to next district",
-            placeSearchQuery: "metro transfer",
-            suggestedTime: null,
-            suggestedDurationMinutes: null,
+            type: "LODGING",
+            title: "Park Hotel",
+            description: "Hotel check-in",
+            planningText: "Drop bags",
+            placeSearchQuery: "Park Hotel Tokyo",
+            suggestedTime: "14:00",
+            suggestedDurationMinutes: 30,
           },
           {
             id: "item-4",
             order: 3,
+            type: "ACTIVITY",
+            title: "Neighborhood walk",
+            description: "Generic activity",
+            planningText: "Walk around",
+            placeSearchQuery: "walk around asakusa",
+            suggestedTime: null,
+            suggestedDurationMinutes: null,
+          },
+          {
+            id: "item-5",
+            order: 4,
             type: "NOTE",
             title: "Packing note",
             description: "Carry umbrella",
             planningText: "Bring umbrella",
-            placeSearchQuery: "Tokyo Station",
+            placeSearchQuery: "Tokyo Tower",
             suggestedTime: null,
             suggestedDurationMinutes: null,
+          },
+          {
+            id: "item-6",
+            order: 5,
+            type: "TRANSPORT",
+            title: "Transfer",
+            description: "Airport transfer",
+            planningText: "Move to airport",
+            placeSearchQuery: "Haneda Airport",
+            suggestedTime: "19:00",
+            suggestedDurationMinutes: 75,
           },
         ],
       },
@@ -83,8 +106,26 @@ function createFixtureItinerary(): PersistedItinerary {
   return parsed;
 }
 
+function snapshotItemContent(itinerary: PersistedItinerary) {
+  return itinerary.days[0]!.items.map((item) => ({
+    id: item.id,
+    order: item.order,
+    type: item.type,
+    title: item.title,
+    description: item.description,
+    planningText: item.planningText,
+    suggestedTime: item.suggestedTime,
+    suggestedDurationMinutes: item.suggestedDurationMinutes,
+  }));
+}
+
 async function testProviderBoundary() {
   assert.equal(parseGooglePlacesServerConfig({ GOOGLE_PLACES_API_KEY: undefined }), null);
+  assert.deepEqual(getGooglePlacesProviderAvailability({ GOOGLE_PLACES_API_KEY: undefined }), {
+    ok: false,
+    reason: "CONFIGURATION",
+    providerWide: true,
+  });
   assert.equal(isValidGooglePlaceCoordinates(35.6, 139.7), true);
   assert.equal(isValidGooglePlaceCoordinates(99, 139.7), false);
   assert.equal(
@@ -103,10 +144,14 @@ async function testProviderBoundary() {
   process.env.GOOGLE_PLACES_API_KEY = "test-key";
 
   globalThis.fetch = async () => {
-    return new Response("{}", { status: 500 });
+    throw new Error("network down");
   };
   const rejectedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
-  assert.equal(rejectedResult.kind, "FAILED");
+  assert.deepEqual(rejectedResult, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    providerWide: false,
+  });
 
   globalThis.fetch = async () => {
     return new Response("not json", { status: 200 });
@@ -164,9 +209,7 @@ async function testProviderBoundary() {
   });
 }
 
-async function testResolutionWorkflow() {
-  const itinerary = createFixtureItinerary();
-
+function testQueryNormalization() {
   assert.equal(
     derivePlaceSearchQueryForGeneratedItem({
       type: "PLACE",
@@ -176,8 +219,8 @@ async function testResolutionWorkflow() {
   );
   assert.equal(
     derivePlaceSearchQueryForGeneratedItem({
-      type: "FOOD",
-      placeSearchQuery: "lunch in asakusa",
+      type: "ACTIVITY",
+      placeSearchQuery: "walk around asakusa",
     }),
     null,
   );
@@ -188,10 +231,15 @@ async function testResolutionWorkflow() {
     }),
     null,
   );
+}
+
+async function testConcurrencyBoundAndContentPreservation() {
+  const itinerary = createFixtureItinerary();
+  const snapshotBefore = snapshotItemContent(itinerary);
 
   let active = 0;
   let maxActive = 0;
-  const queries: string[] = [];
+  const calledQueries: string[] = [];
   const now = new Date("2031-06-01T12:00:00.000Z");
   const sessionExpiresAt = new Date("2031-06-20T00:00:00.000Z");
 
@@ -199,16 +247,15 @@ async function testResolutionWorkflow() {
     itinerary,
     sessionExpiresAt,
     now,
-    maxRequests: 1,
-    concurrency: 3,
+    concurrency: 2,
     resolveQuery: async (query) => {
-      queries.push(query);
+      calledQueries.push(query);
       active += 1;
       maxActive = Math.max(maxActive, active);
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 1));
       active -= 1;
 
-      if (query.includes("Senso-ji")) {
+      if (query === "Senso-ji Temple Tokyo") {
         return {
           kind: "VERIFIED" as const,
           placeId: "places/sensoji",
@@ -221,13 +268,19 @@ async function testResolutionWorkflow() {
     },
   });
 
-  assert.equal(maxActive <= 3, true);
-  assert.equal(result.summary.attempted, 1);
+  assert.equal(maxActive <= 2, true);
+  assert.equal(maxActive >= 2, true);
+  assert.equal(result.summary.attempted, 4);
   assert.equal(result.summary.verified, 1);
+  assert.equal(result.summary.unverified, 3);
   assert.equal(result.summary.failed, 0);
-  assert.equal(result.summary.unverified, 0);
-  assert.equal(result.summary.skipped >= 3, true);
-  assert.deepEqual(queries, ["Senso-ji Temple Tokyo"]);
+  assert.equal(result.summary.skipped, 2);
+  assert.deepEqual(calledQueries, [
+    "Senso-ji Temple Tokyo",
+    "Tokyo Station",
+    "Park Hotel Tokyo",
+    "Haneda Airport",
+  ]);
 
   const firstItem = result.itinerary.days[0]!.items[0]!;
   assert.equal(firstItem.placeReference?.provider, "GOOGLE");
@@ -236,14 +289,61 @@ async function testResolutionWorkflow() {
   const expireAt = deriveCoordinatesExpireAt({ now, sessionExpiresAt });
   assert.equal(firstItem.placeReference?.coordinatesExpireAt, expireAt.toISOString());
 
-  const preservedOrder = result.itinerary.days[0]!.items.map((item) => item.id);
-  assert.deepEqual(preservedOrder, ["item-1", "item-2", "item-3", "item-4"]);
+  const idsAfter = result.itinerary.days[0]!.items.map((item) => item.id);
+  assert.deepEqual(idsAfter, ["item-1", "item-2", "item-3", "item-4", "item-5", "item-6"]);
+
+  const snapshotAfter = snapshotItemContent(result.itinerary);
+  assert.deepEqual(snapshotAfter, snapshotBefore);
 }
 
-async function testProviderWideFailureStop() {
+async function testRequestCapBehavior() {
   const itinerary = createFixtureItinerary();
-  itinerary.days[0]!.items[1]!.placeSearchQuery = "Tokyo Station";
+  const calledQueries: string[] = [];
 
+  const result = await resolveGeneratedItineraryPlaces({
+    itinerary,
+    sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
+    maxRequests: 2,
+    concurrency: 3,
+    resolveQuery: async (query) => {
+      calledQueries.push(query);
+      return { kind: "NO_RESULT" as const };
+    },
+  });
+
+  assert.equal(result.summary.attempted, 2);
+  assert.equal(result.summary.verified, 0);
+  assert.equal(result.summary.unverified, 2);
+  assert.equal(result.summary.failed, 0);
+  assert.equal(result.summary.skipped, 4);
+  assert.equal(calledQueries.length, 2);
+}
+
+async function testProviderWidePreflightStop() {
+  const itinerary = createFixtureItinerary();
+  let lookups = 0;
+
+  const result = await resolveGeneratedItineraryPlaces({
+    itinerary,
+    sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
+    checkProviderAvailability: async () => ({
+      ok: false as const,
+      providerWide: true,
+    }),
+    resolveQuery: async () => {
+      lookups += 1;
+      return { kind: "NO_RESULT" as const };
+    },
+  });
+
+  assert.equal(lookups, 0);
+  assert.equal(result.summary.attempted, 0);
+  assert.equal(result.summary.failed, 1);
+  assert.equal(result.summary.skipped, 6);
+}
+
+async function testProviderWideFailureStopDuringResolution() {
+  const itinerary = createFixtureItinerary();
   let calls = 0;
 
   const result = await resolveGeneratedItineraryPlaces({
@@ -260,7 +360,32 @@ async function testProviderWideFailureStop() {
   });
 
   assert.equal(calls, 1);
+  assert.equal(result.summary.attempted, 1);
   assert.equal(result.summary.failed, 1);
+  assert.equal(result.summary.skipped, 5);
+}
+
+async function testUnexpectedLookupRejectionDoesNotFailResolution() {
+  const itinerary = createFixtureItinerary();
+
+  const result = await resolveGeneratedItineraryPlaces({
+    itinerary,
+    sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
+    concurrency: 1,
+    resolveQuery: async (query) => {
+      if (query === "Tokyo Station") {
+        throw new Error("unexpected rejection");
+      }
+
+      return { kind: "NO_RESULT" as const };
+    },
+  });
+
+  assert.equal(result.summary.attempted, 4);
+  assert.equal(result.summary.failed, 1);
+  assert.equal(result.summary.unverified, 3);
+  assert.equal(result.summary.verified, 0);
+  assert.equal(result.summary.skipped, 2);
 }
 
 function testLegacyItineraryParsing() {
@@ -301,8 +426,12 @@ function testLegacyItineraryParsing() {
 async function run() {
   try {
     await testProviderBoundary();
-    await testResolutionWorkflow();
-    await testProviderWideFailureStop();
+    testQueryNormalization();
+    await testConcurrencyBoundAndContentPreservation();
+    await testRequestCapBehavior();
+    await testProviderWidePreflightStop();
+    await testProviderWideFailureStopDuringResolution();
+    await testUnexpectedLookupRejectionDoesNotFailResolution();
     testLegacyItineraryParsing();
 
     console.log("generated-place-resolution-regression: pass");

@@ -11,6 +11,13 @@ import type {
 interface ResolveGeneratedPlacesInput {
   itinerary: PersistedItinerary;
   sessionExpiresAt: Date;
+  checkProviderAvailability?: () => Promise<
+    | { ok: true }
+    | {
+        ok: false;
+        providerWide: boolean;
+      }
+  >;
   resolveQuery: (query: string) => Promise<
     | {
         kind: "VERIFIED";
@@ -146,6 +153,20 @@ export async function resolveGeneratedItineraryPlaces(
     return { itinerary, summary };
   }
 
+  if (input.checkProviderAvailability) {
+    const availability = await input.checkProviderAvailability();
+
+    if (!availability.ok && availability.providerWide) {
+      summary.failed += 1;
+      summary.skipped += targets.length;
+
+      return {
+        itinerary,
+        summary,
+      };
+    }
+  }
+
   let providerWideFailure = false;
   let cursor = 0;
 
@@ -166,7 +187,23 @@ export async function resolveGeneratedItineraryPlaces(
         }
 
         summary.attempted += 1;
-        const result = await input.resolveQuery(target.query);
+        let result:
+          | {
+              kind: "VERIFIED";
+              placeId: string;
+              latitude: number;
+              longitude: number;
+            }
+          | { kind: "NO_RESULT" }
+          | { kind: "INVALID_RESULT" }
+          | { kind: "FAILED"; providerWide: boolean };
+
+        try {
+          result = await input.resolveQuery(target.query);
+        } catch {
+          summary.failed += 1;
+          continue;
+        }
 
         if (result.kind === "VERIFIED") {
           const expiresAt = deriveCoordinatesExpireAt({

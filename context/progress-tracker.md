@@ -270,8 +270,10 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- Extended generated itinerary items with nullable `placeSearchQuery` and nullable `placeReference`, while preserving legacy payload compatibility by normalizing missing fields to `null`.
 	- Added server-only Google Places Text Search boundary with minimal field mask, strict response validation, coordinate-range checks, and provider-wide configuration/auth failure signaling.
 	- Integrated bounded, capped place resolution directly inside the existing Trigger initial-generation task before final persistence (single canonical itinerary write preserved).
+	- Added provider availability preflight in generated-place resolution so missing provider configuration records one provider-wide failure and skips eligible lookups before worker fanout.
+	- Hardened generated-place resolution against unexpected lookup promise rejections by counting failure and continuing without failing itinerary generation.
 	- Added per-attempt structured place-resolution summary logging (`attempted`, `verified`, `unverified`, `skipped`, `failed`) without secrets, raw provider responses, or full user-query logging.
-	- Added deterministic regression coverage for provider-boundary outcomes, query normalization, cap/concurrency behavior, provider-wide failure stop, and legacy payload parsing.
+	- Expanded deterministic regression coverage for provider preflight stop, multi-target concurrency bounds, request-cap stop semantics, provider-wide stop during resolution, rejected lookup handling, summary-count exactness, and itinerary content/order preservation.
 	- Added server configuration documentation for `GOOGLE_PLACES_API_KEY` and restriction guidance.
 	- Live Places smoke + generated-session persisted payload inspection pending because server Places credential is not configured locally.
 	- Manual browser verification pending before completion.
