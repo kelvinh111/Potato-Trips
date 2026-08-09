@@ -40,6 +40,11 @@ export interface MarkerSelectionResolution {
   selectedItemId: string | null;
 }
 
+export interface MarkerFocusTarget {
+  latitude: number;
+  longitude: number;
+}
+
 export interface MarkerReconciliationState<TMarker> {
   markersByPlaceId: Map<string, TMarker>;
 }
@@ -251,6 +256,64 @@ export function deriveInteractiveItemIds(markers: GeneratedMapMarkerView[]): Set
   }
 
   return itemIds;
+}
+
+export function deriveEffectiveSelectedItemId(input: {
+  selectedItemId: string | null;
+  isMapLinkedInteractionEnabled: boolean;
+  interactiveItemIds: Set<string>;
+}): string | null {
+  if (!input.selectedItemId) {
+    return null;
+  }
+
+  if (!input.isMapLinkedInteractionEnabled) {
+    return null;
+  }
+
+  return input.interactiveItemIds.has(input.selectedItemId) ? input.selectedItemId : null;
+}
+
+export function buildMarkerPayloadSignature(markers: GeneratedMapMarkerView[]): string {
+  return markers
+    .map((marker) => {
+      return `${marker.placeId}:${marker.latitude}:${marker.longitude}:${marker.linkedItems.length}`;
+    })
+    .join("|");
+}
+
+export function shouldResetInitialViewport(input: {
+  previousSignature: string;
+  nextSignature: string;
+}): boolean {
+  return input.previousSignature !== input.nextSignature;
+}
+
+export function deriveSelectedMarkerFocus(input: {
+  markers: GeneratedMapMarkerView[];
+  selectedItemId: string | null;
+}): MarkerFocusTarget | null {
+  const selected = resolveSelectedMarker({
+    markers: input.markers,
+    selectedItemId: input.selectedItemId,
+  });
+
+  if (!selected.selectedPlaceId) {
+    return null;
+  }
+
+  const focusedMarker = input.markers.find((marker) => {
+    return marker.placeId === selected.selectedPlaceId;
+  });
+
+  if (!focusedMarker) {
+    return null;
+  }
+
+  return {
+    latitude: focusedMarker.latitude,
+    longitude: focusedMarker.longitude,
+  };
 }
 
 export function reconcileMarkers<TMarker>(input: {

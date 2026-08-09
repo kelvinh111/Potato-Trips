@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GeneratedMapPanel } from "@/components/plan/generated-map-panel";
 import { ItineraryKanbanBoard } from "@/components/plan/itinerary-kanban-board";
 import { PlanningChatPanel } from "@/components/plan/planning-chat-panel";
 import { TripPlanStatusPanel } from "@/components/plan/trip-plan-status-panel";
 import {
+  deriveEffectiveSelectedItemId,
   deriveGeneratedMapMarkers,
   deriveInteractiveItemIds,
 } from "@/lib/maps/generated-map-markers";
@@ -80,12 +81,33 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
 
   const isMapLinkedInteractionEnabled = showMapSlot && isMapReady;
 
-  const effectiveSelectedItemId =
-    selectedItemId
-    && isMapLinkedInteractionEnabled
-    && interactiveItemIds.has(selectedItemId)
-      ? selectedItemId
-      : null;
+  const effectiveSelectedItemId = deriveEffectiveSelectedItemId({
+    selectedItemId,
+    isMapLinkedInteractionEnabled,
+    interactiveItemIds,
+  });
+
+  const handleSelectItem = useCallback((itemId: string) => {
+    setSelectedItemId(itemId);
+  }, []);
+
+  const handleMapReadyChange = useCallback((ready: boolean) => {
+    setIsMapReady(ready);
+  }, []);
+
+  useEffect(() => {
+    if (selectedItemId === null || effectiveSelectedItemId !== null) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSelectedItemId(null);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [effectiveSelectedItemId, selectedItemId]);
 
   const gridClassName = showMapSlot
     ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(16rem,22rem)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4"
@@ -117,9 +139,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
               selectedItemId={effectiveSelectedItemId}
               interactiveItemIds={interactiveItemIds}
               isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
-              onActivateInteractiveItem={(itemId) => {
-                setSelectedItemId(itemId);
-              }}
+              onActivateInteractiveItem={handleSelectItem}
             />
           </section>
         )}
@@ -128,15 +148,8 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
           <GeneratedMapPanel
             markers={markers}
             selectedItemId={effectiveSelectedItemId}
-            onMarkerActivate={(itemId) => {
-              setSelectedItemId(itemId);
-            }}
-            onMapReadyChange={(ready) => {
-              setIsMapReady(ready);
-              if (!ready) {
-                setSelectedItemId(null);
-              }
-            }}
+            onMarkerActivate={handleSelectItem}
+            onMapReadyChange={handleMapReadyChange}
           />
         ) : null}
       </div>

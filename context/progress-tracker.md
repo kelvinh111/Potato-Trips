@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete Feature 20 manual browser verification for map-marker and kanban selection sync.
+- Begin Feature 20 implementation planning and execution.
 
 ## Current Feature Unit
 - Unit: Feature 20 Map Markers and Kanban Sync
 - Related spec: `context/feature-specs/20-map-markers-and-kanban-sync.md`
-- Status: In Progress / Implemented and pending manual browser verification
+- Status: Next Up
 
 ## Completed
 
@@ -283,22 +283,10 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 19 completion checklist satisfied and marked complete.
 
 ## In Progress
-- Feature 20: Map Markers and Kanban Sync
-	- Added deterministic marker derivation from canonical `generatedItinerary` references, including Place-ID de-duplication, day/order-linked item ordering, invalid/expired reference filtering, and marker title count metadata.
-	- Added map-marker reconciliation primitives with deterministic create/update/remove lifecycle handling and place-keyed marker identity.
-	- Extended desktop generated map panel to lazily import the Google marker library only when the map is ready and verified markers exist.
-	- Added Place-ID keyed `AdvancedMarkerElement` rendering with cleanup of obsolete markers/listeners across rerenders and unmount.
-	- Added initial viewport behavior for empty/single/multi-marker states, plus selected-item pan/zoom focus behavior without auto-selecting a marker.
-	- Added map-accessible empty verified-marker status while preserving map controls and attribution visibility.
-	- Added workspace-level ephemeral `selectedItemId` state and two-way selection sync between marker activation and kanban card activation.
-	- Enabled keyboard/pointer interaction only for verified cards when desktop map is available, while preserving unverified cards as read-only content.
-	- Preserved existing generated-layout kanban scrolling and middle-mouse panning behavior.
-	- Added deterministic focused regression script for Feature 20 marker derivation, viewport instructions, selection resolution/cleanup, and marker reconciliation lifecycle.
-	- Automated checks completed; manual browser verification remains pending before completion.
+- None.
 
 ## Next Up
-- Feature 20 manual browser verification close-out (`context/feature-specs/20-map-markers-and-kanban-sync.md`)
-- Feature 21 Location Detail (`context/feature-specs/21-location-detail.md`)
+- Feature 20 (`context/feature-specs/20-map-markers-and-kanban-sync.md`)
 
 ## Blockers
 - None.
@@ -445,16 +433,6 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- persisted `generatedItinerary` inspection: pass (expected mix of populated and `null` `placeReference` values)
 	- reload restore check: pass (content unchanged and no additional task execution)
 	- client provider-call boundary check: pass (Browser DevTools recorded zero requests to `places.googleapis.com`)
-- Feature 20 checks:
-	- `npm run map-markers-kanban-sync:regression`: pass
-	- targeted `eslint` for Feature 20 changed source files: pass
-	- `npx tsc --noEmit`: pass
-	- `git diff --check`: pass
-	- `npm run build`: pass
-	- manual browser verification: pending desktop card->marker selection, marker->card selection + scroll, keyboard activation, selected styling, empty verified-marker status visibility, no Location Detail navigation
-	- manual browser verification: pending unverified-card non-interactivity and no invented markers
-	- manual browser verification: pending narrow-layout no map/marker request and safe marker reinitialization after resize back to desktop
-	- manual browser verification: pending refresh restore without Places lookup/generation duplication/order changes
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.

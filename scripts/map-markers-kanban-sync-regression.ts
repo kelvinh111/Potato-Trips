@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 
 import {
+  buildMarkerPayloadSignature,
+  deriveEffectiveSelectedItemId,
   deriveGeneratedMapMarkers,
   deriveInteractiveItemIds,
   deriveMarkerViewportInstruction,
+  deriveSelectedMarkerFocus,
   reconcileMarkers,
   resolveSelectedMarker,
+  shouldResetInitialViewport,
   type GeneratedMapMarkerView,
   type MarkerReconcilerAdapter,
 } from "@/lib/maps/generated-map-markers";
@@ -210,6 +214,20 @@ function testViewportInstructions() {
     assert.equal(boundsInstruction.bounds.north >= boundsInstruction.bounds.south, true);
     assert.equal(boundsInstruction.bounds.east >= boundsInstruction.bounds.west, true);
   }
+
+  const signatureA = buildMarkerPayloadSignature(markers);
+  const signatureB = buildMarkerPayloadSignature(markers);
+  assert.equal(shouldResetInitialViewport({ previousSignature: signatureA, nextSignature: signatureB }), false);
+
+  const modifiedMarkers: GeneratedMapMarkerView[] = [
+    {
+      ...markers[0]!,
+      latitude: markers[0]!.latitude + 0.01,
+    },
+    markers[1]!,
+  ];
+  const signatureC = buildMarkerPayloadSignature(modifiedMarkers);
+  assert.equal(shouldResetInitialViewport({ previousSignature: signatureA, nextSignature: signatureC }), true);
 }
 
 function testSelectionResolutionAndCleanup() {
@@ -232,6 +250,51 @@ function testSelectionResolutionAndCleanup() {
       selectedPlaceId: null,
       selectedItemId: null,
     },
+  );
+
+  assert.deepEqual(
+    deriveSelectedMarkerFocus({
+      markers,
+      selectedItemId: "day-2-item-1",
+    }),
+    {
+      latitude: 35.6812,
+      longitude: 139.7671,
+    },
+  );
+
+  assert.equal(
+    deriveSelectedMarkerFocus({
+      markers,
+      selectedItemId: "missing-item",
+    }),
+    null,
+  );
+
+  const interactiveItemIds = deriveInteractiveItemIds(markers);
+  assert.equal(
+    deriveEffectiveSelectedItemId({
+      selectedItemId: "day-1-item-1",
+      isMapLinkedInteractionEnabled: true,
+      interactiveItemIds,
+    }),
+    "day-1-item-1",
+  );
+  assert.equal(
+    deriveEffectiveSelectedItemId({
+      selectedItemId: "day-1-item-3",
+      isMapLinkedInteractionEnabled: true,
+      interactiveItemIds,
+    }),
+    null,
+  );
+  assert.equal(
+    deriveEffectiveSelectedItemId({
+      selectedItemId: "day-1-item-1",
+      isMapLinkedInteractionEnabled: false,
+      interactiveItemIds,
+    }),
+    null,
   );
 }
 
@@ -289,6 +352,20 @@ function testMarkerReconciliationLifecycle() {
 
   assert.deepEqual(createCalls, ["places/tokyo-station", "places/kyoto-station"]);
   assert.deepEqual(removeCalls, []);
+  const createCountAfterInitial = createCalls.length;
+
+  state = reconcileMarkers({
+    current: state,
+    markers,
+    selectedItemId: null,
+    onActivate: (itemId) => {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.equal(createCalls.length, createCountAfterInitial);
+  assert.equal(state.markersByPlaceId.size, 2);
 
   state = reconcileMarkers({
     current: state,
@@ -300,8 +377,8 @@ function testMarkerReconciliationLifecycle() {
     adapter,
   });
 
-  assert.deepEqual(createCalls, ["places/tokyo-station", "places/kyoto-station"]);
-  assert.deepEqual(updateCalls, ["places/tokyo-station", "places/kyoto-station"]);
+  assert.equal(createCalls.length, createCountAfterInitial);
+  assert.equal(updateCalls.length, 4);
 
   const replacementMarkers: GeneratedMapMarkerView[] = [markers[1]!];
 

@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  buildMarkerPayloadSignature,
   deriveFirstLinkedItemId,
+  deriveSelectedMarkerFocus,
   deriveMarkerViewportInstruction,
   reconcileMarkers,
-  resolveSelectedMarker,
+  shouldResetInitialViewport,
   type GeneratedMapMarkerView,
 } from "@/lib/maps/generated-map-markers";
 import {
@@ -32,6 +34,8 @@ interface ManagedAdvancedMarker {
   firstLinkedItemId: string | null;
   selected: boolean;
   pinElement: google.maps.marker.PinElement;
+  contentElement: HTMLDivElement;
+  onKeyDown: (event: KeyboardEvent) => void;
 }
 
 interface WindowWithGoogleMapsAuthFailure extends Window {
@@ -64,6 +68,8 @@ export function GeneratedMapPanel({
   const hasMapReadySignalRef = useRef(false);
   const hasAppliedInitialViewportRef = useRef(false);
   const markerPayloadSignatureRef = useRef("");
+  const onMarkerActivateRef = useRef(onMarkerActivate);
+  const onMapReadyChangeRef = useRef(onMapReadyChange);
   const [hasMapReadySignal, setHasMapReadySignal] = useState(false);
   const [hasAuthFailure, setHasAuthFailure] = useState(false);
   const [hasLoadFailure, setHasLoadFailure] = useState(false);
@@ -74,14 +80,22 @@ export function GeneratedMapPanel({
   }, []);
 
   useEffect(() => {
-    onMapReadyChange?.(hasMapReadySignal);
-  }, [hasMapReadySignal, onMapReadyChange]);
+    onMarkerActivateRef.current = onMarkerActivate;
+  }, [onMarkerActivate]);
+
+  useEffect(() => {
+    onMapReadyChangeRef.current = onMapReadyChange;
+  }, [onMapReadyChange]);
+
+  useEffect(() => {
+    onMapReadyChangeRef.current?.(hasMapReadySignal);
+  }, [hasMapReadySignal]);
 
   useEffect(() => {
     return () => {
-      onMapReadyChange?.(false);
+      onMapReadyChangeRef.current?.(false);
     };
-  }, [onMapReadyChange]);
+  }, []);
 
   useEffect(() => {
     if (!hasMapReadySignal) {
@@ -90,7 +104,9 @@ export function GeneratedMapPanel({
         current: markerStateRef.current,
         markers: [],
         selectedItemId: null,
-        onActivate: onMarkerActivate,
+        onActivate: (itemId) => {
+          onMarkerActivateRef.current(itemId);
+        },
         adapter: {
           create() {
             throw new Error("marker adapter unavailable before map initialization");
@@ -100,6 +116,7 @@ export function GeneratedMapPanel({
           remove(managedMarker) {
             managedMarker.clickListener?.remove();
             managedMarker.clickListener = null;
+            managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
             managedMarker.marker.map = null;
           },
         },
@@ -115,26 +132,18 @@ export function GeneratedMapPanel({
     let isActive = true;
 
     const applySelectionFocus = (nextMarkers: GeneratedMapMarkerView[]) => {
-      const selectedMarkerResolution = resolveSelectedMarker({
+      const focusTarget = deriveSelectedMarkerFocus({
         markers: nextMarkers,
         selectedItemId,
       });
 
-      if (!selectedMarkerResolution.selectedPlaceId) {
-        return;
-      }
-
-      const focusedMarker = nextMarkers.find((marker) => {
-        return marker.placeId === selectedMarkerResolution.selectedPlaceId;
-      });
-
-      if (!focusedMarker) {
+      if (!focusTarget) {
         return;
       }
 
       map.panTo({
-        lat: focusedMarker.latitude,
-        lng: focusedMarker.longitude,
+        lat: focusTarget.latitude,
+        lng: focusTarget.longitude,
       });
 
       if ((map.getZoom() ?? 0) < 11) {
@@ -168,13 +177,12 @@ export function GeneratedMapPanel({
       hasAppliedInitialViewportRef.current = true;
     };
 
-    const nextPayloadSignature = markers
-      .map((marker) => {
-        return `${marker.placeId}:${marker.latitude}:${marker.longitude}:${marker.linkedItems.length}`;
-      })
-      .join("|");
+    const nextPayloadSignature = buildMarkerPayloadSignature(markers);
 
-    if (markerPayloadSignatureRef.current !== nextPayloadSignature) {
+    if (shouldResetInitialViewport({
+      previousSignature: markerPayloadSignatureRef.current,
+      nextSignature: nextPayloadSignature,
+    })) {
       hasAppliedInitialViewportRef.current = false;
       markerPayloadSignatureRef.current = nextPayloadSignature;
     }
@@ -184,7 +192,9 @@ export function GeneratedMapPanel({
         current: markerStateRef.current,
         markers: [],
         selectedItemId,
-        onActivate: onMarkerActivate,
+        onActivate: (itemId) => {
+          onMarkerActivateRef.current(itemId);
+        },
         adapter: {
           create() {
             throw new Error("cannot create markers with empty marker list");
@@ -194,6 +204,7 @@ export function GeneratedMapPanel({
           remove(managedMarker) {
             managedMarker.clickListener?.remove();
             managedMarker.clickListener = null;
+            managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
             managedMarker.marker.map = null;
           },
         },
@@ -215,11 +226,35 @@ export function GeneratedMapPanel({
           current: markerStateRef.current,
           markers,
           selectedItemId,
-          onActivate: onMarkerActivate,
+          onActivate: (itemId) => {
+            onMarkerActivateRef.current(itemId);
+          },
           adapter: {
             create({ marker, selected, onActivate }) {
               const pinElement = createMarkerPinElement(markerLibrary, selected);
               const firstLinkedItemId = deriveFirstLinkedItemId(marker);
+              const markerTitle = marker.markerTitle;
+              const contentElement = document.createElement("div");
+              contentElement.tabIndex = 0;
+              contentElement.role = "button";
+              contentElement.ariaLabel = markerTitle;
+              contentElement.className = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-full";
+              contentElement.appendChild(pinElement.element);
+
+              const onKeyDown = (event: KeyboardEvent) => {
+                if (event.key !== "Enter" && event.key !== " ") {
+                  return;
+                }
+
+                event.preventDefault();
+                if (!firstLinkedItemId) {
+                  return;
+                }
+
+                onActivate(firstLinkedItemId);
+              };
+
+              contentElement.addEventListener("keydown", onKeyDown);
 
               const advancedMarker = new markerLibrary.AdvancedMarkerElement({
                 map,
@@ -227,8 +262,9 @@ export function GeneratedMapPanel({
                   lat: marker.latitude,
                   lng: marker.longitude,
                 },
-                title: marker.markerTitle,
-                content: pinElement.element,
+                title: markerTitle,
+                content: contentElement,
+                gmpClickable: true,
               });
 
               const clickListener = advancedMarker.addListener("click", () => {
@@ -246,6 +282,8 @@ export function GeneratedMapPanel({
                 firstLinkedItemId,
                 selected,
                 pinElement,
+                contentElement,
+                onKeyDown,
               };
             },
             update({ marker: managedMarker, next, selected, onActivate }) {
@@ -254,6 +292,7 @@ export function GeneratedMapPanel({
                 lng: next.longitude,
               };
               managedMarker.marker.title = next.markerTitle;
+              managedMarker.contentElement.ariaLabel = next.markerTitle;
 
               const firstLinkedItemId = deriveFirstLinkedItemId(next);
               const nextLinkedItemIds = next.linkedItems.map((linkedItem) => linkedItem.itemId);
@@ -283,6 +322,7 @@ export function GeneratedMapPanel({
             remove(managedMarker) {
               managedMarker.clickListener?.remove();
               managedMarker.clickListener = null;
+              managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
               managedMarker.marker.map = null;
             },
           },
@@ -302,7 +342,7 @@ export function GeneratedMapPanel({
     return () => {
       isActive = false;
     };
-  }, [config, hasMapReadySignal, markers, onMarkerActivate, selectedItemId]);
+  }, [config, hasMapReadySignal, markers, selectedItemId]);
 
   useEffect(() => {
     const shouldInitialize = shouldInitializeGoogleMap({
@@ -470,7 +510,9 @@ export function GeneratedMapPanel({
         current: markerStateRef.current,
         markers: [],
         selectedItemId: null,
-        onActivate: onMarkerActivate,
+        onActivate: (itemId) => {
+          onMarkerActivateRef.current(itemId);
+        },
         adapter: {
           create() {
             throw new Error("marker adapter unavailable during teardown");
@@ -480,6 +522,7 @@ export function GeneratedMapPanel({
           remove(managedMarker) {
             managedMarker.clickListener?.remove();
             managedMarker.clickListener = null;
+            managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
             managedMarker.marker.map = null;
           },
         },
@@ -487,7 +530,7 @@ export function GeneratedMapPanel({
 
       windowWithAuthFailure.gm_authFailure = previousAuthFailureHandler;
     };
-  }, [config, onMarkerActivate]);
+  }, [config]);
 
   const resolvedPanelStatus: GeneratedMapPanelStatus = deriveGeneratedMapPanelStatus({
     hasConfig: config !== null,
@@ -557,7 +600,11 @@ export function GeneratedMapPanel({
         ) : null}
 
         {resolvedPanelStatus === "ready" && markers.length === 0 ? (
-          <div className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-xl border border-border-subtle bg-bg-elevated/95 px-3 py-2 text-xs text-text-secondary">
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-xl border border-border-subtle bg-bg-elevated/95 px-3 py-2 text-xs text-text-secondary"
+          >
             No verified places available for map markers.
           </div>
         ) : null}
