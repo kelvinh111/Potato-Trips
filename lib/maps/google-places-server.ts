@@ -125,10 +125,36 @@ export function isDisplayNameCompatibleWithQuery(
     return false;
   }
 
-  return (
-    normalizedQuery.includes(normalizedDisplayName)
-    || normalizedDisplayName.includes(normalizedQuery)
-  );
+  if (normalizedQuery === normalizedDisplayName) {
+    return true;
+  }
+
+  const queryWords = normalizedQuery.split(" ");
+  const displayNameWords = normalizedDisplayName.split(" ");
+
+  const shorterWords =
+    queryWords.length <= displayNameWords.length ? queryWords : displayNameWords;
+  const longerWords =
+    queryWords.length <= displayNameWords.length ? displayNameWords : queryWords;
+
+  // Require at least a two-word whole phrase before accepting phrase containment.
+  if (
+    shorterWords.length >= 2
+    && containsWholePhrase(longerWords, shorterWords)
+  ) {
+    return true;
+  }
+
+  // Allow bilingual overlaps when there is a shared non-ASCII token.
+  const queryWordSet = new Set(queryWords);
+  const sharedWords = displayNameWords.filter((word) => queryWordSet.has(word));
+
+  if (sharedWords.some((word) => /[^\x00-\x7F]/.test(word))) {
+    return true;
+  }
+
+  // ASCII overlaps must share at least two full words to avoid single-token false matches.
+  return sharedWords.length >= 2;
 }
 
 export async function searchGooglePlaceByText(
@@ -162,100 +188,110 @@ export async function searchGooglePlaceByText(
     abortController.abort();
   }, timeoutMs);
 
-  let response: Response;
-
   try {
-    response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": config.apiKey,
-        "X-Goog-FieldMask": GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK,
-      },
-      body: JSON.stringify({
-        textQuery: query,
-        pageSize: 1,
-      }),
-      cache: "no-store",
-      signal: abortController.signal,
-    });
-  } catch {
+    let response: Response;
+
+    try {
+      response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": config.apiKey,
+          "X-Goog-FieldMask": GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK,
+        },
+        body: JSON.stringify({
+          textQuery: query,
+          pageSize: 1,
+        }),
+        cache: "no-store",
+        signal: abortController.signal,
+      });
+    } catch {
+      return {
+        kind: "FAILED",
+        reason: "REQUEST",
+        providerWide: false,
+      };
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        kind: "FAILED",
+        reason: "AUTHENTICATION",
+        providerWide: true,
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        kind: "FAILED",
+        reason: "REQUEST",
+        providerWide: false,
+      };
+    }
+
+    let raw: unknown;
+
+    try {
+      raw = await response.json();
+    } catch {
+      if (abortController.signal.aborted) {
+        return {
+          kind: "FAILED",
+          reason: "REQUEST",
+          providerWide: false,
+        };
+      }
+
+      return {
+        kind: "FAILED",
+        reason: "MALFORMED_RESPONSE",
+        providerWide: false,
+      };
+    }
+
+    const parsed = placesTextSearchResponseSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      return {
+        kind: "FAILED",
+        reason: "MALFORMED_RESPONSE",
+        providerWide: false,
+      };
+    }
+
+    const topResult = parsed.data.places?.[0];
+
+    if (!topResult) {
+      return { kind: "NO_RESULT" };
+    }
+
+    const placeId = topResult.id?.trim();
+    const displayName = topResult.displayName?.text?.trim();
+    const latitude = topResult.location?.latitude;
+    const longitude = topResult.location?.longitude;
+
+    if (!placeId || !displayName || latitude === undefined || longitude === undefined) {
+      return { kind: "INVALID_RESULT" };
+    }
+
+    if (!isDisplayNameCompatibleWithQuery(query, displayName)) {
+      return { kind: "INVALID_RESULT" };
+    }
+
+    if (!isValidGooglePlaceCoordinates(latitude, longitude)) {
+      return { kind: "INVALID_RESULT" };
+    }
+
     return {
-      kind: "FAILED",
-      reason: "REQUEST",
-      providerWide: false,
+      kind: "VERIFIED",
+      placeId,
+      latitude,
+      longitude,
     };
   } finally {
     clearTimeout(timeoutHandle);
   }
-
-  if (response.status === 401 || response.status === 403) {
-    return {
-      kind: "FAILED",
-      reason: "AUTHENTICATION",
-      providerWide: true,
-    };
-  }
-
-  if (!response.ok) {
-    return {
-      kind: "FAILED",
-      reason: "REQUEST",
-      providerWide: false,
-    };
-  }
-
-  let raw: unknown;
-
-  try {
-    raw = await response.json();
-  } catch {
-    return {
-      kind: "FAILED",
-      reason: "MALFORMED_RESPONSE",
-      providerWide: false,
-    };
-  }
-
-  const parsed = placesTextSearchResponseSchema.safeParse(raw);
-
-  if (!parsed.success) {
-    return {
-      kind: "FAILED",
-      reason: "MALFORMED_RESPONSE",
-      providerWide: false,
-    };
-  }
-
-  const topResult = parsed.data.places?.[0];
-
-  if (!topResult) {
-    return { kind: "NO_RESULT" };
-  }
-
-  const placeId = topResult.id?.trim();
-  const displayName = topResult.displayName?.text?.trim();
-  const latitude = topResult.location?.latitude;
-  const longitude = topResult.location?.longitude;
-
-  if (!placeId || !displayName || latitude === undefined || longitude === undefined) {
-    return { kind: "INVALID_RESULT" };
-  }
-
-  if (!isDisplayNameCompatibleWithQuery(query, displayName)) {
-    return { kind: "INVALID_RESULT" };
-  }
-
-  if (!isValidGooglePlaceCoordinates(latitude, longitude)) {
-    return { kind: "INVALID_RESULT" };
-  }
-
-  return {
-    kind: "VERIFIED",
-    placeId,
-    latitude,
-    longitude,
-  };
 }
 
 function normalizeSearchText(value: string): string {
@@ -264,6 +300,29 @@ function normalizeSearchText(value: string): string {
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function containsWholePhrase(haystackWords: string[], phraseWords: string[]): boolean {
+  if (phraseWords.length === 0 || haystackWords.length < phraseWords.length) {
+    return false;
+  }
+
+  for (let i = 0; i <= haystackWords.length - phraseWords.length; i += 1) {
+    let matches = true;
+
+    for (let j = 0; j < phraseWords.length; j += 1) {
+      if (haystackWords[i + j] !== phraseWords[j]) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (matches) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export type { GooglePlacesLookupResult };

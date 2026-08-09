@@ -86,6 +86,8 @@ const placeAnchors = [
   "palace",
 ];
 
+const ABSOLUTE_MAX_PLACE_REQUESTS = 60;
+
 export function deriveCoordinatesExpireAt(input: {
   now: Date;
   sessionExpiresAt: Date;
@@ -107,7 +109,10 @@ export async function resolveGeneratedItineraryPlaces(
   const maxRequests = input.maxRequests ?? PLANNING_SESSION_PLACE_RESOLUTION_MAX_REQUESTS;
   const concurrency = input.concurrency ?? PLANNING_SESSION_PLACE_RESOLUTION_CONCURRENCY;
   const safeConcurrency = Math.max(1, Math.floor(concurrency));
-  const safeMaxRequests = Math.max(0, Math.floor(maxRequests));
+  const safeMaxRequests =
+    typeof maxRequests === "number" && Number.isFinite(maxRequests)
+      ? Math.min(ABSOLUTE_MAX_PLACE_REQUESTS, Math.max(0, Math.floor(maxRequests)))
+      : ABSOLUTE_MAX_PLACE_REQUESTS;
 
   const itinerary: PersistedItinerary = {
     ...input.itinerary,
@@ -276,9 +281,17 @@ export function derivePlaceSearchQueryForGeneratedItem(input: {
   }
 
   if (input.type === "TRANSPORT") {
-    if (!hasPlaceAnchor) {
+    const hasNonAscii = /[^\x00-\x7F]/.test(candidate);
+
+    if (isGeneric) {
       return null;
     }
+
+    if (hasPlaceAnchor || hasNonAscii || normalizedWords.length >= 3) {
+      return candidate;
+    }
+
+    return null;
   }
 
   return candidate;

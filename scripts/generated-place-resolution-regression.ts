@@ -132,7 +132,14 @@ async function testProviderBoundary() {
     isDisplayNameCompatibleWithQuery("Senso-ji Temple Tokyo", "Senso-ji Temple"),
     true,
   );
+  assert.equal(isDisplayNameCompatibleWithQuery("Tokyo", "Tokyo Station"), false);
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Tokyo Station Japan", "Tokyo Station"),
+    true,
+  );
   assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "東京駅"), true);
+  assert.equal(isDisplayNameCompatibleWithQuery("東京駅 Tokyo Station", "東京駅"), true);
+  assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "大阪駅"), false);
 
   delete process.env.GOOGLE_PLACES_API_KEY;
   const missingCredentialResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
@@ -263,6 +270,45 @@ async function testProviderBoundary() {
     reason: "REQUEST",
     providerWide: false,
   });
+
+  globalThis.fetch = async (_input, init) => {
+    return {
+      ok: true,
+      status: 200,
+      json: () => {
+        return new Promise<unknown>((_resolve, reject) => {
+          const signal = init?.signal;
+
+          if (!signal) {
+            reject(new Error("missing abort signal"));
+            return;
+          }
+
+          if (signal.aborted) {
+            reject(new DOMException("aborted", "AbortError"));
+            return;
+          }
+
+          signal.addEventListener(
+            "abort",
+            () => {
+              reject(new DOMException("aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+      },
+    } as Response;
+  };
+  const stalledBodyTimeoutResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    timeoutMs: 1,
+  });
+  assert.deepEqual(stalledBodyTimeoutResult, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    providerWide: false,
+  });
 }
 
 function testQueryNormalization() {
@@ -300,6 +346,27 @@ function testQueryNormalization() {
       placeSearchQuery: "Forest Sanctuary Kyoto",
     }),
     "Forest Sanctuary Kyoto",
+  );
+  assert.equal(
+    derivePlaceSearchQueryForGeneratedItem({
+      type: "TRANSPORT",
+      placeSearchQuery: "Gare du Nord Paris",
+    }),
+    "Gare du Nord Paris",
+  );
+  assert.equal(
+    derivePlaceSearchQueryForGeneratedItem({
+      type: "TRANSPORT",
+      placeSearchQuery: "東京駅",
+    }),
+    "東京駅",
+  );
+  assert.equal(
+    derivePlaceSearchQueryForGeneratedItem({
+      type: "TRANSPORT",
+      placeSearchQuery: "arrival transfer",
+    }),
+    null,
   );
 }
 
@@ -387,6 +454,84 @@ async function testRequestCapBehavior() {
   assert.equal(result.summary.failed, 0);
   assert.equal(result.summary.skipped, 4);
   assert.equal(calledQueries.length, 2);
+}
+
+async function testAbsoluteRequestCapClamp() {
+  const buildDayItems = (dayOffset: number) => {
+    return Array.from({ length: 20 }, (_, index) => {
+      const placeNumber = dayOffset + index + 1;
+
+      return {
+        id: `item-${placeNumber}`,
+        order: index,
+        type: "PLACE" as const,
+        title: `Place ${placeNumber}`,
+        description: "Generated place",
+        planningText: "Visit",
+        placeSearchQuery: `Place ${placeNumber} Station`,
+        suggestedTime: null,
+        suggestedDurationMinutes: null,
+      };
+    });
+  };
+
+  const parsed = parsePersistedItinerary({
+    title: "Cap clamp",
+    summary: "Cap clamp test",
+    days: [
+      {
+        id: "day-1",
+        dayNumber: 1,
+        dayLabel: "Day 1",
+        summary: null,
+        items: buildDayItems(0),
+      },
+      {
+        id: "day-2",
+        dayNumber: 2,
+        dayLabel: "Day 2",
+        summary: null,
+        items: buildDayItems(20),
+      },
+      {
+        id: "day-3",
+        dayNumber: 3,
+        dayLabel: "Day 3",
+        summary: null,
+        items: buildDayItems(40),
+      },
+      {
+        id: "day-4",
+        dayNumber: 4,
+        dayLabel: "Day 4",
+        summary: null,
+        items: buildDayItems(60),
+      },
+    ],
+  });
+
+  if (!parsed) {
+    throw new Error("Cap-clamp itinerary should parse");
+  }
+
+  const itinerary = parsed;
+  let calls = 0;
+
+  const result = await resolveGeneratedItineraryPlaces({
+    itinerary,
+    sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
+    maxRequests: Number.POSITIVE_INFINITY,
+    concurrency: 10,
+    resolveQuery: async () => {
+      calls += 1;
+      return { kind: "NO_RESULT" as const };
+    },
+  });
+
+  assert.equal(result.summary.attempted, 60);
+  assert.equal(result.summary.unverified, 60);
+  assert.equal(result.summary.skipped, 20);
+  assert.equal(calls, 60);
 }
 
 async function testProviderWidePreflightStop() {
@@ -499,6 +644,7 @@ async function run() {
     testQueryNormalization();
     await testConcurrencyBoundAndContentPreservation();
     await testRequestCapBehavior();
+    await testAbsoluteRequestCapClamp();
     await testProviderWidePreflightStop();
     await testProviderWideFailureStopDuringResolution();
     await testUnexpectedLookupRejectionDoesNotFailResolution();
