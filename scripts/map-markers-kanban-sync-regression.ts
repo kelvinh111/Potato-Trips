@@ -18,6 +18,7 @@ import {
   removeMarkerInteractionBinding,
   resolveSelectedMarker,
   shouldClearSelectedItem,
+  type GeneratedMapMarkerView,
   type MarkerInteractionBindingState,
   type MarkerReconcilerAdapter,
 } from "@/lib/maps/generated-map-markers";
@@ -429,6 +430,190 @@ function testReconciliationPressedStateSync() {
   assert.deepEqual(tokyo?.pressedHistory, ["false", "true", "false"]);
 }
 
+function testMarkerLifecycleReconciliationWithFakes() {
+  interface FakeManagedMarker {
+    placeId: string;
+    selected: boolean;
+    latitude: number;
+    firstLinkedItemId: string | null;
+    binding: MarkerInteractionBindingState | null;
+    clickSetCount: number;
+    clickHandler: (() => void) | null;
+  }
+
+  const baseMarkers = deriveGeneratedMapMarkers({
+    itinerary: createFixtureItinerary(),
+    now: new Date("2031-01-15T00:00:00.000Z"),
+  });
+
+  const updatedMarkers: GeneratedMapMarkerView[] = [
+    {
+      ...baseMarkers[0]!,
+      latitude: baseMarkers[0]!.latitude + 0.25,
+      linkedItems: [
+        {
+          ...baseMarkers[0]!.linkedItems[1]!,
+        },
+        {
+          ...baseMarkers[0]!.linkedItems[0]!,
+        },
+      ],
+    },
+    baseMarkers[1]!,
+  ];
+
+  const replacementMarkers: GeneratedMapMarkerView[] = [updatedMarkers[1]!];
+
+  const createCalls: string[] = [];
+  const updateCalls: string[] = [];
+  const removeCalls: string[] = [];
+  const activationCalls: string[] = [];
+
+  const adapter: MarkerReconcilerAdapter<FakeManagedMarker> = {
+    create({ marker, selected, onActivate }) {
+      createCalls.push(marker.placeId);
+      const managed: FakeManagedMarker = {
+        placeId: marker.placeId,
+        selected,
+        latitude: marker.latitude,
+        firstLinkedItemId: marker.linkedItems[0]?.itemId ?? null,
+        binding: null,
+        clickSetCount: 0,
+        clickHandler: null,
+      };
+
+      managed.binding = reconcileMarkerInteractionBinding({
+        current: managed.binding,
+        firstLinkedItemId: managed.firstLinkedItemId,
+        onActivate,
+        adapter: {
+          setClickHandler(handler) {
+            managed.clickSetCount += 1;
+            managed.clickHandler = handler;
+          },
+        },
+      });
+
+      return managed;
+    },
+    update({ marker, next, selected, onActivate }) {
+      updateCalls.push(next.placeId);
+      marker.selected = selected;
+      marker.latitude = next.latitude;
+      marker.firstLinkedItemId = next.linkedItems[0]?.itemId ?? null;
+
+      marker.binding = reconcileMarkerInteractionBinding({
+        current: marker.binding,
+        firstLinkedItemId: marker.firstLinkedItemId,
+        onActivate,
+        adapter: {
+          setClickHandler(handler) {
+            marker.clickSetCount += 1;
+            marker.clickHandler = handler;
+          },
+        },
+      });
+    },
+    remove(marker) {
+      removeCalls.push(marker.placeId);
+      marker.binding = removeMarkerInteractionBinding({
+        current: marker.binding,
+        adapter: {
+          setClickHandler(handler) {
+            marker.clickSetCount += 1;
+            marker.clickHandler = handler;
+          },
+        },
+      });
+    },
+  };
+
+  let state = { markersByPlaceId: new Map<string, FakeManagedMarker>() };
+
+  state = reconcileMarkers({
+    current: state,
+    markers: baseMarkers,
+    selectedItemId: null,
+    onActivate(itemId) {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(createCalls, ["places/tokyo", "places/kyoto"]);
+  const initialTokyo = state.markersByPlaceId.get("places/tokyo");
+  const initialKyoto = state.markersByPlaceId.get("places/kyoto");
+  assert.notEqual(initialTokyo, undefined);
+  assert.notEqual(initialKyoto, undefined);
+  assert.equal(initialTokyo?.clickSetCount, 1);
+  assert.equal(initialKyoto?.clickSetCount, 1);
+
+  state = reconcileMarkers({
+    current: state,
+    markers: baseMarkers,
+    selectedItemId: null,
+    onActivate(itemId) {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(createCalls, ["places/tokyo", "places/kyoto"]);
+  assert.equal(state.markersByPlaceId.get("places/tokyo"), initialTokyo);
+  assert.equal(state.markersByPlaceId.get("places/kyoto"), initialKyoto);
+  assert.equal(initialTokyo?.clickSetCount, 1);
+  assert.equal(initialKyoto?.clickSetCount, 1);
+
+  state = reconcileMarkers({
+    current: state,
+    markers: updatedMarkers,
+    selectedItemId: "d2-1",
+    onActivate(itemId) {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  const updatedTokyo = state.markersByPlaceId.get("places/tokyo");
+  assert.equal(updatedTokyo, initialTokyo);
+  assert.equal(updatedTokyo?.selected, true);
+  assert.equal(updatedTokyo?.latitude, baseMarkers[0]!.latitude + 0.25);
+  assert.equal(updatedTokyo?.firstLinkedItemId, "d2-1");
+  assert.equal(updatedTokyo?.clickSetCount, 1);
+  assert.equal(updateCalls.includes("places/tokyo"), true);
+
+  updatedTokyo?.clickHandler?.();
+  assert.equal(activationCalls.includes("d2-1"), true);
+
+  state = reconcileMarkers({
+    current: state,
+    markers: replacementMarkers,
+    selectedItemId: null,
+    onActivate(itemId) {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(removeCalls, ["places/tokyo"]);
+  assert.equal(state.markersByPlaceId.has("places/tokyo"), false);
+  assert.equal(initialTokyo?.clickSetCount, 2);
+
+  state = reconcileMarkers({
+    current: state,
+    markers: [],
+    selectedItemId: null,
+    onActivate(itemId) {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(removeCalls, ["places/tokyo", "places/kyoto"]);
+  assert.equal(state.markersByPlaceId.size, 0);
+  assert.equal(initialKyoto?.clickSetCount, 2);
+}
+
 function testReadinessLossAfterFailure() {
   const ready = deriveGeneratedMapPanelStatus({
     hasConfig: true,
@@ -457,6 +642,7 @@ function run() {
   testExpiryRearmAndCleanup();
   testSingleActivationPathBinding();
   testReconciliationPressedStateSync();
+  testMarkerLifecycleReconciliationWithFakes();
   testReadinessLossAfterFailure();
 
   console.log("map-markers-kanban-sync-regression: pass");
