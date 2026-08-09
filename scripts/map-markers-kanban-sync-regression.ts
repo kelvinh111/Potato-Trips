@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
 
 import {
+  applySelectedMarkerFocus,
+  applyViewportInstruction,
   buildMarkerPayloadSignature,
   deriveEffectiveSelectedItemId,
   deriveGeneratedMapMarkers,
   deriveInteractiveItemIds,
   deriveMarkerViewportInstruction,
   deriveSelectedMarkerFocus,
+  reconcileMarkerInteractionBinding,
   reconcileMarkers,
+  removeMarkerInteractionBinding,
   resolveSelectedMarker,
   shouldResetInitialViewport,
+  type MarkerInteractionBindingState,
   type GeneratedMapMarkerView,
   type MarkerReconcilerAdapter,
 } from "@/lib/maps/generated-map-markers";
@@ -228,6 +233,80 @@ function testViewportInstructions() {
   ];
   const signatureC = buildMarkerPayloadSignature(modifiedMarkers);
   assert.equal(shouldResetInitialViewport({ previousSignature: signatureA, nextSignature: signatureC }), true);
+
+  let panCalls = 0;
+  let zoomCalls = 0;
+  let boundsCalls = 0;
+
+  applyViewportInstruction({
+    adapter: {
+      panTo() {
+        panCalls += 1;
+      },
+      setZoom() {
+        zoomCalls += 1;
+      },
+      fitBounds() {
+        boundsCalls += 1;
+      },
+    },
+    instruction: { kind: "NONE" },
+    paddingPx: 80,
+  });
+
+  assert.equal(panCalls, 0);
+  assert.equal(zoomCalls, 0);
+  assert.equal(boundsCalls, 0);
+
+  applyViewportInstruction({
+    adapter: {
+      panTo() {
+        panCalls += 1;
+      },
+      setZoom() {
+        zoomCalls += 1;
+      },
+      fitBounds() {
+        boundsCalls += 1;
+      },
+    },
+    instruction: {
+      kind: "SINGLE",
+      latitude: 35.6,
+      longitude: 139.7,
+      zoom: 13,
+    },
+    paddingPx: 80,
+  });
+
+  assert.equal(panCalls, 1);
+  assert.equal(zoomCalls, 1);
+
+  applyViewportInstruction({
+    adapter: {
+      panTo() {
+        panCalls += 1;
+      },
+      setZoom() {
+        zoomCalls += 1;
+      },
+      fitBounds() {
+        boundsCalls += 1;
+      },
+    },
+    instruction: {
+      kind: "BOUNDS",
+      bounds: {
+        north: 36,
+        south: 35,
+        east: 140,
+        west: 139,
+      },
+    },
+    paddingPx: 80,
+  });
+
+  assert.equal(boundsCalls, 1);
 }
 
 function testSelectionResolutionAndCleanup() {
@@ -296,6 +375,119 @@ function testSelectionResolutionAndCleanup() {
     }),
     null,
   );
+
+  let focusPanCalls = 0;
+  let focusSetZoomCalls = 0;
+  const noFocusApplied = applySelectedMarkerFocus({
+    adapter: {
+      panTo() {
+        focusPanCalls += 1;
+      },
+      getZoom() {
+        return 12;
+      },
+      setZoom() {
+        focusSetZoomCalls += 1;
+      },
+    },
+    focusTarget: null,
+  });
+  assert.equal(noFocusApplied, false);
+
+  const focusApplied = applySelectedMarkerFocus({
+    adapter: {
+      panTo() {
+        focusPanCalls += 1;
+      },
+      getZoom() {
+        return 5;
+      },
+      setZoom() {
+        focusSetZoomCalls += 1;
+      },
+    },
+    focusTarget: {
+      latitude: 35.6,
+      longitude: 139.7,
+    },
+  });
+  assert.equal(focusApplied, true);
+  assert.equal(focusPanCalls, 1);
+  assert.equal(focusSetZoomCalls, 1);
+}
+
+function testMarkerInteractionBindingLifecycle() {
+  let bindingState: MarkerInteractionBindingState | null = null;
+  let clickHandler: (() => void) | null = null;
+  let keydownHandler: ((event: KeyboardEvent) => void) | null = null;
+  let clickSetCount = 0;
+  let keydownSetCount = 0;
+  const activations: string[] = [];
+
+  const adapter = {
+    setClickHandler(handler: (() => void) | null) {
+      clickHandler = handler;
+      clickSetCount += 1;
+    },
+    setKeydownHandler(handler: ((event: KeyboardEvent) => void) | null) {
+      keydownHandler = handler;
+      keydownSetCount += 1;
+    },
+  };
+
+  bindingState = reconcileMarkerInteractionBinding({
+    current: bindingState,
+    adapter,
+    firstLinkedItemId: "item-1",
+    onActivate: (itemId) => {
+      activations.push(itemId);
+    },
+  });
+
+  assert.equal(clickSetCount, 1);
+  assert.equal(keydownSetCount, 1);
+  assert.notEqual(clickHandler, null);
+  assert.notEqual(keydownHandler, null);
+  assert.notEqual(bindingState, null);
+
+  bindingState.clickHandler?.();
+  bindingState.keydownHandler?.({
+    key: "Enter",
+    preventDefault() {},
+  } as KeyboardEvent);
+  assert.deepEqual(activations, ["item-1", "item-1"]);
+
+  bindingState = reconcileMarkerInteractionBinding({
+    current: bindingState,
+    adapter,
+    firstLinkedItemId: "item-2",
+    onActivate: (itemId) => {
+      activations.push(itemId);
+    },
+  });
+
+  // No duplicate listener application after update.
+  assert.equal(clickSetCount, 1);
+  assert.equal(keydownSetCount, 1);
+  assert.notEqual(bindingState, null);
+
+  bindingState.clickHandler?.();
+  bindingState.keydownHandler?.({
+    key: " ",
+    preventDefault() {},
+  } as KeyboardEvent);
+  assert.deepEqual(activations, ["item-1", "item-1", "item-2", "item-2"]);
+
+  bindingState = removeMarkerInteractionBinding({
+    current: bindingState,
+    adapter,
+  });
+
+  assert.equal(bindingState, null);
+  assert.equal(clickSetCount, 2);
+  assert.equal(keydownSetCount, 2);
+  assert.equal(clickHandler, null);
+  assert.equal(keydownHandler, null);
 }
 
 function testMarkerReconciliationLifecycle() {
@@ -403,6 +595,7 @@ function run() {
   testViewportInstructions();
   testSelectionResolutionAndCleanup();
   testMarkerReconciliationLifecycle();
+  testMarkerInteractionBindingLifecycle();
 
   console.log("map-markers-kanban-sync-regression: pass");
 }

@@ -45,6 +45,29 @@ export interface MarkerFocusTarget {
   longitude: number;
 }
 
+export interface MarkerViewportAdapter {
+  panTo(position: { latitude: number; longitude: number }): void;
+  setZoom(zoom: number): void;
+  fitBounds(bounds: MarkerBounds, paddingPx: number): void;
+}
+
+export interface MarkerFocusAdapter {
+  panTo(position: { latitude: number; longitude: number }): void;
+  getZoom(): number | null;
+  setZoom(zoom: number): void;
+}
+
+export interface MarkerInteractionAdapter {
+  setClickHandler(handler: (() => void) | null): void;
+  setKeydownHandler(handler: ((event: KeyboardEvent) => void) | null): void;
+}
+
+export interface MarkerInteractionBindingState {
+  firstLinkedItemIdRef: { current: string | null };
+  clickHandler: (() => void) | null;
+  keydownHandler: ((event: KeyboardEvent) => void) | null;
+}
+
 export interface MarkerReconciliationState<TMarker> {
   markersByPlaceId: Map<string, TMarker>;
 }
@@ -65,6 +88,7 @@ export interface MarkerReconcilerAdapter<TMarker> {
 }
 
 const DEFAULT_SINGLE_MARKER_ZOOM = 13;
+const DEFAULT_SELECTION_MIN_ZOOM = 11;
 
 export function deriveGeneratedMapMarkers(input: {
   itinerary: PersistedItinerary | null;
@@ -282,6 +306,10 @@ export function buildMarkerPayloadSignature(markers: GeneratedMapMarkerView[]): 
     .join("|");
 }
 
+export function buildLinkedItemIdsSignature(marker: GeneratedMapMarkerView): string {
+  return marker.linkedItems.map((linkedItem) => linkedItem.itemId).join("|");
+}
+
 export function shouldResetInitialViewport(input: {
   previousSignature: string;
   nextSignature: string;
@@ -314,6 +342,108 @@ export function deriveSelectedMarkerFocus(input: {
     latitude: focusedMarker.latitude,
     longitude: focusedMarker.longitude,
   };
+}
+
+export function applyViewportInstruction(input: {
+  adapter: MarkerViewportAdapter;
+  instruction: MarkerViewportInstruction;
+  paddingPx: number;
+}): boolean {
+  if (input.instruction.kind === "NONE") {
+    return false;
+  }
+
+  if (input.instruction.kind === "SINGLE") {
+    input.adapter.panTo({
+      latitude: input.instruction.latitude,
+      longitude: input.instruction.longitude,
+    });
+    input.adapter.setZoom(input.instruction.zoom);
+    return true;
+  }
+
+  input.adapter.fitBounds(input.instruction.bounds, input.paddingPx);
+  return true;
+}
+
+export function applySelectedMarkerFocus(input: {
+  adapter: MarkerFocusAdapter;
+  focusTarget: MarkerFocusTarget | null;
+  minimumZoom?: number;
+}): boolean {
+  if (!input.focusTarget) {
+    return false;
+  }
+
+  input.adapter.panTo({
+    latitude: input.focusTarget.latitude,
+    longitude: input.focusTarget.longitude,
+  });
+
+  const minimumZoom = input.minimumZoom ?? DEFAULT_SELECTION_MIN_ZOOM;
+  const currentZoom = input.adapter.getZoom();
+  if (currentZoom === null || currentZoom < minimumZoom) {
+    input.adapter.setZoom(minimumZoom);
+  }
+
+  return true;
+}
+
+export function reconcileMarkerInteractionBinding(input: {
+  current: MarkerInteractionBindingState | null;
+  adapter: MarkerInteractionAdapter;
+  firstLinkedItemId: string | null;
+  onActivate: (itemId: string) => void;
+}): MarkerInteractionBindingState {
+  if (!input.current) {
+    const firstLinkedItemIdRef = { current: input.firstLinkedItemId };
+
+    const clickHandler = () => {
+      if (!firstLinkedItemIdRef.current) {
+        return;
+      }
+
+      input.onActivate(firstLinkedItemIdRef.current);
+    };
+
+    const keydownHandler = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+      if (!firstLinkedItemIdRef.current) {
+        return;
+      }
+
+      input.onActivate(firstLinkedItemIdRef.current);
+    };
+
+    input.adapter.setClickHandler(clickHandler);
+    input.adapter.setKeydownHandler(keydownHandler);
+
+    return {
+      firstLinkedItemIdRef,
+      clickHandler,
+      keydownHandler,
+    };
+  }
+
+  input.current.firstLinkedItemIdRef.current = input.firstLinkedItemId;
+  return input.current;
+}
+
+export function removeMarkerInteractionBinding(input: {
+  current: MarkerInteractionBindingState | null;
+  adapter: MarkerInteractionAdapter;
+}): MarkerInteractionBindingState | null {
+  if (!input.current) {
+    return null;
+  }
+
+  input.adapter.setClickHandler(null);
+  input.adapter.setKeydownHandler(null);
+  return null;
 }
 
 export function reconcileMarkers<TMarker>(input: {

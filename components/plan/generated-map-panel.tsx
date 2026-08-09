@@ -3,13 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  applySelectedMarkerFocus,
+  applyViewportInstruction,
   buildMarkerPayloadSignature,
+  buildLinkedItemIdsSignature,
   deriveFirstLinkedItemId,
   deriveSelectedMarkerFocus,
   deriveMarkerViewportInstruction,
+  reconcileMarkerInteractionBinding,
   reconcileMarkers,
+  removeMarkerInteractionBinding,
   shouldResetInitialViewport,
   type GeneratedMapMarkerView,
+  type MarkerInteractionBindingState,
 } from "@/lib/maps/generated-map-markers";
 import {
   loadGoogleMarkerLibrary,
@@ -29,13 +35,13 @@ const MAP_PADDING_PX = 80;
 
 interface ManagedAdvancedMarker {
   marker: google.maps.marker.AdvancedMarkerElement;
-  clickListener: google.maps.MapsEventListener | null;
-  linkedItemIds: string[];
-  firstLinkedItemId: string | null;
+  linkedItemIdsSignature: string;
   selected: boolean;
   pinElement: google.maps.marker.PinElement;
   contentElement: HTMLDivElement;
-  onKeyDown: (event: KeyboardEvent) => void;
+  interactionBindingState: MarkerInteractionBindingState | null;
+  clickListener: google.maps.MapsEventListener | null;
+  keydownListener: ((event: KeyboardEvent) => void) | null;
 }
 
 interface WindowWithGoogleMapsAuthFailure extends Window {
@@ -114,9 +120,10 @@ export function GeneratedMapPanel({
           update() {
           },
           remove(managedMarker) {
-            managedMarker.clickListener?.remove();
-            managedMarker.clickListener = null;
-            managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
+            managedMarker.interactionBindingState = removeMarkerInteractionBinding({
+              current: managedMarker.interactionBindingState,
+              adapter: buildInteractionAdapter(managedMarker),
+            });
             managedMarker.marker.map = null;
           },
         },
@@ -132,22 +139,29 @@ export function GeneratedMapPanel({
     let isActive = true;
 
     const applySelectionFocus = (nextMarkers: GeneratedMapMarkerView[]) => {
-      const focusTarget = deriveSelectedMarkerFocus({
-        markers: nextMarkers,
-        selectedItemId,
+      const wasApplied = applySelectedMarkerFocus({
+        adapter: {
+          panTo(position) {
+            map.panTo({
+              lat: position.latitude,
+              lng: position.longitude,
+            });
+          },
+          getZoom() {
+            return map.getZoom() ?? null;
+          },
+          setZoom(zoom) {
+            map.setZoom(zoom);
+          },
+        },
+        focusTarget: deriveSelectedMarkerFocus({
+          markers: nextMarkers,
+          selectedItemId,
+        }),
       });
 
-      if (!focusTarget) {
+      if (!wasApplied) {
         return;
-      }
-
-      map.panTo({
-        lat: focusTarget.latitude,
-        lng: focusTarget.longitude,
-      });
-
-      if ((map.getZoom() ?? 0) < 11) {
-        map.setZoom(11);
       }
     };
 
@@ -157,23 +171,27 @@ export function GeneratedMapPanel({
       }
 
       const instruction = deriveMarkerViewportInstruction(nextMarkers);
-
-      if (instruction.kind === "NONE") {
-        hasAppliedInitialViewportRef.current = true;
-        return;
-      }
-
-      if (instruction.kind === "SINGLE") {
-        map.panTo({ lat: instruction.latitude, lng: instruction.longitude });
-        map.setZoom(instruction.zoom);
-        hasAppliedInitialViewportRef.current = true;
-        return;
-      }
-
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend({ lat: instruction.bounds.north, lng: instruction.bounds.east });
-      bounds.extend({ lat: instruction.bounds.south, lng: instruction.bounds.west });
-      map.fitBounds(bounds, MAP_PADDING_PX);
+      applyViewportInstruction({
+        adapter: {
+          panTo(position) {
+            map.panTo({
+              lat: position.latitude,
+              lng: position.longitude,
+            });
+          },
+          setZoom(zoom) {
+            map.setZoom(zoom);
+          },
+          fitBounds(bounds, paddingPx) {
+            const nextBounds = new google.maps.LatLngBounds();
+            nextBounds.extend({ lat: bounds.north, lng: bounds.east });
+            nextBounds.extend({ lat: bounds.south, lng: bounds.west });
+            map.fitBounds(nextBounds, paddingPx);
+          },
+        },
+        instruction,
+        paddingPx: MAP_PADDING_PX,
+      });
       hasAppliedInitialViewportRef.current = true;
     };
 
@@ -202,9 +220,10 @@ export function GeneratedMapPanel({
           update() {
           },
           remove(managedMarker) {
-            managedMarker.clickListener?.remove();
-            managedMarker.clickListener = null;
-            managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
+            managedMarker.interactionBindingState = removeMarkerInteractionBinding({
+              current: managedMarker.interactionBindingState,
+              adapter: buildInteractionAdapter(managedMarker),
+            });
             managedMarker.marker.map = null;
           },
         },
@@ -232,7 +251,7 @@ export function GeneratedMapPanel({
           adapter: {
             create({ marker, selected, onActivate }) {
               const pinElement = createMarkerPinElement(markerLibrary, selected);
-              const firstLinkedItemId = deriveFirstLinkedItemId(marker);
+              const linkedItemIdsSignature = buildLinkedItemIdsSignature(marker);
               const markerTitle = marker.markerTitle;
               const contentElement = document.createElement("div");
               contentElement.tabIndex = 0;
@@ -240,21 +259,6 @@ export function GeneratedMapPanel({
               contentElement.ariaLabel = markerTitle;
               contentElement.className = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-full";
               contentElement.appendChild(pinElement.element);
-
-              const onKeyDown = (event: KeyboardEvent) => {
-                if (event.key !== "Enter" && event.key !== " ") {
-                  return;
-                }
-
-                event.preventDefault();
-                if (!firstLinkedItemId) {
-                  return;
-                }
-
-                onActivate(firstLinkedItemId);
-              };
-
-              contentElement.addEventListener("keydown", onKeyDown);
 
               const advancedMarker = new markerLibrary.AdvancedMarkerElement({
                 map,
@@ -267,26 +271,27 @@ export function GeneratedMapPanel({
                 gmpClickable: true,
               });
 
-              const clickListener = advancedMarker.addListener("click", () => {
-                if (!firstLinkedItemId) {
-                  return;
-                }
-
-                onActivate(firstLinkedItemId);
-              });
-
-              return {
+              const managedMarker: ManagedAdvancedMarker = {
                 marker: advancedMarker,
-                clickListener,
-                linkedItemIds: marker.linkedItems.map((linkedItem) => linkedItem.itemId),
-                firstLinkedItemId,
+                linkedItemIdsSignature,
                 selected,
                 pinElement,
                 contentElement,
-                onKeyDown,
+                interactionBindingState: null,
+                clickListener: null,
+                keydownListener: null,
               };
+
+              managedMarker.interactionBindingState = reconcileMarkerInteractionBinding({
+                current: managedMarker.interactionBindingState,
+                adapter: buildInteractionAdapter(managedMarker),
+                firstLinkedItemId: deriveFirstLinkedItemId(marker),
+                onActivate,
+              });
+
+              return managedMarker;
             },
-            update({ marker: managedMarker, next, selected, onActivate }) {
+            update({ marker: managedMarker, next, selected }) {
               managedMarker.marker.position = {
                 lat: next.latitude,
                 lng: next.longitude,
@@ -294,25 +299,16 @@ export function GeneratedMapPanel({
               managedMarker.marker.title = next.markerTitle;
               managedMarker.contentElement.ariaLabel = next.markerTitle;
 
-              const firstLinkedItemId = deriveFirstLinkedItemId(next);
-              const nextLinkedItemIds = next.linkedItems.map((linkedItem) => linkedItem.itemId);
-              const needsListenerRefresh =
-                managedMarker.firstLinkedItemId !== firstLinkedItemId
-                || managedMarker.linkedItemIds.join("|") !== nextLinkedItemIds.join("|");
+              managedMarker.linkedItemIdsSignature = buildLinkedItemIdsSignature(next);
 
-              if (needsListenerRefresh) {
-                managedMarker.clickListener?.remove();
-                managedMarker.clickListener = managedMarker.marker.addListener("click", () => {
-                  if (!firstLinkedItemId) {
-                    return;
-                  }
-
-                  onActivate(firstLinkedItemId);
-                });
-              }
-
-              managedMarker.linkedItemIds = nextLinkedItemIds;
-              managedMarker.firstLinkedItemId = firstLinkedItemId;
+              managedMarker.interactionBindingState = reconcileMarkerInteractionBinding({
+                current: managedMarker.interactionBindingState,
+                adapter: buildInteractionAdapter(managedMarker),
+                firstLinkedItemId: deriveFirstLinkedItemId(next),
+                onActivate: (itemId) => {
+                  onMarkerActivateRef.current(itemId);
+                },
+              });
 
               if (managedMarker.selected !== selected) {
                 applyMarkerSelectionStyling(managedMarker.pinElement, selected);
@@ -320,9 +316,10 @@ export function GeneratedMapPanel({
               }
             },
             remove(managedMarker) {
-              managedMarker.clickListener?.remove();
-              managedMarker.clickListener = null;
-              managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
+              managedMarker.interactionBindingState = removeMarkerInteractionBinding({
+                current: managedMarker.interactionBindingState,
+                adapter: buildInteractionAdapter(managedMarker),
+              });
               managedMarker.marker.map = null;
             },
           },
@@ -520,9 +517,10 @@ export function GeneratedMapPanel({
           update() {
           },
           remove(managedMarker) {
-            managedMarker.clickListener?.remove();
-            managedMarker.clickListener = null;
-            managedMarker.contentElement.removeEventListener("keydown", managedMarker.onKeyDown);
+            managedMarker.interactionBindingState = removeMarkerInteractionBinding({
+              current: managedMarker.interactionBindingState,
+              adapter: buildInteractionAdapter(managedMarker),
+            });
             managedMarker.marker.map = null;
           },
         },
@@ -611,6 +609,39 @@ export function GeneratedMapPanel({
       </div>
     </aside>
   );
+}
+
+function buildInteractionAdapter(
+  managedMarker: ManagedAdvancedMarker,
+): {
+  setClickHandler: (handler: (() => void) | null) => void;
+  setKeydownHandler: (handler: ((event: KeyboardEvent) => void) | null) => void;
+} {
+  return {
+    setClickHandler(handler) {
+      managedMarker.clickListener?.remove();
+      managedMarker.clickListener = null;
+
+      if (!handler) {
+        return;
+      }
+
+      managedMarker.clickListener = managedMarker.marker.addListener("click", handler);
+    },
+    setKeydownHandler(handler) {
+      if (managedMarker.keydownListener) {
+        managedMarker.contentElement.removeEventListener("keydown", managedMarker.keydownListener);
+        managedMarker.keydownListener = null;
+      }
+
+      if (!handler) {
+        return;
+      }
+
+      managedMarker.contentElement.addEventListener("keydown", handler);
+      managedMarker.keydownListener = handler;
+    },
+  };
 }
 
 function createMarkerPinElement(
