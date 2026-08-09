@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 
 import {
+  activateSelectedItem,
   applySelectedMarkerFocus,
   applyViewportInstruction,
   buildMarkerPayloadSignature,
+  deriveMarkerEligibilityRefreshDelayMs,
+  deriveMarkerPressedState,
+  deriveNextMarkerEligibilityExpiryEpoch,
   deriveEffectiveSelectedItemId,
   deriveGeneratedMapMarkers,
   deriveInteractiveItemIds,
   deriveMarkerViewportInstruction,
   deriveSelectedMarkerFocus,
+  shouldClearSelectedItem,
   reconcileMarkerInteractionBinding,
   reconcileMarkers,
   removeMarkerInteractionBinding,
@@ -18,6 +23,10 @@ import {
   type GeneratedMapMarkerView,
   type MarkerReconcilerAdapter,
 } from "@/lib/maps/generated-map-markers";
+import {
+  deriveGeneratedMapPanelStatus,
+  deriveMapInteractionReady,
+} from "@/lib/maps/google-maps-foundation";
 import { parsePersistedItinerary, type PersistedItinerary } from "@/lib/planning-sessions/types";
 
 interface FakeMarker {
@@ -416,6 +425,94 @@ function testSelectionResolutionAndCleanup() {
   assert.equal(focusSetZoomCalls, 1);
 }
 
+function testRepeatedSameItemActivationTracking() {
+  const initialState = {
+    selectedItemId: "day-1-item-1",
+    activationVersion: 2,
+  };
+
+  const nextState = activateSelectedItem({
+    state: initialState,
+    itemId: "day-1-item-1",
+  });
+
+  assert.equal(nextState.selectedItemId, "day-1-item-1");
+  assert.equal(nextState.activationVersion, 3);
+}
+
+function testLiveExpiryAndSelectionCleanup() {
+  const itinerary = createFixtureItinerary();
+  const nowBeforeExpiry = Date.parse("2031-01-31T23:59:59.000Z");
+  const nowAtExpiry = Date.parse("2031-02-01T00:00:00.000Z");
+
+  const nextExpiryEpoch = deriveNextMarkerEligibilityExpiryEpoch({
+    itinerary,
+    nowEpoch: nowBeforeExpiry,
+  });
+  assert.equal(nextExpiryEpoch, Date.parse("2031-02-01T00:00:00.000Z"));
+
+  const refreshDelay = deriveMarkerEligibilityRefreshDelayMs({
+    nextExpiryEpoch,
+    nowEpoch: nowBeforeExpiry,
+    maxDelayMs: 2_147_483_647,
+  });
+  assert.equal(refreshDelay, 1000);
+
+  const clampedDelay = deriveMarkerEligibilityRefreshDelayMs({
+    nextExpiryEpoch: nowBeforeExpiry + 5000,
+    nowEpoch: nowBeforeExpiry,
+    maxDelayMs: 1200,
+  });
+  assert.equal(clampedDelay, 1200);
+
+  const markersAfterExpiry = deriveGeneratedMapMarkers({
+    itinerary,
+    now: new Date(nowAtExpiry),
+  });
+  assert.equal(markersAfterExpiry.length, 0);
+
+  const interactiveItemIdsAfterExpiry = deriveInteractiveItemIds(markersAfterExpiry);
+  const effectiveSelectedItemIdAfterExpiry = deriveEffectiveSelectedItemId({
+    selectedItemId: "day-1-item-1",
+    isMapLinkedInteractionEnabled: true,
+    interactiveItemIds: interactiveItemIdsAfterExpiry,
+  });
+  assert.equal(effectiveSelectedItemIdAfterExpiry, null);
+  assert.equal(
+    shouldClearSelectedItem({
+      selectedItemId: "day-1-item-1",
+      effectiveSelectedItemId: effectiveSelectedItemIdAfterExpiry,
+    }),
+    true,
+  );
+}
+
+function testMarkerPressedStateMapping() {
+  assert.equal(deriveMarkerPressedState(true), "true");
+  assert.equal(deriveMarkerPressedState(false), "false");
+}
+
+function testReadinessLossAfterFailure() {
+  const readyStatus = deriveGeneratedMapPanelStatus({
+    hasConfig: true,
+    hasAuthFailure: false,
+    hasLoadFailure: false,
+    hasRenderFailure: false,
+    hasMapReadySignal: true,
+  });
+  assert.equal(deriveMapInteractionReady(readyStatus), true);
+
+  const failedStatus = deriveGeneratedMapPanelStatus({
+    hasConfig: true,
+    hasAuthFailure: false,
+    hasLoadFailure: true,
+    hasRenderFailure: false,
+    hasMapReadySignal: true,
+  });
+  assert.equal(failedStatus, "error");
+  assert.equal(deriveMapInteractionReady(failedStatus), false);
+}
+
 function testMarkerInteractionBindingLifecycle() {
   let bindingState: MarkerInteractionBindingState | null = null;
   let clickHandler: (() => void) | null = null;
@@ -594,6 +691,10 @@ function run() {
   testMarkerDerivationEligibilityAndOrdering();
   testViewportInstructions();
   testSelectionResolutionAndCleanup();
+  testRepeatedSameItemActivationTracking();
+  testLiveExpiryAndSelectionCleanup();
+  testMarkerPressedStateMapping();
+  testReadinessLossAfterFailure();
   testMarkerReconciliationLifecycle();
   testMarkerInteractionBindingLifecycle();
 

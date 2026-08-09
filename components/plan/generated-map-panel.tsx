@@ -7,6 +7,7 @@ import {
   applyViewportInstruction,
   buildMarkerPayloadSignature,
   buildLinkedItemIdsSignature,
+  deriveMarkerPressedState,
   deriveFirstLinkedItemId,
   deriveSelectedMarkerFocus,
   deriveMarkerViewportInstruction,
@@ -51,6 +52,7 @@ interface WindowWithGoogleMapsAuthFailure extends Window {
 interface GeneratedMapPanelProps {
   markers: GeneratedMapMarkerView[];
   selectedItemId: string | null;
+  selectionActivationVersion?: number;
   onMarkerActivate: (itemId: string) => void;
   onMapReadyChange?: (isReady: boolean) => void;
 }
@@ -58,6 +60,7 @@ interface GeneratedMapPanelProps {
 export function GeneratedMapPanel({
   markers,
   selectedItemId,
+  selectionActivationVersion = 0,
   onMarkerActivate,
   onMapReadyChange,
 }: GeneratedMapPanelProps) {
@@ -92,10 +95,6 @@ export function GeneratedMapPanel({
   useEffect(() => {
     onMapReadyChangeRef.current = onMapReadyChange;
   }, [onMapReadyChange]);
-
-  useEffect(() => {
-    onMapReadyChangeRef.current?.(hasMapReadySignal);
-  }, [hasMapReadySignal]);
 
   useEffect(() => {
     return () => {
@@ -257,6 +256,7 @@ export function GeneratedMapPanel({
               contentElement.tabIndex = 0;
               contentElement.role = "button";
               contentElement.ariaLabel = markerTitle;
+              contentElement.setAttribute("aria-pressed", deriveMarkerPressedState(selected));
               contentElement.className = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-full";
               contentElement.appendChild(pinElement.element);
 
@@ -310,6 +310,8 @@ export function GeneratedMapPanel({
                 },
               });
 
+              managedMarker.contentElement.setAttribute("aria-pressed", deriveMarkerPressedState(selected));
+
               if (managedMarker.selected !== selected) {
                 applyMarkerSelectionStyling(managedMarker.pinElement, selected);
                 managedMarker.selected = selected;
@@ -339,7 +341,7 @@ export function GeneratedMapPanel({
     return () => {
       isActive = false;
     };
-  }, [config, hasMapReadySignal, markers, selectedItemId]);
+  }, [config, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
 
   useEffect(() => {
     const shouldInitialize = shouldInitializeGoogleMap({
@@ -391,6 +393,8 @@ export function GeneratedMapPanel({
       hasInitializationFailureRef.current = true;
       isInitializingRef.current = false;
       clearReadyTimeout();
+      setHasMapReadySignal(false);
+      hasMapReadySignalRef.current = false;
       setHasAuthFailure(true);
     };
 
@@ -413,6 +417,8 @@ export function GeneratedMapPanel({
       if (!hasMapReadySignalRef.current) {
         hasInitializationFailureRef.current = true;
         isInitializingRef.current = false;
+        setHasMapReadySignal(false);
+        hasMapReadySignalRef.current = false;
         setHasRenderFailure(true);
       }
     }, MAP_READY_TIMEOUT_MS);
@@ -430,6 +436,8 @@ export function GeneratedMapPanel({
         if (!mapContainerRef.current) {
           hasInitializationFailureRef.current = true;
           isInitializingRef.current = false;
+          setHasMapReadySignal(false);
+          hasMapReadySignalRef.current = false;
           setHasRenderFailure(true);
           return;
         }
@@ -450,6 +458,8 @@ export function GeneratedMapPanel({
         } catch {
           hasInitializationFailureRef.current = true;
           isInitializingRef.current = false;
+          setHasMapReadySignal(false);
+          hasMapReadySignalRef.current = false;
           setHasRenderFailure(true);
           return;
         }
@@ -485,6 +495,8 @@ export function GeneratedMapPanel({
 
         hasInitializationFailureRef.current = true;
         isInitializingRef.current = false;
+        setHasMapReadySignal(false);
+        hasMapReadySignalRef.current = false;
         setHasLoadFailure(true);
       });
 
@@ -537,6 +549,10 @@ export function GeneratedMapPanel({
     hasRenderFailure,
     hasMapReadySignal,
   });
+
+  useEffect(() => {
+    onMapReadyChangeRef.current?.(resolvedPanelStatus === "ready");
+  }, [resolvedPanelStatus]);
 
   return (
     <aside

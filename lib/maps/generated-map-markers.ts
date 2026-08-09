@@ -87,8 +87,14 @@ export interface MarkerReconcilerAdapter<TMarker> {
   remove(marker: TMarker): void;
 }
 
+export interface SelectedItemActivationState {
+  selectedItemId: string | null;
+  activationVersion: number;
+}
+
 const DEFAULT_SINGLE_MARKER_ZOOM = 13;
 const DEFAULT_SELECTION_MIN_ZOOM = 11;
+export const MAX_BROWSER_TIMER_DELAY_MS = 2_147_483_647;
 
 export function deriveGeneratedMapMarkers(input: {
   itinerary: PersistedItinerary | null;
@@ -296,6 +302,88 @@ export function deriveEffectiveSelectedItemId(input: {
   }
 
   return input.interactiveItemIds.has(input.selectedItemId) ? input.selectedItemId : null;
+}
+
+export function activateSelectedItem(input: {
+  state: SelectedItemActivationState;
+  itemId: string;
+}): SelectedItemActivationState {
+  return {
+    selectedItemId: input.itemId,
+    activationVersion: input.state.activationVersion + 1,
+  };
+}
+
+export function shouldClearSelectedItem(input: {
+  selectedItemId: string | null;
+  effectiveSelectedItemId: string | null;
+}): boolean {
+  return input.selectedItemId !== null && input.effectiveSelectedItemId === null;
+}
+
+export function deriveNextMarkerEligibilityExpiryEpoch(input: {
+  itinerary: PersistedItinerary | null;
+  nowEpoch?: number;
+}): number | null {
+  if (!input.itinerary) {
+    return null;
+  }
+
+  const nowEpoch = input.nowEpoch ?? Date.now();
+  let nextExpiryEpoch: number | null = null;
+
+  for (const day of input.itinerary.days) {
+    for (const item of day.items) {
+      const reference = item.placeReference;
+      if (!reference || reference.provider !== "GOOGLE") {
+        continue;
+      }
+
+      const placeId = reference.placeId.trim();
+      if (!placeId) {
+        continue;
+      }
+
+      if (!isValidCoordinate(reference.latitude, reference.longitude)) {
+        continue;
+      }
+
+      const expireAtEpoch = Date.parse(reference.coordinatesExpireAt);
+      if (!Number.isFinite(expireAtEpoch) || expireAtEpoch <= nowEpoch) {
+        continue;
+      }
+
+      if (nextExpiryEpoch === null || expireAtEpoch < nextExpiryEpoch) {
+        nextExpiryEpoch = expireAtEpoch;
+      }
+    }
+  }
+
+  return nextExpiryEpoch;
+}
+
+export function deriveMarkerEligibilityRefreshDelayMs(input: {
+  nextExpiryEpoch: number | null;
+  nowEpoch?: number;
+  maxDelayMs?: number;
+}): number | null {
+  if (input.nextExpiryEpoch === null) {
+    return null;
+  }
+
+  const nowEpoch = input.nowEpoch ?? Date.now();
+  const maxDelayMs = input.maxDelayMs ?? MAX_BROWSER_TIMER_DELAY_MS;
+  const remainingMs = input.nextExpiryEpoch - nowEpoch;
+
+  if (remainingMs <= 0) {
+    return 0;
+  }
+
+  return Math.min(remainingMs, maxDelayMs);
+}
+
+export function deriveMarkerPressedState(selected: boolean): "true" | "false" {
+  return selected ? "true" : "false";
 }
 
 export function buildMarkerPayloadSignature(markers: GeneratedMapMarkerView[]): string {

@@ -17,6 +17,7 @@ import type { PersistedItinerary } from "@/lib/planning-sessions/types";
 interface ItineraryKanbanBoardProps {
   itinerary: PersistedItinerary | null;
   selectedItemId?: string | null;
+  selectionActivationVersion?: number;
   interactiveItemIds?: Set<string>;
   isMapLinkedInteractionEnabled?: boolean;
   onActivateInteractiveItem?: (itemId: string) => void;
@@ -25,6 +26,7 @@ interface ItineraryKanbanBoardProps {
 export function ItineraryKanbanBoard({
   itinerary,
   selectedItemId = null,
+  selectionActivationVersion = 0,
   interactiveItemIds,
   isMapLinkedInteractionEnabled = false,
   onActivateInteractiveItem,
@@ -126,7 +128,7 @@ export function ItineraryKanbanBoard({
       block: "nearest",
       inline: "nearest",
     });
-  }, [selectedItemId]);
+  }, [selectedItemId, selectionActivationVersion]);
 
   const handleBoardScroll = () => {
     const boardScroll = boardScrollRef.current;
