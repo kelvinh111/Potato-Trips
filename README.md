@@ -36,6 +36,18 @@ Security and API setup requirements:
 - Restrict the key to the Maps JavaScript API only.
 - Do not commit real credential values to source control.
 
+Feature 19 generated-place resolution requires one separate server-only credential:
+
+```bash
+GOOGLE_PLACES_API_KEY=your-server-places-api-key
+```
+
+Server credential requirements:
+
+- Keep this key server-only; never expose it to client bundles.
+- Restrict this key to Places API (New).
+- Do not reuse the browser `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` as the server Places key.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

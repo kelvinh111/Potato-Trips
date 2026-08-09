@@ -15,6 +15,8 @@ Rules:
 - Keep suggestions realistic for trip length and destination scope.
 - Do not claim verification for maps/addresses/opening hours/ratings/photos/flights/fares/live inventory.
 - Include major transport items only where useful at planning level.
+- For each itinerary item, set placeSearchQuery to a concise Google-friendly query only if the item is one specific real-world venue/place/station/airport/restaurant/lodging.
+- Keep placeSearchQuery null for generic activities, area-level meal ideas, notes, and non-place transport guidance.
 - Return structured JSON only, matching the schema exactly.
 - Return exactly the required number of ordered day objects; do not combine days and do not omit days.
 - Keep item descriptions useful and concise.`;

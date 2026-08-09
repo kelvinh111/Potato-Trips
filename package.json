@@ -16,6 +16,7 @@
     "planning-chat-controller:regression": "node --conditions=react-server --import tsx scripts/planning-chat-controller-regression.ts",
     "itinerary-kanban:regression": "node --conditions=react-server --import tsx scripts/itinerary-kanban-regression.ts",
     "google-maps-foundation:regression": "node --conditions=react-server --import tsx scripts/google-maps-foundation-regression.ts",
+    "generated-place-resolution:regression": "node --conditions=react-server --import tsx scripts/generated-place-resolution-regression.ts",
     "generation:troubleshoot": "node --conditions=react-server --import tsx scripts/planning-generation-troubleshoot.ts",
     "build": "next build",
     "start": "next start",

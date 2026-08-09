@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Feature 19 implementation planning.
+- Begin Feature 20 implementation planning and execution.
 
 ## Current Feature Unit
-- Unit: Feature 18 Google Maps Foundation
-- Related spec: `context/feature-specs/18-google-maps-foundation.md`
-- Status: Completed
+- Unit: Feature 20 Map Markers and Kanban Sync
+- Related spec: `context/feature-specs/20-map-markers-and-kanban-sync.md`
+- Status: Next Up
 
 ## Completed
 
@@ -265,11 +265,28 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved stable loading/unavailable/error map-panel states without impacting chat or kanban behavior.
 - Project owner confirmed complete Feature 18 manual browser verification pass with no unexpected regressions.
 
+### Feature 19: Generated Place Resolution
+- Extended generated itinerary items with nullable `placeSearchQuery` and nullable `placeReference`, while preserving legacy payload compatibility by normalizing missing fields to `null`.
+- Added server-only Google Places Text Search boundary with minimal field mask, strict response validation, coordinate-range checks, and provider-wide configuration/auth failure signaling.
+- Integrated bounded, capped place resolution directly inside the existing Trigger initial-generation task before final persistence (single canonical itinerary write preserved).
+- Added provider availability preflight in generated-place resolution so missing provider configuration records one provider-wide failure and skips eligible lookups before worker fanout.
+- Hardened generated-place resolution against unexpected lookup promise rejections by counting failure and continuing without failing itinerary generation.
+- Added per-attempt structured place-resolution summary logging (`attempted`, `verified`, `unverified`, `skipped`, `failed`) without secrets, raw provider responses, or full user-query logging.
+- Expanded deterministic regression coverage for provider preflight stop, multi-target concurrency bounds, request-cap stop semantics, provider-wide stop during resolution, rejected lookup handling, summary-count exactness, and itinerary content/order preservation.
+- Added server configuration documentation for `GOOGLE_PLACES_API_KEY` and restriction guidance.
+- Controlled live Places API smoke lookup returned Tokyo Station with verified Google Place ID and coordinates.
+- Full application generation completed successfully.
+- Trigger.dev recorded exactly one `initial-itinerary-generation` execution for the attempt.
+- Persisted `generatedItinerary` contained both populated `placeReference` values and expected `null` unresolved values.
+- Browser reload preserved all generated content with no changes and no additional task execution.
+- Browser DevTools confirmed zero client requests to `places.googleapis.com`.
+- Feature 19 completion checklist satisfied and marked complete.
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 19 (`context/feature-specs/19-generated-place-resolution.md`)
+- Feature 20 (`context/feature-specs/20-map-markers-and-kanban-sync.md`)
 
 ## Blockers
 - None.
@@ -404,6 +421,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `git diff --check`: pass (non-blocking LF/CRLF working-copy warning on `README.md`)
 	- `npm run build`: pass
 	- manual browser verification: project owner confirmed full Feature 18 pass with no unexpected regressions
+- Feature 19 checks:
+	- `npm run generated-place-resolution:regression`: pass
+	- targeted `eslint` for Feature 19 changed source files: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run build`: pass
+	- controlled live Places API curl smoke: pass (Tokyo Station returned with Google Place ID and coordinates)
+	- full app generation path: pass
+	- Trigger.dev execution count: exactly one `initial-itinerary-generation` run for attempt
+	- persisted `generatedItinerary` inspection: pass (expected mix of populated and `null` `placeReference` values)
+	- reload restore check: pass (content unchanged and no additional task execution)
+	- client provider-call boundary check: pass (Browser DevTools recorded zero requests to `places.googleapis.com`)
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
