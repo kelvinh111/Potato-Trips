@@ -13,6 +13,7 @@ interface GooglePlacesServerConfig {
 
 interface GooglePlacesTextSearchInput {
   query: string;
+  timeoutMs?: number;
 }
 
 type GooglePlacesLookupResult =
@@ -68,6 +69,8 @@ const placesTextSearchResponseSchema = z
       .optional(),
   })
   .strict();
+
+const GOOGLE_PLACES_REQUEST_TIMEOUT_MS = 5000;
 
 export function parseGooglePlacesServerConfig(
   env: Record<string, string | undefined>,
@@ -147,6 +150,18 @@ export async function searchGooglePlaceByText(
     return { kind: "NO_RESULT" };
   }
 
+  const timeoutMs =
+    typeof input.timeoutMs === "number"
+    && Number.isFinite(input.timeoutMs)
+    && input.timeoutMs > 0
+      ? Math.floor(input.timeoutMs)
+      : GOOGLE_PLACES_REQUEST_TIMEOUT_MS;
+
+  const abortController = new AbortController();
+  const timeoutHandle = setTimeout(() => {
+    abortController.abort();
+  }, timeoutMs);
+
   let response: Response;
 
   try {
@@ -162,6 +177,7 @@ export async function searchGooglePlaceByText(
         pageSize: 1,
       }),
       cache: "no-store",
+      signal: abortController.signal,
     });
   } catch {
     return {
@@ -169,6 +185,8 @@ export async function searchGooglePlaceByText(
       reason: "REQUEST",
       providerWide: false,
     };
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   if (response.status === 401 || response.status === 403) {
@@ -243,7 +261,7 @@ export async function searchGooglePlaceByText(
 function normalizeSearchText(value: string): string {
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

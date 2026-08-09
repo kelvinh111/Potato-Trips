@@ -132,6 +132,7 @@ async function testProviderBoundary() {
     isDisplayNameCompatibleWithQuery("Senso-ji Temple Tokyo", "Senso-ji Temple"),
     true,
   );
+  assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "東京駅"), true);
 
   delete process.env.GOOGLE_PLACES_API_KEY;
   const missingCredentialResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
@@ -207,6 +208,61 @@ async function testProviderBoundary() {
     latitude: 35.6812,
     longitude: 139.7671,
   });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        places: [
+          {
+            id: "places/tokyo-eki",
+            displayName: { text: "東京駅" },
+            location: { latitude: 35.6812, longitude: 139.7671 },
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+  };
+  const nonLatinVerifiedResult = await searchGooglePlaceByText({ query: "東京駅" });
+  assert.deepEqual(nonLatinVerifiedResult, {
+    kind: "VERIFIED",
+    placeId: "places/tokyo-eki",
+    latitude: 35.6812,
+    longitude: 139.7671,
+  });
+
+  globalThis.fetch = (_input, init) => {
+    return new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal;
+
+      if (!signal) {
+        reject(new Error("missing abort signal"));
+        return;
+      }
+
+      if (signal.aborted) {
+        reject(new DOMException("aborted", "AbortError"));
+        return;
+      }
+
+      signal.addEventListener(
+        "abort",
+        () => {
+          reject(new DOMException("aborted", "AbortError"));
+        },
+        { once: true },
+      );
+    });
+  };
+  const timeoutResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    timeoutMs: 1,
+  });
+  assert.deepEqual(timeoutResult, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    providerWide: false,
+  });
 }
 
 function testQueryNormalization() {
@@ -230,6 +286,20 @@ function testQueryNormalization() {
       placeSearchQuery: "Tokyo Station",
     }),
     null,
+  );
+  assert.equal(
+    derivePlaceSearchQueryForGeneratedItem({
+      type: "FOOD",
+      placeSearchQuery: "Lunch in Barcelona",
+    }),
+    null,
+  );
+  assert.equal(
+    derivePlaceSearchQueryForGeneratedItem({
+      type: "ACTIVITY",
+      placeSearchQuery: "Forest Sanctuary Kyoto",
+    }),
+    "Forest Sanctuary Kyoto",
   );
 }
 

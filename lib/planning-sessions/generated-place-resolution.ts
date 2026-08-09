@@ -257,9 +257,13 @@ export function derivePlaceSearchQueryForGeneratedItem(input: {
     return null;
   }
 
-  const normalized = candidate.toLowerCase();
-  const hasPlaceAnchor = placeAnchors.some((anchor) => normalized.includes(anchor));
-  const isGeneric = nonPlaceQueryPhrases.some((phrase) => normalized.includes(phrase));
+  const normalizedWords = tokenizeForKeywordMatching(candidate);
+  const hasPlaceAnchor = placeAnchors.some((anchor) => {
+    return containsWholeWordOrPhrase(normalizedWords, tokenizeForKeywordMatching(anchor));
+  });
+  const isGeneric = nonPlaceQueryPhrases.some((phrase) => {
+    return containsWholeWordOrPhrase(normalizedWords, tokenizeForKeywordMatching(phrase));
+  });
 
   if (input.type === "NOTE") {
     return null;
@@ -278,4 +282,36 @@ export function derivePlaceSearchQueryForGeneratedItem(input: {
   }
 
   return candidate;
+}
+
+function tokenizeForKeywordMatching(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+}
+
+function containsWholeWordOrPhrase(haystackWords: string[], needleWords: string[]): boolean {
+  if (needleWords.length === 0 || haystackWords.length < needleWords.length) {
+    return false;
+  }
+
+  for (let i = 0; i <= haystackWords.length - needleWords.length; i += 1) {
+    let matches = true;
+
+    for (let j = 0; j < needleWords.length; j += 1) {
+      if (haystackWords[i + j] !== needleWords[j]) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (matches) {
+      return true;
+    }
+  }
+
+  return false;
 }
