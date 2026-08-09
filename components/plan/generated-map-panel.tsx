@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { loadGoogleMapsLibrary } from "@/lib/maps/google-maps-client";
+import {
+  deriveFirstLinkedItemId,
+  deriveMarkerViewportInstruction,
+  reconcileMarkers,
+  resolveSelectedMarker,
+  type GeneratedMapMarkerView,
+} from "@/lib/maps/generated-map-markers";
+import {
+  loadGoogleMarkerLibrary,
+  loadGoogleMapsLibrary,
+} from "@/lib/maps/google-maps-client";
 import {
   deriveGeneratedMapPanelStatus,
   isStaleMapInitializationResult,
@@ -13,19 +23,47 @@ import {
 } from "@/lib/maps/google-maps-foundation";
 
 const MAP_READY_TIMEOUT_MS = 10000;
+const MAP_PADDING_PX = 80;
+
+interface ManagedAdvancedMarker {
+  marker: google.maps.marker.AdvancedMarkerElement;
+  clickListener: google.maps.MapsEventListener | null;
+  linkedItemIds: string[];
+  firstLinkedItemId: string | null;
+  selected: boolean;
+  pinElement: google.maps.marker.PinElement;
+}
 
 interface WindowWithGoogleMapsAuthFailure extends Window {
   gm_authFailure?: () => void;
 }
 
-export function GeneratedMapPanel() {
+interface GeneratedMapPanelProps {
+  markers: GeneratedMapMarkerView[];
+  selectedItemId: string | null;
+  onMarkerActivate: (itemId: string) => void;
+  onMapReadyChange?: (isReady: boolean) => void;
+}
+
+export function GeneratedMapPanel({
+  markers,
+  selectedItemId,
+  onMarkerActivate,
+  onMapReadyChange,
+}: GeneratedMapPanelProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markerStateRef = useRef<{ markersByPlaceId: Map<string, ManagedAdvancedMarker> }>({
+    markersByPlaceId: new Map(),
+  });
+  const markerLibraryRef = useRef<google.maps.MarkerLibrary | null>(null);
   const hasInitializationFailureRef = useRef(false);
   const isInitializingRef = useRef(false);
   const mapReadyTimeoutRef = useRef<number | null>(null);
   const activeRequestIdRef = useRef(0);
   const hasMapReadySignalRef = useRef(false);
+  const hasAppliedInitialViewportRef = useRef(false);
+  const markerPayloadSignatureRef = useRef("");
   const [hasMapReadySignal, setHasMapReadySignal] = useState(false);
   const [hasAuthFailure, setHasAuthFailure] = useState(false);
   const [hasLoadFailure, setHasLoadFailure] = useState(false);
@@ -34,6 +72,237 @@ export function GeneratedMapPanel() {
   const config = useMemo(() => {
     return readGoogleMapsPublicConfig();
   }, []);
+
+  useEffect(() => {
+    onMapReadyChange?.(hasMapReadySignal);
+  }, [hasMapReadySignal, onMapReadyChange]);
+
+  useEffect(() => {
+    return () => {
+      onMapReadyChange?.(false);
+    };
+  }, [onMapReadyChange]);
+
+  useEffect(() => {
+    if (!hasMapReadySignal) {
+      hasAppliedInitialViewportRef.current = false;
+      markerStateRef.current = reconcileMarkers({
+        current: markerStateRef.current,
+        markers: [],
+        selectedItemId: null,
+        onActivate: onMarkerActivate,
+        adapter: {
+          create() {
+            throw new Error("marker adapter unavailable before map initialization");
+          },
+          update() {
+          },
+          remove(managedMarker) {
+            managedMarker.clickListener?.remove();
+            managedMarker.clickListener = null;
+            managedMarker.marker.map = null;
+          },
+        },
+      });
+      return;
+    }
+
+    const map = mapInstanceRef.current;
+    if (!map || !config) {
+      return;
+    }
+
+    let isActive = true;
+
+    const applySelectionFocus = (nextMarkers: GeneratedMapMarkerView[]) => {
+      const selectedMarkerResolution = resolveSelectedMarker({
+        markers: nextMarkers,
+        selectedItemId,
+      });
+
+      if (!selectedMarkerResolution.selectedPlaceId) {
+        return;
+      }
+
+      const focusedMarker = nextMarkers.find((marker) => {
+        return marker.placeId === selectedMarkerResolution.selectedPlaceId;
+      });
+
+      if (!focusedMarker) {
+        return;
+      }
+
+      map.panTo({
+        lat: focusedMarker.latitude,
+        lng: focusedMarker.longitude,
+      });
+
+      if ((map.getZoom() ?? 0) < 11) {
+        map.setZoom(11);
+      }
+    };
+
+    const applyInitialViewport = (nextMarkers: GeneratedMapMarkerView[]) => {
+      if (hasAppliedInitialViewportRef.current) {
+        return;
+      }
+
+      const instruction = deriveMarkerViewportInstruction(nextMarkers);
+
+      if (instruction.kind === "NONE") {
+        hasAppliedInitialViewportRef.current = true;
+        return;
+      }
+
+      if (instruction.kind === "SINGLE") {
+        map.panTo({ lat: instruction.latitude, lng: instruction.longitude });
+        map.setZoom(instruction.zoom);
+        hasAppliedInitialViewportRef.current = true;
+        return;
+      }
+
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend({ lat: instruction.bounds.north, lng: instruction.bounds.east });
+      bounds.extend({ lat: instruction.bounds.south, lng: instruction.bounds.west });
+      map.fitBounds(bounds, MAP_PADDING_PX);
+      hasAppliedInitialViewportRef.current = true;
+    };
+
+    const nextPayloadSignature = markers
+      .map((marker) => {
+        return `${marker.placeId}:${marker.latitude}:${marker.longitude}:${marker.linkedItems.length}`;
+      })
+      .join("|");
+
+    if (markerPayloadSignatureRef.current !== nextPayloadSignature) {
+      hasAppliedInitialViewportRef.current = false;
+      markerPayloadSignatureRef.current = nextPayloadSignature;
+    }
+
+    if (markers.length === 0) {
+      markerStateRef.current = reconcileMarkers({
+        current: markerStateRef.current,
+        markers: [],
+        selectedItemId,
+        onActivate: onMarkerActivate,
+        adapter: {
+          create() {
+            throw new Error("cannot create markers with empty marker list");
+          },
+          update() {
+          },
+          remove(managedMarker) {
+            managedMarker.clickListener?.remove();
+            managedMarker.clickListener = null;
+            managedMarker.marker.map = null;
+          },
+        },
+      });
+      hasAppliedInitialViewportRef.current = false;
+      markerPayloadSignatureRef.current = "";
+      return;
+    }
+
+    void loadGoogleMarkerLibrary(config)
+      .then((markerLibrary) => {
+        if (!isActive) {
+          return;
+        }
+
+        markerLibraryRef.current = markerLibrary;
+
+        markerStateRef.current = reconcileMarkers({
+          current: markerStateRef.current,
+          markers,
+          selectedItemId,
+          onActivate: onMarkerActivate,
+          adapter: {
+            create({ marker, selected, onActivate }) {
+              const pinElement = createMarkerPinElement(markerLibrary, selected);
+              const firstLinkedItemId = deriveFirstLinkedItemId(marker);
+
+              const advancedMarker = new markerLibrary.AdvancedMarkerElement({
+                map,
+                position: {
+                  lat: marker.latitude,
+                  lng: marker.longitude,
+                },
+                title: marker.markerTitle,
+                content: pinElement.element,
+              });
+
+              const clickListener = advancedMarker.addListener("click", () => {
+                if (!firstLinkedItemId) {
+                  return;
+                }
+
+                onActivate(firstLinkedItemId);
+              });
+
+              return {
+                marker: advancedMarker,
+                clickListener,
+                linkedItemIds: marker.linkedItems.map((linkedItem) => linkedItem.itemId),
+                firstLinkedItemId,
+                selected,
+                pinElement,
+              };
+            },
+            update({ marker: managedMarker, next, selected, onActivate }) {
+              managedMarker.marker.position = {
+                lat: next.latitude,
+                lng: next.longitude,
+              };
+              managedMarker.marker.title = next.markerTitle;
+
+              const firstLinkedItemId = deriveFirstLinkedItemId(next);
+              const nextLinkedItemIds = next.linkedItems.map((linkedItem) => linkedItem.itemId);
+              const needsListenerRefresh =
+                managedMarker.firstLinkedItemId !== firstLinkedItemId
+                || managedMarker.linkedItemIds.join("|") !== nextLinkedItemIds.join("|");
+
+              if (needsListenerRefresh) {
+                managedMarker.clickListener?.remove();
+                managedMarker.clickListener = managedMarker.marker.addListener("click", () => {
+                  if (!firstLinkedItemId) {
+                    return;
+                  }
+
+                  onActivate(firstLinkedItemId);
+                });
+              }
+
+              managedMarker.linkedItemIds = nextLinkedItemIds;
+              managedMarker.firstLinkedItemId = firstLinkedItemId;
+
+              if (managedMarker.selected !== selected) {
+                applyMarkerSelectionStyling(managedMarker.pinElement, selected);
+                managedMarker.selected = selected;
+              }
+            },
+            remove(managedMarker) {
+              managedMarker.clickListener?.remove();
+              managedMarker.clickListener = null;
+              managedMarker.marker.map = null;
+            },
+          },
+        });
+
+        applyInitialViewport(markers);
+        applySelectionFocus(markers);
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setHasLoadFailure(true);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [config, hasMapReadySignal, markers, onMarkerActivate, selectedItemId]);
 
   useEffect(() => {
     const shouldInitialize = shouldInitializeGoogleMap({
@@ -68,6 +337,8 @@ export function GeneratedMapPanel() {
     setHasLoadFailure(false);
     setHasRenderFailure(false);
     setHasMapReadySignal(false);
+    hasAppliedInitialViewportRef.current = false;
+    markerPayloadSignatureRef.current = "";
     hasMapReadySignalRef.current = false;
     hasInitializationFailureRef.current = false;
 
@@ -195,9 +466,28 @@ export function GeneratedMapPanel() {
         mapInstanceRef.current = null;
       }
 
+      markerStateRef.current = reconcileMarkers({
+        current: markerStateRef.current,
+        markers: [],
+        selectedItemId: null,
+        onActivate: onMarkerActivate,
+        adapter: {
+          create() {
+            throw new Error("marker adapter unavailable during teardown");
+          },
+          update() {
+          },
+          remove(managedMarker) {
+            managedMarker.clickListener?.remove();
+            managedMarker.clickListener = null;
+            managedMarker.marker.map = null;
+          },
+        },
+      });
+
       windowWithAuthFailure.gm_authFailure = previousAuthFailureHandler;
     };
-  }, [config]);
+  }, [config, onMarkerActivate]);
 
   const resolvedPanelStatus: GeneratedMapPanelStatus = deriveGeneratedMapPanelStatus({
     hasConfig: config !== null,
@@ -265,7 +555,58 @@ export function GeneratedMapPanel() {
             </div>
           </div>
         ) : null}
+
+        {resolvedPanelStatus === "ready" && markers.length === 0 ? (
+          <div className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-xl border border-border-subtle bg-bg-elevated/95 px-3 py-2 text-xs text-text-secondary">
+            No verified places available for map markers.
+          </div>
+        ) : null}
       </div>
     </aside>
   );
+}
+
+function createMarkerPinElement(
+  markerLibrary: google.maps.MarkerLibrary,
+  selected: boolean,
+): google.maps.marker.PinElement {
+  return new markerLibrary.PinElement(
+    resolveMarkerPinColors(selected),
+  );
+}
+
+function applyMarkerSelectionStyling(
+  pinElement: google.maps.marker.PinElement,
+  selected: boolean,
+) {
+  const nextColors = resolveMarkerPinColors(selected);
+  pinElement.background = nextColors.background;
+  pinElement.borderColor = nextColors.borderColor;
+  pinElement.glyphColor = nextColors.glyphColor;
+}
+
+function resolveMarkerPinColors(selected: boolean): {
+  background: string;
+  borderColor: string;
+  glyphColor: string;
+} {
+  const rootStyles = getComputedStyle(document.documentElement);
+  const accentPrimary = rootStyles.getPropertyValue("--accent-primary").trim();
+  const bgSelected = rootStyles.getPropertyValue("--bg-selected").trim();
+  const textPrimary = rootStyles.getPropertyValue("--text-primary").trim();
+  const bgSurface = rootStyles.getPropertyValue("--bg-surface").trim();
+
+  if (selected) {
+    return {
+      background: accentPrimary || "var(--accent-primary)",
+      borderColor: textPrimary || "var(--text-primary)",
+      glyphColor: bgSurface || "var(--bg-surface)",
+    };
+  }
+
+  return {
+    background: bgSelected || "var(--bg-selected)",
+    borderColor: accentPrimary || "var(--accent-primary)",
+    glyphColor: textPrimary || "var(--text-primary)",
+  };
 }

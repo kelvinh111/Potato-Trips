@@ -7,6 +7,10 @@ import { ItineraryKanbanBoard } from "@/components/plan/itinerary-kanban-board";
 import { PlanningChatPanel } from "@/components/plan/planning-chat-panel";
 import { TripPlanStatusPanel } from "@/components/plan/trip-plan-status-panel";
 import {
+  deriveGeneratedMapMarkers,
+  deriveInteractiveItemIds,
+} from "@/lib/maps/generated-map-markers";
+import {
   WORKSPACE_DESKTOP_MEDIA_QUERY,
   shouldDisplayGeneratedDesktopMapPanel,
 } from "@/lib/maps/google-maps-foundation";
@@ -34,6 +38,8 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   });
   const state = generationController.sessionState;
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   useEffect(() => {
     const mediaQueryList = window.matchMedia(WORKSPACE_DESKTOP_MEDIA_QUERY);
@@ -64,6 +70,23 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     return shouldDisplayGeneratedDesktopMapPanel(state.status, isDesktopLayout);
   }, [state.status, isDesktopLayout]);
 
+  const markers = useMemo(() => {
+    return deriveGeneratedMapMarkers({ itinerary: state.generatedItinerary });
+  }, [state.generatedItinerary]);
+
+  const interactiveItemIds = useMemo(() => {
+    return deriveInteractiveItemIds(markers);
+  }, [markers]);
+
+  const isMapLinkedInteractionEnabled = showMapSlot && isMapReady;
+
+  const effectiveSelectedItemId =
+    selectedItemId
+    && isMapLinkedInteractionEnabled
+    && interactiveItemIds.has(selectedItemId)
+      ? selectedItemId
+      : null;
+
   const gridClassName = showMapSlot
     ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(16rem,22rem)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4"
     : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4";
@@ -89,11 +112,33 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
             className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
           >
             <h1 className="sr-only">Itinerary Plan</h1>
-            <ItineraryKanbanBoard itinerary={state.generatedItinerary} />
+            <ItineraryKanbanBoard
+              itinerary={state.generatedItinerary}
+              selectedItemId={effectiveSelectedItemId}
+              interactiveItemIds={interactiveItemIds}
+              isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
+              onActivateInteractiveItem={(itemId) => {
+                setSelectedItemId(itemId);
+              }}
+            />
           </section>
         )}
 
-        {showMapSlot ? <GeneratedMapPanel /> : null}
+        {showMapSlot ? (
+          <GeneratedMapPanel
+            markers={markers}
+            selectedItemId={effectiveSelectedItemId}
+            onMarkerActivate={(itemId) => {
+              setSelectedItemId(itemId);
+            }}
+            onMapReadyChange={(ready) => {
+              setIsMapReady(ready);
+              if (!ready) {
+                setSelectedItemId(null);
+              }
+            }}
+          />
+        ) : null}
       </div>
     </main>
   );

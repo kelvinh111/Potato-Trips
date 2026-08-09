@@ -1,0 +1,333 @@
+import assert from "node:assert/strict";
+
+import {
+  deriveGeneratedMapMarkers,
+  deriveInteractiveItemIds,
+  deriveMarkerViewportInstruction,
+  reconcileMarkers,
+  resolveSelectedMarker,
+  type GeneratedMapMarkerView,
+  type MarkerReconcilerAdapter,
+} from "@/lib/maps/generated-map-markers";
+import { parsePersistedItinerary, type PersistedItinerary } from "@/lib/planning-sessions/types";
+
+interface FakeMarker {
+  placeId: string;
+  selected: boolean;
+  linkedItemIds: string[];
+  disposed: boolean;
+  updates: number;
+}
+
+function createFixtureItinerary(): PersistedItinerary {
+  const parsed = parsePersistedItinerary({
+    title: "Marker fixture",
+    summary: "Feature 20",
+    days: [
+      {
+        id: "day-2",
+        dayNumber: 2,
+        dayLabel: "Day 2",
+        summary: null,
+        items: [
+          {
+            id: "day-2-item-1",
+            order: 1,
+            type: "PLACE",
+            title: "Tokyo Station revisit",
+            description: "Second stop",
+            planningText: "Return stop",
+            placeSearchQuery: "Tokyo Station",
+            placeReference: {
+              provider: "GOOGLE",
+              placeId: "places/tokyo-station",
+              latitude: 35.6812,
+              longitude: 139.7671,
+              coordinatesCachedAt: "2031-01-01T00:00:00.000Z",
+              coordinatesExpireAt: "2031-02-01T00:00:00.000Z",
+            },
+            suggestedTime: null,
+            suggestedDurationMinutes: null,
+          },
+          {
+            id: "day-2-item-2",
+            order: 2,
+            type: "PLACE",
+            title: "Expired place",
+            description: "Should not appear",
+            planningText: "Expired",
+            placeSearchQuery: "Expired",
+            placeReference: {
+              provider: "GOOGLE",
+              placeId: "places/expired",
+              latitude: 35.0,
+              longitude: 139.0,
+              coordinatesCachedAt: "2031-01-01T00:00:00.000Z",
+              coordinatesExpireAt: "2020-01-01T00:00:00.000Z",
+            },
+            suggestedTime: null,
+            suggestedDurationMinutes: null,
+          },
+        ],
+      },
+      {
+        id: "day-1",
+        dayNumber: 1,
+        dayLabel: "Day 1",
+        summary: null,
+        items: [
+          {
+            id: "day-1-item-1",
+            order: 1,
+            type: "PLACE",
+            title: "Tokyo Station",
+            description: "Primary stop",
+            planningText: "Start",
+            placeSearchQuery: "Tokyo Station",
+            placeReference: {
+              provider: "GOOGLE",
+              placeId: "places/tokyo-station",
+              latitude: 35.6812,
+              longitude: 139.7671,
+              coordinatesCachedAt: "2031-01-01T00:00:00.000Z",
+              coordinatesExpireAt: "2031-02-01T00:00:00.000Z",
+            },
+            suggestedTime: "09:00",
+            suggestedDurationMinutes: 60,
+          },
+          {
+            id: "day-1-item-2",
+            order: 2,
+            type: "PLACE",
+            title: "Invalid coordinate",
+            description: "Should be ignored",
+            planningText: "Invalid",
+            placeSearchQuery: "Invalid",
+            placeReference: {
+              provider: "GOOGLE",
+              placeId: "places/invalid",
+              latitude: 35.8,
+              longitude: 139.7671,
+              coordinatesCachedAt: "2031-01-01T00:00:00.000Z",
+              coordinatesExpireAt: "2031-02-01T00:00:00.000Z",
+            },
+            suggestedTime: null,
+            suggestedDurationMinutes: null,
+          },
+          {
+            id: "day-1-item-3",
+            order: 3,
+            type: "ACTIVITY",
+            title: "Unverified activity",
+            description: "No place ref",
+            planningText: "Walk",
+            placeSearchQuery: null,
+            placeReference: null,
+            suggestedTime: null,
+            suggestedDurationMinutes: null,
+          },
+          {
+            id: "day-1-item-4",
+            order: 4,
+            type: "PLACE",
+            title: "Kyoto Station",
+            description: "Another place",
+            planningText: "Transfer",
+            placeSearchQuery: "Kyoto Station",
+            placeReference: {
+              provider: "GOOGLE",
+              placeId: "places/kyoto-station",
+              latitude: 34.9855,
+              longitude: 135.7587,
+              coordinatesCachedAt: "2031-01-01T00:00:00.000Z",
+              coordinatesExpireAt: "2031-02-01T00:00:00.000Z",
+            },
+            suggestedTime: null,
+            suggestedDurationMinutes: null,
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!parsed) {
+    throw new Error("Fixture itinerary must parse");
+  }
+
+  parsed.days[1]!.items[1]!.placeReference = {
+    ...parsed.days[1]!.items[1]!.placeReference!,
+    latitude: 200,
+  };
+
+  return parsed;
+}
+
+function testMarkerDerivationEligibilityAndOrdering() {
+  const itinerary = createFixtureItinerary();
+
+  const markers = deriveGeneratedMapMarkers({
+    itinerary,
+    now: new Date("2031-01-15T00:00:00.000Z"),
+  });
+
+  assert.equal(markers.length, 2);
+
+  assert.deepEqual(
+    markers.map((marker) => marker.placeId),
+    ["places/tokyo-station", "places/kyoto-station"],
+  );
+
+  const tokyoMarker = markers[0]!;
+  assert.equal(tokyoMarker.markerTitle, "Tokyo Station (2 linked items)");
+  assert.deepEqual(
+    tokyoMarker.linkedItems.map((item) => item.itemId),
+    ["day-1-item-1", "day-2-item-1"],
+  );
+
+  const interactiveItemIds = deriveInteractiveItemIds(markers);
+  assert.equal(interactiveItemIds.has("day-1-item-3"), false);
+  assert.equal(interactiveItemIds.has("day-1-item-1"), true);
+}
+
+function testViewportInstructions() {
+  const markers = deriveGeneratedMapMarkers({
+    itinerary: createFixtureItinerary(),
+    now: new Date("2031-01-15T00:00:00.000Z"),
+  });
+
+  const noneInstruction = deriveMarkerViewportInstruction([]);
+  assert.deepEqual(noneInstruction, { kind: "NONE" });
+
+  const singleInstruction = deriveMarkerViewportInstruction([markers[0]!]);
+  assert.equal(singleInstruction.kind, "SINGLE");
+  if (singleInstruction.kind === "SINGLE") {
+    assert.equal(singleInstruction.zoom, 13);
+  }
+
+  const boundsInstruction = deriveMarkerViewportInstruction(markers);
+  assert.equal(boundsInstruction.kind, "BOUNDS");
+  if (boundsInstruction.kind === "BOUNDS") {
+    assert.equal(boundsInstruction.bounds.north >= boundsInstruction.bounds.south, true);
+    assert.equal(boundsInstruction.bounds.east >= boundsInstruction.bounds.west, true);
+  }
+}
+
+function testSelectionResolutionAndCleanup() {
+  const markers = deriveGeneratedMapMarkers({
+    itinerary: createFixtureItinerary(),
+    now: new Date("2031-01-15T00:00:00.000Z"),
+  });
+
+  assert.deepEqual(
+    resolveSelectedMarker({ markers, selectedItemId: "day-2-item-1" }),
+    {
+      selectedPlaceId: "places/tokyo-station",
+      selectedItemId: "day-2-item-1",
+    },
+  );
+
+  assert.deepEqual(
+    resolveSelectedMarker({ markers, selectedItemId: "missing-item" }),
+    {
+      selectedPlaceId: null,
+      selectedItemId: null,
+    },
+  );
+}
+
+function testMarkerReconciliationLifecycle() {
+  const markers = deriveGeneratedMapMarkers({
+    itinerary: createFixtureItinerary(),
+    now: new Date("2031-01-15T00:00:00.000Z"),
+  });
+
+  const createCalls: string[] = [];
+  const updateCalls: string[] = [];
+  const removeCalls: string[] = [];
+  const activationCalls: string[] = [];
+
+  const adapter: MarkerReconcilerAdapter<FakeMarker> = {
+    create({ marker, selected }) {
+      createCalls.push(marker.placeId);
+      return {
+        placeId: marker.placeId,
+        selected,
+        linkedItemIds: marker.linkedItems.map((item) => item.itemId),
+        disposed: false,
+        updates: 0,
+      };
+    },
+    update({ marker, next, selected, onActivate }) {
+      updateCalls.push(next.placeId);
+      marker.selected = selected;
+      marker.linkedItemIds = next.linkedItems.map((item) => item.itemId);
+      marker.updates += 1;
+      const firstLinkedItemId = next.linkedItems[0]?.itemId;
+      if (firstLinkedItemId) {
+        onActivate(firstLinkedItemId);
+      }
+    },
+    remove(marker) {
+      marker.disposed = true;
+      removeCalls.push(marker.placeId);
+    },
+  };
+
+  let state = {
+    markersByPlaceId: new Map<string, FakeMarker>(),
+  };
+
+  state = reconcileMarkers({
+    current: state,
+    markers,
+    selectedItemId: null,
+    onActivate: (itemId) => {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(createCalls, ["places/tokyo-station", "places/kyoto-station"]);
+  assert.deepEqual(removeCalls, []);
+
+  state = reconcileMarkers({
+    current: state,
+    markers,
+    selectedItemId: "day-1-item-4",
+    onActivate: (itemId) => {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(createCalls, ["places/tokyo-station", "places/kyoto-station"]);
+  assert.deepEqual(updateCalls, ["places/tokyo-station", "places/kyoto-station"]);
+
+  const replacementMarkers: GeneratedMapMarkerView[] = [markers[1]!];
+
+  state = reconcileMarkers({
+    current: state,
+    markers: replacementMarkers,
+    selectedItemId: "day-1-item-4",
+    onActivate: (itemId) => {
+      activationCalls.push(itemId);
+    },
+    adapter,
+  });
+
+  assert.deepEqual(removeCalls, ["places/tokyo-station"]);
+  assert.equal(state.markersByPlaceId.has("places/kyoto-station"), true);
+  assert.equal(state.markersByPlaceId.has("places/tokyo-station"), false);
+  assert.equal(activationCalls.includes("day-1-item-4"), true);
+}
+
+function run() {
+  testMarkerDerivationEligibilityAndOrdering();
+  testViewportInstructions();
+  testSelectionResolutionAndCleanup();
+  testMarkerReconciliationLifecycle();
+
+  console.log("map-markers-kanban-sync-regression: pass");
+}
+
+run();

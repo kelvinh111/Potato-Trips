@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEventHandler } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEventHandler,
+} from "react";
 
 import {
   toItineraryKanbanViewModel,
@@ -9,9 +16,19 @@ import type { PersistedItinerary } from "@/lib/planning-sessions/types";
 
 interface ItineraryKanbanBoardProps {
   itinerary: PersistedItinerary | null;
+  selectedItemId?: string | null;
+  interactiveItemIds?: Set<string>;
+  isMapLinkedInteractionEnabled?: boolean;
+  onActivateInteractiveItem?: (itemId: string) => void;
 }
 
-export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
+export function ItineraryKanbanBoard({
+  itinerary,
+  selectedItemId = null,
+  interactiveItemIds,
+  isMapLinkedInteractionEnabled = false,
+  onActivateInteractiveItem,
+}: ItineraryKanbanBoardProps) {
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const boardStripRef = useRef<HTMLOListElement | null>(null);
   const scrollbarDockRef = useRef<HTMLDivElement | null>(null);
@@ -91,6 +108,26 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedItemId) {
+      return;
+    }
+
+    const selectedElement = document.querySelector<HTMLElement>(
+      `[data-itinerary-item-id="${selectedItemId}"]`,
+    );
+
+    if (!selectedElement) {
+      return;
+    }
+
+    selectedElement.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [selectedItemId]);
+
   const handleBoardScroll = () => {
     const boardScroll = boardScrollRef.current;
     const scrollbarDock = scrollbarDockRef.current;
@@ -130,6 +167,22 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
     isMiddlePanningRef.current = true;
     lastPointerXRef.current = event.clientX;
     document.body.style.cursor = "ew-resize";
+  };
+
+  const interactiveIds = useMemo(() => {
+    return interactiveItemIds ?? new Set<string>();
+  }, [interactiveItemIds]);
+
+  const handleInteractiveKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    itemId: string,
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    onActivateInteractiveItem?.(itemId);
   };
 
   if (!itinerary) {
@@ -211,23 +264,59 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
                           return part !== null;
                         });
 
+                        const isInteractive =
+                          isMapLinkedInteractionEnabled && interactiveIds.has(item.id);
+                        const isSelected = selectedItemId === item.id;
+
                         return (
                           <li key={item.id}>
-                            <article className="space-y-2 rounded-xl border border-border-subtle bg-bg-elevated px-3 py-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                                {item.typeLabel}
-                              </p>
-                              <h4 className="text-sm font-semibold text-text-primary">
-                                {item.title}
-                              </h4>
-                              <p className="text-sm text-text-secondary">{item.description}</p>
-                              <p className="text-sm text-text-primary">{item.planningText}</p>
-                              {timeAndDurationParts.length > 0 ? (
-                                <p className="text-xs text-text-muted">
-                                  {timeAndDurationParts.join(" • ")}
+                            {isInteractive ? (
+                              <button
+                                type="button"
+                                data-itinerary-item-id={item.id}
+                                onClick={() => {
+                                  onActivateInteractiveItem?.(item.id);
+                                }}
+                                onKeyDown={(event) => {
+                                  handleInteractiveKeyDown(event, item.id);
+                                }}
+                                aria-pressed={isSelected}
+                                className={`block w-full space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
+                              >
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                                  {item.typeLabel}
                                 </p>
-                              ) : null}
-                            </article>
+                                <h4 className="text-sm font-semibold text-text-primary">
+                                  {item.title}
+                                </h4>
+                                <p className="text-sm text-text-secondary">{item.description}</p>
+                                <p className="text-sm text-text-primary">{item.planningText}</p>
+                                {timeAndDurationParts.length > 0 ? (
+                                  <p className="text-xs text-text-muted">
+                                    {timeAndDurationParts.join(" • ")}
+                                  </p>
+                                ) : null}
+                              </button>
+                            ) : (
+                              <article
+                                data-itinerary-item-id={item.id}
+                                className={`space-y-2 rounded-xl border px-3 py-3 ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated"}`}
+                              >
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                                  {item.typeLabel}
+                                </p>
+                                <h4 className="text-sm font-semibold text-text-primary">
+                                  {item.title}
+                                </h4>
+                                <p className="text-sm text-text-secondary">{item.description}</p>
+                                <p className="text-sm text-text-primary">{item.planningText}</p>
+                                {timeAndDurationParts.length > 0 ? (
+                                  <p className="text-xs text-text-muted">
+                                    {timeAndDurationParts.join(" • ")}
+                                  </p>
+                                ) : null}
+                              </article>
+                            )}
                           </li>
                         );
                       })}
