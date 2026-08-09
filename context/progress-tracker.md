@@ -6,11 +6,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Feature 20 implementation planning and execution.
+- Begin Feature 21 implementation planning and execution.
 
 ## Current Feature Unit
-- Unit: Feature 20 Map Markers and Kanban Sync
-- Related spec: `context/feature-specs/20-map-markers-and-kanban-sync.md`
+- Unit: Feature 21 Location Detail
+- Related spec: `context/feature-specs/21-location-detail.md`
 - Status: Next Up
 
 ## Completed
@@ -282,11 +282,20 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Browser DevTools confirmed zero client requests to `places.googleapis.com`.
 - Feature 19 completion checklist satisfied and marked complete.
 
+### Feature 20: Map Markers and Kanban Sync
+- Added deterministic marker derivation keyed by Google Place ID with ordered linked itinerary item IDs from valid, non-expired persisted `placeReference` entries.
+- Added Place-ID keyed marker reconciliation with lifecycle-safe update/removal cleanup and no duplicate marker/listener application across rerenders or itinerary replacement.
+- Added desktop-only map-linked interaction flow with one ephemeral workspace `selectedItemId` shared by verified marker/card activation and safe selection cleanup when eligibility changes.
+- Added deterministic viewport/focus/listener helper adapters so single-marker zoom, multi-marker bounds, empty-marker state, selected-item focus, and marker interaction binding can be verified with fakes (no live billable SDK calls).
+- Preserved unverified cards as non-interactive read-only articles, keyboard activation for verified cards/markers, existing kanban scroll behavior, responsive map gating/re-init behavior, and no Location Detail navigation.
+- Verified refresh persistence restores marker state from persisted references without Places lookup, generation rerun, duplicate markers/listeners, or itinerary-order mutation.
+- Feature 20 completion checklist satisfied and marked complete.
+
 ## In Progress
 - None.
 
 ## Next Up
-- Feature 20 (`context/feature-specs/20-map-markers-and-kanban-sync.md`)
+- Feature 21 (`context/feature-specs/21-location-detail.md`)
 
 ## Blockers
 - None.
@@ -433,6 +442,19 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- persisted `generatedItinerary` inspection: pass (expected mix of populated and `null` `placeReference` values)
 	- reload restore check: pass (content unchanged and no additional task execution)
 	- client provider-call boundary check: pass (Browser DevTools recorded zero requests to `places.googleapis.com`)
+- Feature 20 checks:
+	- `npm run map-markers-kanban-sync:regression`: pass
+	- targeted `eslint` for Feature 20 changed source files: pass
+	- `npx tsc --noEmit`: pass
+	- `git diff --check`: pass
+	- `npm run build`: pass
+	- manual desktop check: pass (verified card -> marker and marker -> card selection, selected styling, no Location Detail navigation)
+	- manual keyboard check: pass (verified cards and markers activate via keyboard and preserve expected focus behavior)
+	- manual unverified-card check: pass (unverified cards remain non-interactive, no marker fabricated)
+	- manual responsive check: pass (narrow layout issues no map/marker request; resize back to desktop safely reinitializes markers)
+	- manual persistence/refresh check: pass (markers restored from persisted references without lookup/regeneration/duplication/order drift)
+	- manual empty-marker check: pass (neutral overview retained and accessible no-verified-places status shown)
+	- manual browser-console check: pass (no unexpected client errors during Feature 20 flows)
 
 ## Architecture Decisions
 - PostgreSQL is the durable source of truth for saved trips.
