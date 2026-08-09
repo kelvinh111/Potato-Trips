@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
   type MouseEventHandler,
 } from "react";
 
@@ -175,18 +174,6 @@ export function ItineraryKanbanBoard({
     return interactiveItemIds ?? new Set<string>();
   }, [interactiveItemIds]);
 
-  const handleInteractiveKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    itemId: string,
-  ) => {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-
-    event.preventDefault();
-    onActivateInteractiveItem?.(itemId);
-  };
-
   if (!itinerary) {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
@@ -278,9 +265,6 @@ export function ItineraryKanbanBoard({
                                 data-itinerary-item-id={item.id}
                                 onClick={() => {
                                   onActivateInteractiveItem?.(item.id);
-                                }}
-                                onKeyDown={(event) => {
-                                  handleInteractiveKeyDown(event, item.id);
                                 }}
                                 aria-pressed={isSelected}
                                 className={`block w-full space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}

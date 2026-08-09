@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   applySelectedMarkerFocus,
   applyViewportInstruction,
   buildMarkerPayloadSignature,
-  buildLinkedItemIdsSignature,
   deriveMarkerPressedState,
   deriveFirstLinkedItemId,
   deriveSelectedMarkerFocus,
@@ -14,7 +13,6 @@ import {
   reconcileMarkerInteractionBinding,
   reconcileMarkers,
   removeMarkerInteractionBinding,
-  shouldResetInitialViewport,
   type GeneratedMapMarkerView,
   type MarkerInteractionBindingState,
 } from "@/lib/maps/generated-map-markers";
@@ -36,13 +34,10 @@ const MAP_PADDING_PX = 80;
 
 interface ManagedAdvancedMarker {
   marker: google.maps.marker.AdvancedMarkerElement;
-  linkedItemIdsSignature: string;
   selected: boolean;
   pinElement: google.maps.marker.PinElement;
-  contentElement: HTMLDivElement;
   interactionBindingState: MarkerInteractionBindingState | null;
-  clickListener: google.maps.MapsEventListener | null;
-  keydownListener: ((event: KeyboardEvent) => void) | null;
+  clickListener: EventListener | null;
 }
 
 interface WindowWithGoogleMapsAuthFailure extends Window {
@@ -69,7 +64,6 @@ export function GeneratedMapPanel({
   const markerStateRef = useRef<{ markersByPlaceId: Map<string, ManagedAdvancedMarker> }>({
     markersByPlaceId: new Map(),
   });
-  const markerLibraryRef = useRef<google.maps.MarkerLibrary | null>(null);
   const hasInitializationFailureRef = useRef(false);
   const isInitializingRef = useRef(false);
   const mapReadyTimeoutRef = useRef<number | null>(null);
@@ -102,31 +96,21 @@ export function GeneratedMapPanel({
     };
   }, []);
 
+  const clearManagedMarkers = useCallback(() => {
+    for (const managedMarker of markerStateRef.current.markersByPlaceId.values()) {
+      disposeManagedMarker(managedMarker);
+    }
+
+    markerStateRef.current = {
+      markersByPlaceId: new Map(),
+    };
+  }, []);
+
   useEffect(() => {
     if (!hasMapReadySignal) {
       hasAppliedInitialViewportRef.current = false;
-      markerStateRef.current = reconcileMarkers({
-        current: markerStateRef.current,
-        markers: [],
-        selectedItemId: null,
-        onActivate: (itemId) => {
-          onMarkerActivateRef.current(itemId);
-        },
-        adapter: {
-          create() {
-            throw new Error("marker adapter unavailable before map initialization");
-          },
-          update() {
-          },
-          remove(managedMarker) {
-            managedMarker.interactionBindingState = removeMarkerInteractionBinding({
-              current: managedMarker.interactionBindingState,
-              adapter: buildInteractionAdapter(managedMarker),
-            });
-            managedMarker.marker.map = null;
-          },
-        },
-      });
+      markerPayloadSignatureRef.current = "";
+      clearManagedMarkers();
       return;
     }
 
@@ -137,8 +121,8 @@ export function GeneratedMapPanel({
 
     let isActive = true;
 
-    const applySelectionFocus = (nextMarkers: GeneratedMapMarkerView[]) => {
-      const wasApplied = applySelectedMarkerFocus({
+    const applySelectionFocus = () => {
+      applySelectedMarkerFocus({
         adapter: {
           panTo(position) {
             map.panTo({
@@ -154,22 +138,18 @@ export function GeneratedMapPanel({
           },
         },
         focusTarget: deriveSelectedMarkerFocus({
-          markers: nextMarkers,
+          markers,
           selectedItemId,
         }),
       });
-
-      if (!wasApplied) {
-        return;
-      }
     };
 
-    const applyInitialViewport = (nextMarkers: GeneratedMapMarkerView[]) => {
+    const applyInitialViewport = () => {
       if (hasAppliedInitialViewportRef.current) {
         return;
       }
 
-      const instruction = deriveMarkerViewportInstruction(nextMarkers);
+      const instruction = deriveMarkerViewportInstruction(markers);
       applyViewportInstruction({
         adapter: {
           panTo(position) {
@@ -196,37 +176,13 @@ export function GeneratedMapPanel({
 
     const nextPayloadSignature = buildMarkerPayloadSignature(markers);
 
-    if (shouldResetInitialViewport({
-      previousSignature: markerPayloadSignatureRef.current,
-      nextSignature: nextPayloadSignature,
-    })) {
+    if (markerPayloadSignatureRef.current !== nextPayloadSignature) {
       hasAppliedInitialViewportRef.current = false;
       markerPayloadSignatureRef.current = nextPayloadSignature;
     }
 
     if (markers.length === 0) {
-      markerStateRef.current = reconcileMarkers({
-        current: markerStateRef.current,
-        markers: [],
-        selectedItemId,
-        onActivate: (itemId) => {
-          onMarkerActivateRef.current(itemId);
-        },
-        adapter: {
-          create() {
-            throw new Error("cannot create markers with empty marker list");
-          },
-          update() {
-          },
-          remove(managedMarker) {
-            managedMarker.interactionBindingState = removeMarkerInteractionBinding({
-              current: managedMarker.interactionBindingState,
-              adapter: buildInteractionAdapter(managedMarker),
-            });
-            managedMarker.marker.map = null;
-          },
-        },
-      });
+      clearManagedMarkers();
       hasAppliedInitialViewportRef.current = false;
       markerPayloadSignatureRef.current = "";
       return;
@@ -238,8 +194,6 @@ export function GeneratedMapPanel({
           return;
         }
 
-        markerLibraryRef.current = markerLibrary;
-
         markerStateRef.current = reconcileMarkers({
           current: markerStateRef.current,
           markers,
@@ -247,88 +201,17 @@ export function GeneratedMapPanel({
           onActivate: (itemId) => {
             onMarkerActivateRef.current(itemId);
           },
-          adapter: {
-            create({ marker, selected, onActivate }) {
-              const pinElement = createMarkerPinElement(markerLibrary, selected);
-              const linkedItemIdsSignature = buildLinkedItemIdsSignature(marker);
-              const markerTitle = marker.markerTitle;
-              const contentElement = document.createElement("div");
-              contentElement.tabIndex = 0;
-              contentElement.role = "button";
-              contentElement.ariaLabel = markerTitle;
-              contentElement.setAttribute("aria-pressed", deriveMarkerPressedState(selected));
-              contentElement.className = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-full";
-              contentElement.appendChild(pinElement.element);
-
-              const advancedMarker = new markerLibrary.AdvancedMarkerElement({
-                map,
-                position: {
-                  lat: marker.latitude,
-                  lng: marker.longitude,
-                },
-                title: markerTitle,
-                content: contentElement,
-                gmpClickable: true,
-              });
-
-              const managedMarker: ManagedAdvancedMarker = {
-                marker: advancedMarker,
-                linkedItemIdsSignature,
-                selected,
-                pinElement,
-                contentElement,
-                interactionBindingState: null,
-                clickListener: null,
-                keydownListener: null,
-              };
-
-              managedMarker.interactionBindingState = reconcileMarkerInteractionBinding({
-                current: managedMarker.interactionBindingState,
-                adapter: buildInteractionAdapter(managedMarker),
-                firstLinkedItemId: deriveFirstLinkedItemId(marker),
-                onActivate,
-              });
-
-              return managedMarker;
+          adapter: buildMarkerReconcilerAdapter({
+            map,
+            markerLibrary,
+            onActivate: (itemId) => {
+              onMarkerActivateRef.current(itemId);
             },
-            update({ marker: managedMarker, next, selected }) {
-              managedMarker.marker.position = {
-                lat: next.latitude,
-                lng: next.longitude,
-              };
-              managedMarker.marker.title = next.markerTitle;
-              managedMarker.contentElement.ariaLabel = next.markerTitle;
-
-              managedMarker.linkedItemIdsSignature = buildLinkedItemIdsSignature(next);
-
-              managedMarker.interactionBindingState = reconcileMarkerInteractionBinding({
-                current: managedMarker.interactionBindingState,
-                adapter: buildInteractionAdapter(managedMarker),
-                firstLinkedItemId: deriveFirstLinkedItemId(next),
-                onActivate: (itemId) => {
-                  onMarkerActivateRef.current(itemId);
-                },
-              });
-
-              managedMarker.contentElement.setAttribute("aria-pressed", deriveMarkerPressedState(selected));
-
-              if (managedMarker.selected !== selected) {
-                applyMarkerSelectionStyling(managedMarker.pinElement, selected);
-                managedMarker.selected = selected;
-              }
-            },
-            remove(managedMarker) {
-              managedMarker.interactionBindingState = removeMarkerInteractionBinding({
-                current: managedMarker.interactionBindingState,
-                adapter: buildInteractionAdapter(managedMarker),
-              });
-              managedMarker.marker.map = null;
-            },
-          },
+          }),
         });
 
-        applyInitialViewport(markers);
-        applySelectionFocus(markers);
+        applyInitialViewport();
+        applySelectionFocus();
       })
       .catch(() => {
         if (!isActive) {
@@ -341,7 +224,7 @@ export function GeneratedMapPanel({
     return () => {
       isActive = false;
     };
-  }, [config, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
+  }, [clearManagedMarkers, config, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
 
   useEffect(() => {
     const shouldInitialize = shouldInitializeGoogleMap({
@@ -515,32 +398,11 @@ export function GeneratedMapPanel({
         mapInstanceRef.current = null;
       }
 
-      markerStateRef.current = reconcileMarkers({
-        current: markerStateRef.current,
-        markers: [],
-        selectedItemId: null,
-        onActivate: (itemId) => {
-          onMarkerActivateRef.current(itemId);
-        },
-        adapter: {
-          create() {
-            throw new Error("marker adapter unavailable during teardown");
-          },
-          update() {
-          },
-          remove(managedMarker) {
-            managedMarker.interactionBindingState = removeMarkerInteractionBinding({
-              current: managedMarker.interactionBindingState,
-              adapter: buildInteractionAdapter(managedMarker),
-            });
-            managedMarker.marker.map = null;
-          },
-        },
-      });
+      clearManagedMarkers();
 
       windowWithAuthFailure.gm_authFailure = previousAuthFailureHandler;
     };
-  }, [config]);
+  }, [clearManagedMarkers, config]);
 
   const resolvedPanelStatus: GeneratedMapPanelStatus = deriveGeneratedMapPanelStatus({
     hasConfig: config !== null,
@@ -631,33 +493,113 @@ function buildInteractionAdapter(
   managedMarker: ManagedAdvancedMarker,
 ): {
   setClickHandler: (handler: (() => void) | null) => void;
-  setKeydownHandler: (handler: ((event: KeyboardEvent) => void) | null) => void;
 } {
   return {
     setClickHandler(handler) {
-      managedMarker.clickListener?.remove();
+      if (managedMarker.clickListener) {
+        managedMarker.marker.removeEventListener("gmp-click", managedMarker.clickListener);
+      }
       managedMarker.clickListener = null;
 
       if (!handler) {
         return;
       }
 
-      managedMarker.clickListener = managedMarker.marker.addListener("click", handler);
+      const listener: EventListener = () => {
+        handler();
+      };
+      managedMarker.marker.addEventListener("gmp-click", listener);
+      managedMarker.clickListener = listener;
     },
-    setKeydownHandler(handler) {
-      if (managedMarker.keydownListener) {
-        managedMarker.contentElement.removeEventListener("keydown", managedMarker.keydownListener);
-        managedMarker.keydownListener = null;
-      }
+  };
+}
 
-      if (!handler) {
+function buildMarkerReconcilerAdapter(input: {
+  map: google.maps.Map;
+  markerLibrary: google.maps.MarkerLibrary;
+  onActivate: (itemId: string) => void;
+}): {
+  create: (args: {
+    marker: GeneratedMapMarkerView;
+    selected: boolean;
+    onActivate: (itemId: string) => void;
+  }) => ManagedAdvancedMarker;
+  update: (args: {
+    marker: ManagedAdvancedMarker;
+    next: GeneratedMapMarkerView;
+    selected: boolean;
+    onActivate: (itemId: string) => void;
+  }) => void;
+  remove: (marker: ManagedAdvancedMarker) => void;
+} {
+  return {
+    create({ marker, selected, onActivate }) {
+      const pinElement = createMarkerPinElement(input.markerLibrary, selected);
+      const advancedMarker = new input.markerLibrary.AdvancedMarkerElement({
+        map: input.map,
+        position: {
+          lat: marker.latitude,
+          lng: marker.longitude,
+        },
+        title: marker.markerTitle,
+        gmpClickable: true,
+      });
+
+      advancedMarker.className = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-full";
+      advancedMarker.append(pinElement);
+      advancedMarker.setAttribute("aria-pressed", deriveMarkerPressedState(selected));
+
+      const managedMarker: ManagedAdvancedMarker = {
+        marker: advancedMarker,
+        selected,
+        pinElement,
+        interactionBindingState: null,
+        clickListener: null,
+      };
+
+      managedMarker.interactionBindingState = reconcileMarkerInteractionBinding({
+        current: managedMarker.interactionBindingState,
+        adapter: buildInteractionAdapter(managedMarker),
+        firstLinkedItemId: deriveFirstLinkedItemId(marker),
+        onActivate,
+      });
+
+      return managedMarker;
+    },
+    update({ marker: managedMarker, next, selected, onActivate }) {
+      managedMarker.marker.position = {
+        lat: next.latitude,
+        lng: next.longitude,
+      };
+      managedMarker.marker.title = next.markerTitle;
+      managedMarker.marker.setAttribute("aria-pressed", deriveMarkerPressedState(selected));
+
+      managedMarker.interactionBindingState = reconcileMarkerInteractionBinding({
+        current: managedMarker.interactionBindingState,
+        adapter: buildInteractionAdapter(managedMarker),
+        firstLinkedItemId: deriveFirstLinkedItemId(next),
+        onActivate,
+      });
+
+      if (managedMarker.selected === selected) {
         return;
       }
 
-      managedMarker.contentElement.addEventListener("keydown", handler);
-      managedMarker.keydownListener = handler;
+      applyMarkerSelectionStyling(managedMarker.pinElement, selected);
+      managedMarker.selected = selected;
+    },
+    remove(managedMarker) {
+      disposeManagedMarker(managedMarker);
     },
   };
+}
+
+function disposeManagedMarker(managedMarker: ManagedAdvancedMarker) {
+  managedMarker.interactionBindingState = removeMarkerInteractionBinding({
+    current: managedMarker.interactionBindingState,
+    adapter: buildInteractionAdapter(managedMarker),
+  });
+  managedMarker.marker.map = null;
 }
 
 function createMarkerPinElement(

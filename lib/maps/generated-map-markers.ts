@@ -59,13 +59,11 @@ export interface MarkerFocusAdapter {
 
 export interface MarkerInteractionAdapter {
   setClickHandler(handler: (() => void) | null): void;
-  setKeydownHandler(handler: ((event: KeyboardEvent) => void) | null): void;
 }
 
 export interface MarkerInteractionBindingState {
   firstLinkedItemIdRef: { current: string | null };
   clickHandler: (() => void) | null;
-  keydownHandler: ((event: KeyboardEvent) => void) | null;
 }
 
 export interface MarkerReconciliationState<TMarker> {
@@ -394,17 +392,6 @@ export function buildMarkerPayloadSignature(markers: GeneratedMapMarkerView[]): 
     .join("|");
 }
 
-export function buildLinkedItemIdsSignature(marker: GeneratedMapMarkerView): string {
-  return marker.linkedItems.map((linkedItem) => linkedItem.itemId).join("|");
-}
-
-export function shouldResetInitialViewport(input: {
-  previousSignature: string;
-  nextSignature: string;
-}): boolean {
-  return input.previousSignature !== input.nextSignature;
-}
-
 export function deriveSelectedMarkerFocus(input: {
   markers: GeneratedMapMarkerView[];
   selectedItemId: string | null;
@@ -494,26 +481,11 @@ export function reconcileMarkerInteractionBinding(input: {
       input.onActivate(firstLinkedItemIdRef.current);
     };
 
-    const keydownHandler = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-
-      event.preventDefault();
-      if (!firstLinkedItemIdRef.current) {
-        return;
-      }
-
-      input.onActivate(firstLinkedItemIdRef.current);
-    };
-
     input.adapter.setClickHandler(clickHandler);
-    input.adapter.setKeydownHandler(keydownHandler);
 
     return {
       firstLinkedItemIdRef,
       clickHandler,
-      keydownHandler,
     };
   }
 
@@ -530,7 +502,6 @@ export function removeMarkerInteractionBinding(input: {
   }
 
   input.adapter.setClickHandler(null);
-  input.adapter.setKeydownHandler(null);
   return null;
 }
 
