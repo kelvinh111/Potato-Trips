@@ -184,7 +184,37 @@ function testViewportAndFocus() {
 
   assert.deepEqual(deriveMarkerViewportInstruction([]), { kind: "NONE" });
   assert.equal(deriveMarkerViewportInstruction([markers[0]!]).kind, "SINGLE");
-  assert.equal(deriveMarkerViewportInstruction(markers).kind, "BOUNDS");
+  const ordinaryBounds = deriveMarkerViewportInstruction(markers);
+  assert.equal(ordinaryBounds.kind, "BOUNDS");
+  if (ordinaryBounds.kind === "BOUNDS") {
+    assert.equal(ordinaryBounds.bounds.west <= ordinaryBounds.bounds.east, true);
+    assert.equal(ordinaryBounds.bounds.west, 135.7587);
+    assert.equal(ordinaryBounds.bounds.east, 139.7671);
+  }
+
+  const antimeridianBounds = deriveMarkerViewportInstruction([
+    {
+      placeId: "east",
+      latitude: 10,
+      longitude: 179,
+      markerTitle: "east",
+      linkedItems: [{ itemId: "east-1", dayNumber: 1, itemOrder: 1, title: "east" }],
+    },
+    {
+      placeId: "west",
+      latitude: 12,
+      longitude: -179,
+      markerTitle: "west",
+      linkedItems: [{ itemId: "west-1", dayNumber: 1, itemOrder: 2, title: "west" }],
+    },
+  ]);
+
+  assert.equal(antimeridianBounds.kind, "BOUNDS");
+  if (antimeridianBounds.kind === "BOUNDS") {
+    assert.equal(antimeridianBounds.bounds.west, 179);
+    assert.equal(antimeridianBounds.bounds.east, 181);
+    assert.equal(antimeridianBounds.bounds.east - antimeridianBounds.bounds.west, 2);
+  }
 
   const sigA = buildMarkerPayloadSignature(markers);
   const sigB = buildMarkerPayloadSignature(markers);

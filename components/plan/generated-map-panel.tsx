@@ -479,7 +479,7 @@ export function GeneratedMapPanel({
           <div
             role="status"
             aria-live="polite"
-            className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-xl border border-border-subtle bg-bg-elevated/95 px-3 py-2 text-xs text-text-secondary"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-xl border border-border-subtle bg-bg-elevated/95 px-3 py-2 text-xs text-text-secondary"
           >
             No verified places available for map markers.
           </div>

@@ -223,21 +223,71 @@ export function deriveMarkerViewportInstruction(
   const bounds: MarkerBounds = {
     north: Number.NEGATIVE_INFINITY,
     south: Number.POSITIVE_INFINITY,
-    east: Number.NEGATIVE_INFINITY,
-    west: Number.POSITIVE_INFINITY,
+    east: 0,
+    west: 0,
   };
+  const longitudes: number[] = [];
 
   for (const marker of markers) {
     bounds.north = Math.max(bounds.north, marker.latitude);
     bounds.south = Math.min(bounds.south, marker.latitude);
-    bounds.east = Math.max(bounds.east, marker.longitude);
-    bounds.west = Math.min(bounds.west, marker.longitude);
+    longitudes.push(marker.longitude);
   }
+
+  const longitudeInterval = deriveSmallestCircularLongitudeInterval(longitudes);
+  bounds.west = longitudeInterval.west;
+  bounds.east = longitudeInterval.east;
 
   return {
     kind: "BOUNDS",
     bounds,
   };
+}
+
+function deriveSmallestCircularLongitudeInterval(longitudes: number[]): {
+  west: number;
+  east: number;
+} {
+  const normalized = longitudes
+    .map((longitude) => normalizeLongitudeTo360(longitude))
+    .sort((left, right) => left - right);
+
+  let largestGap = -1;
+  let largestGapIndex = 0;
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    const current = normalized[index]!;
+    const next = index === normalized.length - 1
+      ? normalized[0]! + 360
+      : normalized[index + 1]!;
+    const gap = next - current;
+
+    if (gap > largestGap) {
+      largestGap = gap;
+      largestGapIndex = index;
+    }
+  }
+
+  const intervalStart = normalized[(largestGapIndex + 1) % normalized.length]!;
+  const intervalEndBase = normalized[largestGapIndex]!;
+  const intervalEnd = intervalEndBase < intervalStart ? intervalEndBase + 360 : intervalEndBase;
+  const span = intervalEnd - intervalStart;
+  const west = normalizeLongitudeToSigned(intervalStart);
+
+  return {
+    west,
+    east: west + span,
+  };
+}
+
+function normalizeLongitudeTo360(longitude: number): number {
+  const normalized = longitude % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function normalizeLongitudeToSigned(longitude: number): number {
+  const wrapped = normalizeLongitudeTo360(longitude);
+  return wrapped > 180 ? wrapped - 360 : wrapped;
 }
 
 export function resolveSelectedMarker(input: {
