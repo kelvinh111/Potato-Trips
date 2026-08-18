@@ -115,6 +115,10 @@ export function deriveGeneratedMapPanelStatus({
   return "loading";
 }
 
+export function deriveMapInteractionReady(status: GeneratedMapPanelStatus): boolean {
+  return status === "ready";
+}
+
 export function isStaleMapInitializationResult({
   isComponentActive,
   requestId,

@@ -1,17 +1,36 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEventHandler } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEventHandler,
+} from "react";
 
 import {
+  findScopedItineraryItemElementById,
   toItineraryKanbanViewModel,
 } from "@/lib/planning-sessions/itinerary-kanban";
 import type { PersistedItinerary } from "@/lib/planning-sessions/types";
 
 interface ItineraryKanbanBoardProps {
   itinerary: PersistedItinerary | null;
+  selectedItemId?: string | null;
+  selectionActivationVersion?: number;
+  interactiveItemIds?: Set<string>;
+  isMapLinkedInteractionEnabled?: boolean;
+  onActivateInteractiveItem?: (itemId: string) => void;
 }
 
-export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
+export function ItineraryKanbanBoard({
+  itinerary,
+  selectedItemId = null,
+  selectionActivationVersion = 0,
+  interactiveItemIds,
+  isMapLinkedInteractionEnabled = false,
+  onActivateInteractiveItem,
+}: ItineraryKanbanBoardProps) {
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const boardStripRef = useRef<HTMLOListElement | null>(null);
   const scrollbarDockRef = useRef<HTMLDivElement | null>(null);
@@ -91,6 +110,27 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedItemId) {
+      return;
+    }
+
+    const selectedElement = findScopedItineraryItemElementById({
+      root: boardScrollRef.current,
+      itemId: selectedItemId,
+    });
+
+    if (!selectedElement) {
+      return;
+    }
+
+    selectedElement.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [selectedItemId, selectionActivationVersion]);
+
   const handleBoardScroll = () => {
     const boardScroll = boardScrollRef.current;
     const scrollbarDock = scrollbarDockRef.current;
@@ -131,6 +171,10 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
     lastPointerXRef.current = event.clientX;
     document.body.style.cursor = "ew-resize";
   };
+
+  const interactiveIds = useMemo(() => {
+    return interactiveItemIds ?? new Set<string>();
+  }, [interactiveItemIds]);
 
   if (!itinerary) {
     return (
@@ -211,23 +255,56 @@ export function ItineraryKanbanBoard({ itinerary }: ItineraryKanbanBoardProps) {
                           return part !== null;
                         });
 
+                        const isInteractive =
+                          isMapLinkedInteractionEnabled && interactiveIds.has(item.id);
+                        const isSelected = selectedItemId === item.id;
+
                         return (
                           <li key={item.id}>
-                            <article className="space-y-2 rounded-xl border border-border-subtle bg-bg-elevated px-3 py-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                                {item.typeLabel}
-                              </p>
-                              <h4 className="text-sm font-semibold text-text-primary">
-                                {item.title}
-                              </h4>
-                              <p className="text-sm text-text-secondary">{item.description}</p>
-                              <p className="text-sm text-text-primary">{item.planningText}</p>
-                              {timeAndDurationParts.length > 0 ? (
-                                <p className="text-xs text-text-muted">
-                                  {timeAndDurationParts.join(" • ")}
+                            {isInteractive ? (
+                              <button
+                                type="button"
+                                data-itinerary-item-id={item.id}
+                                onClick={() => {
+                                  onActivateInteractiveItem?.(item.id);
+                                }}
+                                aria-pressed={isSelected}
+                                className={`block w-full space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
+                              >
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                                  {item.typeLabel}
                                 </p>
-                              ) : null}
-                            </article>
+                                <h4 className="text-sm font-semibold text-text-primary">
+                                  {item.title}
+                                </h4>
+                                <p className="text-sm text-text-secondary">{item.description}</p>
+                                <p className="text-sm text-text-primary">{item.planningText}</p>
+                                {timeAndDurationParts.length > 0 ? (
+                                  <p className="text-xs text-text-muted">
+                                    {timeAndDurationParts.join(" • ")}
+                                  </p>
+                                ) : null}
+                              </button>
+                            ) : (
+                              <article
+                                data-itinerary-item-id={item.id}
+                                className={`space-y-2 rounded-xl border px-3 py-3 ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated"}`}
+                              >
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                                  {item.typeLabel}
+                                </p>
+                                <h4 className="text-sm font-semibold text-text-primary">
+                                  {item.title}
+                                </h4>
+                                <p className="text-sm text-text-secondary">{item.description}</p>
+                                <p className="text-sm text-text-primary">{item.planningText}</p>
+                                {timeAndDurationParts.length > 0 ? (
+                                  <p className="text-xs text-text-muted">
+                                    {timeAndDurationParts.join(" • ")}
+                                  </p>
+                                ) : null}
+                              </article>
+                            )}
                           </li>
                         );
                       })}

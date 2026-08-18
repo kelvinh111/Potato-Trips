@@ -4,6 +4,7 @@ import type { GoogleMapsPublicConfig } from "@/lib/maps/google-maps-foundation";
 
 let hasConfiguredOptions = false;
 let mapsLibraryPromise: Promise<google.maps.MapsLibrary> | null = null;
+let markerLibraryPromise: Promise<google.maps.MarkerLibrary> | null = null;
 
 function configureGoogleMapsOptions(config: GoogleMapsPublicConfig) {
   if (hasConfiguredOptions) {
@@ -29,4 +30,16 @@ export function loadGoogleMapsLibrary(
   }
 
   return mapsLibraryPromise;
+}
+
+export function loadGoogleMarkerLibrary(
+  config: GoogleMapsPublicConfig,
+): Promise<google.maps.MarkerLibrary> {
+  configureGoogleMapsOptions(config);
+
+  if (!markerLibraryPromise) {
+    markerLibraryPromise = importLibrary("marker");
+  }
+
+  return markerLibraryPromise;
 }

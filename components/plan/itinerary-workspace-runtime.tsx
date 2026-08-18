@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GeneratedMapPanel } from "@/components/plan/generated-map-panel";
 import { ItineraryKanbanBoard } from "@/components/plan/itinerary-kanban-board";
 import { PlanningChatPanel } from "@/components/plan/planning-chat-panel";
 import { TripPlanStatusPanel } from "@/components/plan/trip-plan-status-panel";
+import {
+  activateSelectedItem,
+  deriveMarkerEligibilityRefreshDelayMs,
+  deriveNextMarkerEligibilityExpiryEpoch,
+  deriveEffectiveSelectedItemId,
+  deriveGeneratedMapMarkers,
+  deriveInteractiveItemIds,
+  shouldClearSelectedItem,
+  MAX_BROWSER_TIMER_DELAY_MS,
+} from "@/lib/maps/generated-map-markers";
 import {
   WORKSPACE_DESKTOP_MEDIA_QUERY,
   shouldDisplayGeneratedDesktopMapPanel,
@@ -34,6 +44,10 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   });
   const state = generationController.sessionState;
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectionActivationVersion, setSelectionActivationVersion] = useState(0);
+  const [markerEligibilityNowEpoch, setMarkerEligibilityNowEpoch] = useState(() => Date.now());
+  const [isMapReady, setIsMapReady] = useState(false);
 
   useEffect(() => {
     const mediaQueryList = window.matchMedia(WORKSPACE_DESKTOP_MEDIA_QUERY);
@@ -64,6 +78,91 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     return shouldDisplayGeneratedDesktopMapPanel(state.status, isDesktopLayout);
   }, [state.status, isDesktopLayout]);
 
+  const markers = useMemo(() => {
+    return deriveGeneratedMapMarkers({
+      itinerary: state.generatedItinerary,
+      now: new Date(markerEligibilityNowEpoch),
+    });
+  }, [markerEligibilityNowEpoch, state.generatedItinerary]);
+
+  const interactiveItemIds = useMemo(() => {
+    return deriveInteractiveItemIds(markers);
+  }, [markers]);
+
+  const isMapLinkedInteractionEnabled = showMapSlot && isMapReady;
+
+  const effectiveSelectedItemId = deriveEffectiveSelectedItemId({
+    selectedItemId,
+    isMapLinkedInteractionEnabled,
+    interactiveItemIds,
+  });
+
+  const handleSelectItem = useCallback((itemId: string) => {
+    const next = activateSelectedItem({
+      state: {
+        selectedItemId,
+        activationVersion: selectionActivationVersion,
+      },
+      itemId,
+    });
+
+    setSelectedItemId(next.selectedItemId);
+    setSelectionActivationVersion(next.activationVersion);
+  }, [selectedItemId, selectionActivationVersion]);
+
+  const handleMapReadyChange = useCallback((ready: boolean) => {
+    setIsMapReady(ready);
+  }, []);
+
+  useEffect(() => {
+    if (!shouldClearSelectedItem({ selectedItemId, effectiveSelectedItemId })) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSelectedItemId(null);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [effectiveSelectedItemId, selectedItemId]);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setMarkerEligibilityNowEpoch(Date.now());
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [state.generatedItinerary]);
+
+  useEffect(() => {
+    const nowEpoch = Date.now();
+    const nextExpiryEpoch = deriveNextMarkerEligibilityExpiryEpoch({
+      itinerary: state.generatedItinerary,
+      nowEpoch,
+    });
+    const refreshDelayMs = deriveMarkerEligibilityRefreshDelayMs({
+      nextExpiryEpoch,
+      nowEpoch,
+      maxDelayMs: MAX_BROWSER_TIMER_DELAY_MS,
+    });
+
+    if (refreshDelayMs === null) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setMarkerEligibilityNowEpoch(Date.now());
+    }, refreshDelayMs);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [state.generatedItinerary, markerEligibilityNowEpoch]);
+
   const gridClassName = showMapSlot
     ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(16rem,22rem)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4"
     : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4";
@@ -89,11 +188,26 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
             className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
           >
             <h1 className="sr-only">Itinerary Plan</h1>
-            <ItineraryKanbanBoard itinerary={state.generatedItinerary} />
+            <ItineraryKanbanBoard
+              itinerary={state.generatedItinerary}
+              selectedItemId={effectiveSelectedItemId}
+              selectionActivationVersion={selectionActivationVersion}
+              interactiveItemIds={interactiveItemIds}
+              isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
+              onActivateInteractiveItem={handleSelectItem}
+            />
           </section>
         )}
 
-        {showMapSlot ? <GeneratedMapPanel /> : null}
+        {showMapSlot ? (
+          <GeneratedMapPanel
+            markers={markers}
+            selectedItemId={effectiveSelectedItemId}
+            selectionActivationVersion={selectionActivationVersion}
+            onMarkerActivate={handleSelectItem}
+            onMapReadyChange={handleMapReadyChange}
+          />
+        ) : null}
       </div>
     </main>
   );

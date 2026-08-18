@@ -39,6 +39,24 @@ export interface ItineraryKanbanViewModel {
   days: ItineraryKanbanDayViewModel[];
 }
 
+export function findScopedItineraryItemElementById(input: {
+  root: ParentNode | null;
+  itemId: string;
+}): HTMLElement | null {
+  if (!input.root) {
+    return null;
+  }
+
+  const candidates = input.root.querySelectorAll<HTMLElement>("[data-itinerary-item-id]");
+  for (const candidate of candidates) {
+    if (candidate.dataset.itineraryItemId === input.itemId) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 export function getItineraryItemTypeLabel(type: ItineraryItemType): string {
   return itineraryItemTypeLabels[type];
 }
