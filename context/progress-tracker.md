@@ -6,12 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Begin Feature 21 implementation planning and execution.
+- Complete Feature 21A Location Detail Core verification and close remaining live-smoke blocker.
 
 ## Current Feature Unit
-- Unit: Feature 21 Location Detail
-- Related spec: `context/feature-specs/21-location-detail.md`
-- Status: Next Up
+- Feature 21A Location Detail Core
+- context/feature-specs/21a-location-detail-core.md
+- Status: In Progress
 
 ## Completed
 
@@ -292,10 +292,21 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 20 completion checklist satisfied and marked complete.
 
 ## In Progress
-- None.
+- Feature 21A Location Detail Core
+- Added planning-session location-detail attempt counter persistence (`locationDetailAttempts`) with migration `20260818121000_add_location_detail_attempts`.
+- Added server-only Place Details (New) boundary in `lib/maps/google-places-server.ts` with minimal field mask, timeout, no-store fetch, runtime validation, and normalized failure outcomes.
+- Added thin endpoint `GET /api/planning-sessions/[sessionId]/location-detail/[itemId]` that derives Place ID from canonical itinerary item and never accepts arbitrary client Place IDs.
+- Added atomic per-session request cap enforcement (max 60) before provider requests through `reservePlanningSessionLocationDetailAttempt`.
+- Added center-panel Location Detail runtime flow (ITINERARY vs LOCATION_DETAIL), close/retry behavior, stale-response protection, and focus restoration to activating card.
+- Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
+- Added deterministic regressions:
+	- `scripts/location-detail-core-regression.ts`
+	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage.
+- Pending:
+	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.
 
 ## Next Up
-- Feature 21 (`context/feature-specs/21-location-detail.md`)
+- Feature 21B Location Detail Enrichment
 
 ## Blockers
 - None.
@@ -358,6 +369,18 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- generated itinerary persists after refresh pass
 	- all six date-consistency manual tests passed
 - Feature 13 checks:
+
+- Feature 21A focused checks:
+	- `npx prisma validate`: Pass
+	- `npm run prisma:generate`: Pass
+	- `npm run location-detail-core:regression`: Pass
+	- `npm run generated-place-resolution:regression`: Pass
+	- `npm run planning-session-client-api:regression`: Pass
+	- targeted ESLint on changed 21A files: Pass
+	- `npx tsc --noEmit`: Pass
+	- `git diff --check`: Pass
+	- `npm run build`: Pass
+	- controlled live smoke (`searchGooglePlaceByText` -> `getGooglePlaceDetails`): Blocked in this environment (`GOOGLE_PLACES_API_KEY` not configured)
   - deleted development `PlanningSession` records: `before 14`, `deleted 14`, `after 0`
   - `npm run planning-brief:regression`: pass
   - targeted `eslint` for changed planning-brief modules and regression script: pass

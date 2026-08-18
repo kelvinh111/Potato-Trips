@@ -18,8 +18,15 @@ interface ItineraryKanbanBoardProps {
   itinerary: PersistedItinerary | null;
   selectedItemId?: string | null;
   selectionActivationVersion?: number;
+  detailEligibleItemIds?: Set<string>;
   interactiveItemIds?: Set<string>;
   isMapLinkedInteractionEnabled?: boolean;
+  focusRestoreItemId?: string | null;
+  focusRestoreVersion?: number;
+  onActivateLocationDetailItem?: (input: {
+    itemId: string;
+    triggerElement: HTMLElement | null;
+  }) => void;
   onActivateInteractiveItem?: (itemId: string) => void;
 }
 
@@ -27,8 +34,12 @@ export function ItineraryKanbanBoard({
   itinerary,
   selectedItemId = null,
   selectionActivationVersion = 0,
+  detailEligibleItemIds,
   interactiveItemIds,
   isMapLinkedInteractionEnabled = false,
+  focusRestoreItemId = null,
+  focusRestoreVersion = 0,
+  onActivateLocationDetailItem,
   onActivateInteractiveItem,
 }: ItineraryKanbanBoardProps) {
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
@@ -131,6 +142,23 @@ export function ItineraryKanbanBoard({
     });
   }, [selectedItemId, selectionActivationVersion]);
 
+  useEffect(() => {
+    if (!focusRestoreItemId) {
+      return;
+    }
+
+    const selectedElement = findScopedItineraryItemElementById({
+      root: boardScrollRef.current,
+      itemId: focusRestoreItemId,
+    });
+
+    if (!selectedElement) {
+      return;
+    }
+
+    selectedElement.focus({ preventScroll: true });
+  }, [focusRestoreItemId, focusRestoreVersion]);
+
   const handleBoardScroll = () => {
     const boardScroll = boardScrollRef.current;
     const scrollbarDock = scrollbarDockRef.current;
@@ -175,6 +203,10 @@ export function ItineraryKanbanBoard({
   const interactiveIds = useMemo(() => {
     return interactiveItemIds ?? new Set<string>();
   }, [interactiveItemIds]);
+
+  const detailEligibleIds = useMemo(() => {
+    return detailEligibleItemIds ?? new Set<string>();
+  }, [detailEligibleItemIds]);
 
   if (!itinerary) {
     return (
@@ -255,18 +287,26 @@ export function ItineraryKanbanBoard({
                           return part !== null;
                         });
 
-                        const isInteractive =
+                        const isDetailEligible = detailEligibleIds.has(item.id);
+                        const isMapInteractive =
                           isMapLinkedInteractionEnabled && interactiveIds.has(item.id);
                         const isSelected = selectedItemId === item.id;
 
                         return (
                           <li key={item.id}>
-                            {isInteractive ? (
+                            {isDetailEligible ? (
                               <button
                                 type="button"
                                 data-itinerary-item-id={item.id}
-                                onClick={() => {
-                                  onActivateInteractiveItem?.(item.id);
+                                onClick={(event) => {
+                                  if (isMapInteractive) {
+                                    onActivateInteractiveItem?.(item.id);
+                                  }
+
+                                  onActivateLocationDetailItem?.({
+                                    itemId: item.id,
+                                    triggerElement: event.currentTarget,
+                                  });
                                 }}
                                 aria-pressed={isSelected}
                                 className={`block w-full space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}

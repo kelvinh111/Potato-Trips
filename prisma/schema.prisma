@@ -36,6 +36,7 @@ model PlanningSession {
   generationPhase       PlanningSessionGenerationPhase?
   generationAttempts    Int                   @default(0)
   confirmationRevisionAiTurns Int             @default(0)
+  locationDetailAttempts Int                  @default(0)
   generationError       String?
   status                PlanningSessionStatus @default(CLARIFYING)
   expiresAt             DateTime

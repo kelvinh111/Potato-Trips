@@ -39,6 +39,19 @@ export interface ItineraryKanbanViewModel {
   days: ItineraryKanbanDayViewModel[];
 }
 
+export interface CanonicalItineraryItemContext {
+  dayId: string;
+  dayNumber: number;
+  dayLabel: string;
+  itemId: string;
+  itemType: ItineraryItemType;
+  itemTypeLabel: string;
+  title: string;
+  description: string;
+  planningText: string;
+  googlePlaceId: string | null;
+}
+
 export function findScopedItineraryItemElementById(input: {
   root: ParentNode | null;
   itemId: string;
@@ -59,6 +72,39 @@ export function findScopedItineraryItemElementById(input: {
 
 export function getItineraryItemTypeLabel(type: ItineraryItemType): string {
   return itineraryItemTypeLabels[type];
+}
+
+export function findCanonicalItineraryItemContext(input: {
+  itinerary: PersistedItinerary;
+  itemId: string;
+}): CanonicalItineraryItemContext | null {
+  for (const day of input.itinerary.days) {
+    for (const item of day.items) {
+      if (item.id !== input.itemId) {
+        continue;
+      }
+
+      const placeId =
+        item.placeReference?.provider === "GOOGLE"
+          ? item.placeReference.placeId.trim()
+          : "";
+
+      return {
+        dayId: day.id,
+        dayNumber: day.dayNumber,
+        dayLabel: day.dayLabel,
+        itemId: item.id,
+        itemType: item.type,
+        itemTypeLabel: getItineraryItemTypeLabel(item.type),
+        title: item.title,
+        description: item.description,
+        planningText: item.planningText,
+        googlePlaceId: placeId || null,
+      };
+    }
+  }
+
+  return null;
 }
 
 export function formatSuggestedDurationMinutes(minutes: number | null): string | null {
@@ -123,4 +169,29 @@ export function toItineraryKanbanViewModel(
     totalItemCount,
     days,
   };
+}
+
+export function deriveLocationDetailEligibleItemIds(
+  itinerary: PersistedItinerary | null,
+): Set<string> {
+  const itemIds = new Set<string>();
+
+  if (!itinerary) {
+    return itemIds;
+  }
+
+  for (const day of itinerary.days) {
+    for (const item of day.items) {
+      const placeId =
+        item.placeReference?.provider === "GOOGLE"
+          ? item.placeReference.placeId.trim()
+          : "";
+
+      if (placeId) {
+        itemIds.add(item.id);
+      }
+    }
+  }
+
+  return itemIds;
 }

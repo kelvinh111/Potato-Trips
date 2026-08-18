@@ -50,6 +50,14 @@ export interface PlanningSessionGenerationApiSession {
   generationError: string | null;
 }
 
+export interface PlanningSessionLocationDetailApiPayload {
+  itemId: string;
+  displayName: string;
+  primaryTypeDisplayName: string | null;
+  formattedAddress: string | null;
+  googleMapsUri: string | null;
+}
+
 export class PlanningSessionClientApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -163,6 +171,32 @@ function parseGenerationSessionPayload(
   };
 }
 
+function parseLocationDetailPayload(
+  payload: unknown,
+): PlanningSessionLocationDetailApiPayload {
+  const schema = z
+    .object({
+      detail: z
+        .object({
+          itemId: z.string().trim().min(1),
+          displayName: z.string().trim().min(1),
+          primaryTypeDisplayName: z.string().trim().min(1).nullable(),
+          formattedAddress: z.string().trim().min(1).nullable(),
+          googleMapsUri: z.string().url().nullable(),
+        })
+        .strict(),
+    })
+    .strict();
+
+  const parsed = schema.safeParse(payload);
+
+  if (!parsed.success) {
+    throw new PlanningSessionClientApiError("Invalid location detail response.");
+  }
+
+  return parsed.data.detail;
+}
+
 async function requestPlanningSessionApi(
   input: {
     url: string;
@@ -263,4 +297,22 @@ export async function requestPlanningSessionGenerationState(
   );
 
   return parseGenerationSessionPayload(payload);
+}
+
+export async function requestPlanningSessionLocationDetail(
+  sessionId: string,
+  itemId: string,
+  options?: RequestOptions,
+): Promise<PlanningSessionLocationDetailApiPayload> {
+  const payload = await requestPlanningSessionApi(
+    {
+      url: `/api/planning-sessions/${sessionId}/location-detail/${itemId}`,
+      init: {
+        method: "GET",
+      },
+    },
+    options,
+  );
+
+  return parseLocationDetailPayload(payload);
 }

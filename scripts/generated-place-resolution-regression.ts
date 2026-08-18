@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  getGooglePlaceDetails,
   getGooglePlacesProviderAvailability,
   isDisplayNameCompatibleWithQuery,
   isValidGooglePlaceCoordinates,
@@ -308,6 +309,88 @@ async function testProviderBoundary() {
     kind: "FAILED",
     reason: "REQUEST",
     providerWide: false,
+  });
+}
+
+async function testPlaceDetailsBoundary() {
+  delete process.env.GOOGLE_PLACES_API_KEY;
+  const missingConfig = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(missingConfig, {
+    kind: "FAILED",
+    reason: "CONFIGURATION",
+    retryable: false,
+    providerWide: true,
+  });
+
+  process.env.GOOGLE_PLACES_API_KEY = "test-key";
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 403 });
+  };
+  const authFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(authFailure, {
+    kind: "FAILED",
+    reason: "AUTHENTICATION",
+    retryable: true,
+    providerWide: true,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 404 });
+  };
+  const notFound = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(notFound, {
+    kind: "FAILED",
+    reason: "NOT_FOUND",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("not json", { status: 200 });
+  };
+  const malformed = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(malformed, {
+    kind: "FAILED",
+    reason: "MALFORMED_RESPONSE",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "places/other",
+        displayName: { text: "Tokyo Station" },
+      }),
+      { status: 200 },
+    );
+  };
+  const mismatched = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(mismatched, {
+    kind: "FAILED",
+    reason: "MISMATCHED_ID",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "places/test",
+        displayName: { text: "Tokyo Station" },
+      }),
+      { status: 200 },
+    );
+  };
+  const successWithoutOptional = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(successWithoutOptional, {
+    kind: "SUCCESS",
+    placeId: "places/test",
+    displayName: "Tokyo Station",
+    primaryTypeDisplayName: null,
+    formattedAddress: null,
+    googleMapsUri: null,
   });
 }
 
@@ -641,6 +724,7 @@ function testLegacyItineraryParsing() {
 async function run() {
   try {
     await testProviderBoundary();
+    await testPlaceDetailsBoundary();
     testQueryNormalization();
     await testConcurrencyBoundAndContentPreservation();
     await testRequestCapBehavior();

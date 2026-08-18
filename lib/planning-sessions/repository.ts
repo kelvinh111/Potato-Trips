@@ -28,6 +28,7 @@ const planningSessionSelect = {
   generationPhase: true,
   generationAttempts: true,
   confirmationRevisionAiTurns: true,
+  locationDetailAttempts: true,
   generationError: true,
   status: true,
   expiresAt: true,
@@ -43,6 +44,7 @@ interface RawPlanningSessionRecord {
   generationPhase: unknown;
   generationAttempts: number;
   confirmationRevisionAiTurns: number;
+  locationDetailAttempts: number;
   generationError: string | null;
   status: PlanningSessionStatusValue;
   expiresAt: Date;
@@ -58,6 +60,7 @@ export interface PlanningSessionRecord {
   generationPhase: PlanningSessionGenerationPhaseValue | null;
   generationAttempts: number;
   confirmationRevisionAiTurns: number;
+  locationDetailAttempts: number;
   generationError: string | null;
   status: PlanningSessionStatusValue;
   expiresAt: Date;
@@ -333,6 +336,64 @@ export async function reservePlanningSessionConfirmationRevisionAiTurn(input: {
   return mapPlanningSessionRecord(reservedSession);
 }
 
+export async function reservePlanningSessionLocationDetailAttempt(input: {
+  sessionId: string;
+  maxAttempts: number;
+}) {
+  const reserveResult = await prisma.planningSession.updateMany({
+    where: {
+      id: input.sessionId,
+      status: "GENERATED",
+      locationDetailAttempts: {
+        lt: input.maxAttempts,
+      },
+    },
+    data: {
+      locationDetailAttempts: {
+        increment: 1,
+      },
+    },
+  });
+
+  if (reserveResult.count === 0) {
+    const refreshedSession = await prisma.planningSession.findUnique({
+      where: { id: input.sessionId },
+      select: planningSessionSelect,
+    });
+
+    if (!refreshedSession) {
+      throw new PlanningSessionDataValidationError(
+        "Planning session missing while reserving location detail attempt.",
+      );
+    }
+
+    const mappedRefreshedSession = mapPlanningSessionRecord(refreshedSession);
+
+    if (mappedRefreshedSession.locationDetailAttempts >= input.maxAttempts) {
+      throw new PlanningSessionUsageLimitError(
+        "Location detail attempt limit reached for this session.",
+      );
+    }
+
+    throw new PlanningSessionInvalidStateError(
+      "Planning session is not ready for location detail.",
+    );
+  }
+
+  const reservedSession = await prisma.planningSession.findUnique({
+    where: { id: input.sessionId },
+    select: planningSessionSelect,
+  });
+
+  if (!reservedSession) {
+    throw new PlanningSessionDataValidationError(
+      "Planning session missing after reserving location detail attempt.",
+    );
+  }
+
+  return mapPlanningSessionRecord(reservedSession);
+}
+
 export async function recoverStalePlanningSessionGeneration(sessionId: string) {
   const session = await prisma.planningSession.findUnique({
     where: { id: sessionId },
@@ -462,6 +523,7 @@ function mapPlanningSessionRecord(
       generationPhase: parsePlanningSessionGenerationPhase(session.generationPhase),
       generationAttempts: session.generationAttempts,
       confirmationRevisionAiTurns: session.confirmationRevisionAiTurns,
+      locationDetailAttempts: session.locationDetailAttempts,
       generationError: session.generationError,
       status: session.status,
       expiresAt: session.expiresAt,

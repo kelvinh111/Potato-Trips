@@ -18,6 +18,7 @@
     "google-maps-foundation:regression": "node --conditions=react-server --import tsx scripts/google-maps-foundation-regression.ts",
     "generated-place-resolution:regression": "node --conditions=react-server --import tsx scripts/generated-place-resolution-regression.ts",
     "map-markers-kanban-sync:regression": "node --conditions=react-server --import tsx scripts/map-markers-kanban-sync-regression.ts",
+    "location-detail-core:regression": "node --conditions=react-server --import tsx scripts/location-detail-core-regression.ts",
     "generation:troubleshoot": "node --conditions=react-server --import tsx scripts/planning-generation-troubleshoot.ts",
     "build": "next build",
     "start": "next start",
