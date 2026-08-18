@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  applyNeutralViewportReset,
   applySelectedMarkerFocus,
   applyViewportInstruction,
   buildMarkerPayloadSignature,
@@ -31,6 +32,8 @@ import {
 
 const MAP_READY_TIMEOUT_MS = 10000;
 const MAP_PADDING_PX = 80;
+const NEUTRAL_CENTER = { latitude: 20, longitude: 0 };
+const NEUTRAL_ZOOM = 2;
 
 interface ManagedAdvancedMarker {
   marker: google.maps.marker.AdvancedMarkerElement;
@@ -70,6 +73,7 @@ export function GeneratedMapPanel({
   const activeRequestIdRef = useRef(0);
   const hasMapReadySignalRef = useRef(false);
   const hasAppliedInitialViewportRef = useRef(false);
+  const previousMarkerCountRef = useRef(0);
   const markerPayloadSignatureRef = useRef("");
   const onMarkerActivateRef = useRef(onMarkerActivate);
   const onMapReadyChangeRef = useRef(onMapReadyChange);
@@ -109,6 +113,7 @@ export function GeneratedMapPanel({
   useEffect(() => {
     if (!hasMapReadySignal) {
       hasAppliedInitialViewportRef.current = false;
+      previousMarkerCountRef.current = 0;
       markerPayloadSignatureRef.current = "";
       clearManagedMarkers();
       return;
@@ -182,11 +187,29 @@ export function GeneratedMapPanel({
     }
 
     if (markers.length === 0) {
+      applyNeutralViewportReset({
+        adapter: {
+          panTo(position) {
+            map.panTo({ lat: position.latitude, lng: position.longitude });
+          },
+          setZoom(zoom) {
+            map.setZoom(zoom);
+          },
+        },
+        previousMarkerCount: previousMarkerCountRef.current,
+        nextMarkerCount: 0,
+        neutralCenter: NEUTRAL_CENTER,
+        neutralZoom: NEUTRAL_ZOOM,
+      });
+
       clearManagedMarkers();
       hasAppliedInitialViewportRef.current = false;
+      previousMarkerCountRef.current = 0;
       markerPayloadSignatureRef.current = "";
       return;
     }
+
+    previousMarkerCountRef.current = markers.length;
 
     void loadGoogleMarkerLibrary(config)
       .then((markerLibrary) => {
@@ -329,10 +352,10 @@ export function GeneratedMapPanel({
           mapInstanceRef.current = new mapsLibrary.Map(mapContainerRef.current, {
             mapId: config.mapId,
             center: {
-              lat: 20,
-              lng: 0,
+                lat: NEUTRAL_CENTER.latitude,
+                lng: NEUTRAL_CENTER.longitude,
             },
-            zoom: 2,
+              zoom: NEUTRAL_ZOOM,
             minZoom: 2,
             streetViewControl: false,
             fullscreenControl: true,

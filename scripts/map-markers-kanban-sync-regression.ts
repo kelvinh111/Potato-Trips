@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   activateSelectedItem,
+  applyNeutralViewportReset,
   applySelectedMarkerFocus,
   applyViewportInstruction,
   buildMarkerPayloadSignature,
@@ -26,6 +27,9 @@ import {
   deriveGeneratedMapPanelStatus,
   deriveMapInteractionReady,
 } from "@/lib/maps/google-maps-foundation";
+import {
+  findScopedItineraryItemElementById,
+} from "@/lib/planning-sessions/itinerary-kanban";
 import {
   parsePersistedItinerary,
   type PersistedItinerary,
@@ -360,6 +364,85 @@ function testExpiryRearmAndCleanup() {
   assert.equal(expiredMarkers.length, 0);
 }
 
+function testNeutralViewportResetTransition() {
+  let panCalls = 0;
+  let zoomCalls = 0;
+
+  const resetApplied = applyNeutralViewportReset({
+    adapter: {
+      panTo() {
+        panCalls += 1;
+      },
+      setZoom() {
+        zoomCalls += 1;
+      },
+    },
+    previousMarkerCount: 2,
+    nextMarkerCount: 0,
+    neutralCenter: { latitude: 20, longitude: 0 },
+    neutralZoom: 2,
+  });
+
+  assert.equal(resetApplied, true);
+  assert.equal(panCalls, 1);
+  assert.equal(zoomCalls, 1);
+
+  const noReset = applyNeutralViewportReset({
+    adapter: {
+      panTo() {
+        panCalls += 1;
+      },
+      setZoom() {
+        zoomCalls += 1;
+      },
+    },
+    previousMarkerCount: 0,
+    nextMarkerCount: 0,
+    neutralCenter: { latitude: 20, longitude: 0 },
+    neutralZoom: 2,
+  });
+
+  assert.equal(noReset, false);
+  assert.equal(panCalls, 1);
+  assert.equal(zoomCalls, 1);
+}
+
+function testScopedItemLookupSafety() {
+  const selectors: string[] = [];
+  const expectedItemId = "day\"-1][item'`<>";
+  const wrongElement = {
+    dataset: {
+      itineraryItemId: "other",
+    },
+  } as unknown as HTMLElement;
+  const rightElement = {
+    dataset: {
+      itineraryItemId: expectedItemId,
+    },
+  } as unknown as HTMLElement;
+
+  const fakeRoot = {
+    querySelectorAll(selector: string) {
+      selectors.push(selector);
+      return [wrongElement, rightElement] as unknown as NodeListOf<HTMLElement>;
+    },
+  } as unknown as ParentNode;
+
+  const found = findScopedItineraryItemElementById({
+    root: fakeRoot,
+    itemId: expectedItemId,
+  });
+
+  assert.equal(found, rightElement);
+  assert.deepEqual(selectors, ["[data-itinerary-item-id]"]);
+
+  const missing = findScopedItineraryItemElementById({
+    root: fakeRoot,
+    itemId: "missing",
+  });
+  assert.equal(missing, null);
+}
+
 function testSingleActivationPathBinding() {
   let binding: MarkerInteractionBindingState | null = null;
   let clickSetCount = 0;
@@ -670,6 +753,8 @@ function run() {
   testViewportAndFocus();
   testRepeatedActivationAndSelectionCleanup();
   testExpiryRearmAndCleanup();
+  testNeutralViewportResetTransition();
+  testScopedItemLookupSafety();
   testSingleActivationPathBinding();
   testReconciliationPressedStateSync();
   testMarkerLifecycleReconciliationWithFakes();

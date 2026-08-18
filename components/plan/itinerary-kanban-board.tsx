@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import {
+  findScopedItineraryItemElementById,
   toItineraryKanbanViewModel,
 } from "@/lib/planning-sessions/itinerary-kanban";
 import type { PersistedItinerary } from "@/lib/planning-sessions/types";
@@ -114,9 +115,10 @@ export function ItineraryKanbanBoard({
       return;
     }
 
-    const selectedElement = document.querySelector<HTMLElement>(
-      `[data-itinerary-item-id="${selectedItemId}"]`,
-    );
+    const selectedElement = findScopedItineraryItemElementById({
+      root: boardScrollRef.current,
+      itemId: selectedItemId,
+    });
 
     if (!selectedElement) {
       return;

@@ -51,6 +51,11 @@ export interface MarkerViewportAdapter {
   fitBounds(bounds: MarkerBounds, paddingPx: number): void;
 }
 
+export interface NeutralViewportAdapter {
+  panTo(position: { latitude: number; longitude: number }): void;
+  setZoom(zoom: number): void;
+}
+
 export interface MarkerFocusAdapter {
   panTo(position: { latitude: number; longitude: number }): void;
   getZoom(): number | null;
@@ -488,6 +493,22 @@ export function applyViewportInstruction(input: {
   }
 
   input.adapter.fitBounds(input.instruction.bounds, input.paddingPx);
+  return true;
+}
+
+export function applyNeutralViewportReset(input: {
+  adapter: NeutralViewportAdapter;
+  previousMarkerCount: number;
+  nextMarkerCount: number;
+  neutralCenter: { latitude: number; longitude: number };
+  neutralZoom: number;
+}): boolean {
+  if (input.previousMarkerCount <= 0 || input.nextMarkerCount !== 0) {
+    return false;
+  }
+
+  input.adapter.panTo(input.neutralCenter);
+  input.adapter.setZoom(input.neutralZoom);
   return true;
 }
 
