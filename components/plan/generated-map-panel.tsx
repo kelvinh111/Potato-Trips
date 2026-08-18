@@ -167,10 +167,15 @@ export function GeneratedMapPanel({
             map.setZoom(zoom);
           },
           fitBounds(bounds, paddingPx) {
-            const nextBounds = new google.maps.LatLngBounds();
-            nextBounds.extend({ lat: bounds.north, lng: bounds.east });
-            nextBounds.extend({ lat: bounds.south, lng: bounds.west });
-            map.fitBounds(nextBounds, paddingPx);
+            map.fitBounds(
+              {
+                north: bounds.north,
+                south: bounds.south,
+                east: bounds.east,
+                west: bounds.west,
+              },
+              paddingPx,
+            );
           },
         },
         instruction,

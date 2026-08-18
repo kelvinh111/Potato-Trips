@@ -278,10 +278,11 @@ function deriveSmallestCircularLongitudeInterval(longitudes: number[]): {
   const intervalEnd = intervalEndBase < intervalStart ? intervalEndBase + 360 : intervalEndBase;
   const span = intervalEnd - intervalStart;
   const west = normalizeLongitudeToSigned(intervalStart);
+  const east = normalizeLongitudeToSigned(west + span);
 
   return {
     west,
-    east: west + span,
+    east,
   };
 }
 

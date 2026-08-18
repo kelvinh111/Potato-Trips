@@ -216,8 +216,14 @@ function testViewportAndFocus() {
   assert.equal(antimeridianBounds.kind, "BOUNDS");
   if (antimeridianBounds.kind === "BOUNDS") {
     assert.equal(antimeridianBounds.bounds.west, 179);
-    assert.equal(antimeridianBounds.bounds.east, 181);
-    assert.equal(antimeridianBounds.bounds.east - antimeridianBounds.bounds.west, 2);
+    assert.equal(antimeridianBounds.bounds.east, -179);
+    assert.equal(
+      deriveCircularLongitudeSpanDegrees(
+        antimeridianBounds.bounds.west,
+        antimeridianBounds.bounds.east,
+      ),
+      2,
+    );
   }
 
   const sigA = buildMarkerPayloadSignature(markers);
@@ -227,6 +233,7 @@ function testViewportAndFocus() {
   let panCalls = 0;
   let zoomCalls = 0;
   let boundsCalls = 0;
+  const receivedBounds: Array<{ north: number; south: number; east: number; west: number }> = [];
 
   applyViewportInstruction({
     adapter: {
@@ -267,6 +274,51 @@ function testViewportAndFocus() {
   assert.equal(zoomCalls, 1);
   assert.equal(boundsCalls, 1);
 
+  if (ordinaryBounds.kind === "BOUNDS") {
+    applyViewportInstruction({
+      adapter: {
+        panTo() {
+        },
+        setZoom() {
+        },
+        fitBounds(bounds) {
+          receivedBounds.push(bounds);
+        },
+      },
+      instruction: ordinaryBounds,
+      paddingPx: 80,
+    });
+  }
+
+  if (antimeridianBounds.kind === "BOUNDS") {
+    applyViewportInstruction({
+      adapter: {
+        panTo() {
+        },
+        setZoom() {
+        },
+        fitBounds(bounds) {
+          receivedBounds.push(bounds);
+        },
+      },
+      instruction: antimeridianBounds,
+      paddingPx: 80,
+    });
+  }
+
+  assert.equal(receivedBounds.length, 2);
+  assert.equal(receivedBounds[0]?.west, 135.7587);
+  assert.equal(receivedBounds[0]?.east, 139.7671);
+  assert.equal(receivedBounds[1]?.west, 179);
+  assert.equal(receivedBounds[1]?.east, -179);
+  assert.equal(
+    deriveCircularLongitudeSpanDegrees(
+      receivedBounds[1]!.west,
+      receivedBounds[1]!.east,
+    ),
+    2,
+  );
+
   const focus = deriveSelectedMarkerFocus({ markers, selectedItemId: "d2-1" });
   assert.notEqual(focus, null);
 
@@ -290,6 +342,20 @@ function testViewportAndFocus() {
   assert.equal(focused, true);
   assert.equal(focusPanCalls, 1);
   assert.equal(focusZoomCalls, 1);
+}
+
+function deriveCircularLongitudeSpanDegrees(west: number, east: number): number {
+  const normalizedWest = normalizeLongitudeTo360ForTest(west);
+  let normalizedEast = normalizeLongitudeTo360ForTest(east);
+  if (normalizedEast < normalizedWest) {
+    normalizedEast += 360;
+  }
+  return normalizedEast - normalizedWest;
+}
+
+function normalizeLongitudeTo360ForTest(longitude: number): number {
+  const normalized = longitude % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
 }
 
 function testRepeatedActivationAndSelectionCleanup() {
