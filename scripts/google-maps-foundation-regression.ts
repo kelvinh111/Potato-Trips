@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 
 import {
+  applyMapReadinessIdle,
+  applyMapReadinessTimeout,
   WORKSPACE_DESKTOP_MEDIA_QUERY,
   deriveGeneratedMapPanelStatus,
   isStaleMapInitializationResult,
   parseGoogleMapsPublicConfig,
   readGoogleMapsPublicConfig,
+  shouldArmMapReadyTimeout,
   shouldAttemptMapInitialization,
   shouldDisplayGeneratedDesktopMapPanel,
   shouldInitializeGoogleMap,
@@ -267,6 +270,46 @@ function testInitializationAttemptPolicy() {
   );
 }
 
+function testSlowLibraryLoadThenIdleRecovery() {
+  // Before library load completes, timeout must not be armed.
+  assert.equal(
+    shouldArmMapReadyTimeout({
+      hasLibraryLoaded: false,
+      hasMapInstance: false,
+      hasIdleListener: false,
+      hasMapReadySignal: false,
+    }),
+    false,
+  );
+
+  // Once library, map, and idle listener are ready, timeout can be armed.
+  assert.equal(
+    shouldArmMapReadyTimeout({
+      hasLibraryLoaded: true,
+      hasMapInstance: true,
+      hasIdleListener: true,
+      hasMapReadySignal: false,
+    }),
+    true,
+  );
+
+  const timedOutState = applyMapReadinessTimeout({
+    hasMapReadySignal: false,
+    hasRenderFailure: false,
+  });
+  assert.deepEqual(timedOutState, {
+    hasMapReadySignal: false,
+    hasRenderFailure: true,
+  });
+
+  // A later successful idle must recover from transient render-failure state.
+  const recoveredState = applyMapReadinessIdle(timedOutState);
+  assert.deepEqual(recoveredState, {
+    hasMapReadySignal: true,
+    hasRenderFailure: false,
+  });
+}
+
 function run() {
   testConfigParsing();
   testDesktopMediaQuery();
@@ -275,6 +318,7 @@ function run() {
   testDerivedPanelStatus();
   testStaleInitializationGuard();
   testInitializationAttemptPolicy();
+  testSlowLibraryLoadThenIdleRecovery();
 
   console.log("google-maps-foundation-regression: pass");
 }
