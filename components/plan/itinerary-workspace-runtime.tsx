@@ -56,6 +56,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   const [selectionActivationVersion, setSelectionActivationVersion] = useState(0);
   const [markerEligibilityNowEpoch, setMarkerEligibilityNowEpoch] = useState(() => Date.now());
   const [isMapReady, setIsMapReady] = useState(false);
+  const [hoverPreviewItemId, setHoverPreviewItemId] = useState<string | null>(null);
   const [centerPanel, setCenterPanel] = useState<CenterPanelState>({
     kind: "ITINERARY",
   });
@@ -132,6 +133,16 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     interactiveItemIds,
   });
 
+  const effectivePreviewItemId = useMemo(() => {
+    if (!isMapLinkedInteractionEnabled || !hoverPreviewItemId) {
+      return null;
+    }
+
+    return interactiveItemIds.has(hoverPreviewItemId) ? hoverPreviewItemId : null;
+  }, [hoverPreviewItemId, interactiveItemIds, isMapLinkedInteractionEnabled]);
+
+  const focusedMapItemId = effectivePreviewItemId ?? effectiveSelectedItemId;
+
   const handleSelectItem = useCallback((itemId: string) => {
     const next = activateSelectedItem({
       state: {
@@ -161,6 +172,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
 
     setSelectedItemId(nextSelection.selectedItemId);
     setSelectionActivationVersion(nextSelection.activationVersion);
+    setHoverPreviewItemId(null);
 
     setCenterPanel((previous) => {
       const nextActivationVersion =
@@ -187,6 +199,10 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
 
   const handleMapReadyChange = useCallback((ready: boolean) => {
     setIsMapReady(ready);
+  }, []);
+
+  const handlePreviewInteractiveItem = useCallback((itemId: string | null) => {
+    setHoverPreviewItemId(itemId);
   }, []);
 
   useEffect(() => {
@@ -245,6 +261,20 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
       window.clearTimeout(timerId);
     };
   }, [centerPanel, state.generatedItinerary]);
+
+  useEffect(() => {
+    if (isMapLinkedInteractionEnabled) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setHoverPreviewItemId(null);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isMapLinkedInteractionEnabled]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
@@ -326,6 +356,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
                 focusRestoreItemId={focusRestore.itemId}
                 focusRestoreVersion={focusRestore.version}
                 onActivateLocationDetailItem={handleActivateLocationDetailItem}
+                onPreviewInteractiveItem={handlePreviewInteractiveItem}
                 onActivateInteractiveItem={handleSelectItem}
               />
             )}
@@ -336,6 +367,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
           <GeneratedMapPanel
             markers={markers}
             selectedItemId={effectiveSelectedItemId}
+            focusedItemId={focusedMapItemId}
             selectionActivationVersion={selectionActivationVersion}
             onMarkerActivate={handleSelectItem}
             onMapReadyChange={handleMapReadyChange}

@@ -182,14 +182,7 @@ export function deriveLocationDetailEligibleItemIds(
 
   for (const day of itinerary.days) {
     for (const item of day.items) {
-      const placeId =
-        item.placeReference?.provider === "GOOGLE"
-          ? item.placeReference.placeId.trim()
-          : "";
-
-      if (placeId) {
-        itemIds.add(item.id);
-      }
+      itemIds.add(item.id);
     }
   }
 

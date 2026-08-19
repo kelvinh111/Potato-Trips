@@ -138,6 +138,22 @@ async function testProviderBoundary() {
     isDisplayNameCompatibleWithQuery("Tokyo Station Japan", "Tokyo Station"),
     true,
   );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Musée du Louvre", "Louvre Museum"),
+    true,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Jardin des Tuileries", "Tuileries Garden"),
+    true,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Modern Art Museum", "Science Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Tokyo Garden", "Kyoto Garden"),
+    false,
+  );
   assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "東京駅"), true);
   assert.equal(isDisplayNameCompatibleWithQuery("東京駅 Tokyo Station", "東京駅"), true);
   assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "大阪駅"), false);

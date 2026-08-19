@@ -35,6 +35,16 @@ It must not add photos, ratings, review counts, opening hours, contact informati
 9. Closing the detail returns to the kanban, retains the selected item, and restores keyboard focus to its activating card when possible. Map-marker activation keeps its Feature 20 behaviour of selecting and revealing the matching kanban item; it must not open Location Detail.
 10. Keep the detail usable with keyboard and screen readers. Use a semantic heading structure, an accessible close label, visible focus states, an announced loading/error status, and safe external-link behaviour.
 
+## Confirmed UX Addendum (Approved)
+
+- Verified-card pointer hover and keyboard focus preview the corresponding map marker when map-linked interaction is currently available.
+- Click, Enter, or equivalent explicit activation on a verified card opens Location Detail and keeps map focus behavior aligned with Feature 20 selection.
+- Map marker activation still only selects/reveals the matching card and must not open Location Detail.
+- Every itinerary card is openable in the centre panel. Unverified or generic items open an itinerary-only detail using canonical itinerary data (`title`, type label, `description`, and `planningText`).
+- Itinerary-only detail must not issue Google requests, must not claim provider detail availability, must not show provider-only fields (address, provider link), must not create marker interactions, and must not increment provider usage counters.
+- Hover/focus preview state is ephemeral and separate from persistent click/activation selection. Clearing hover/focus must not force map overview reset.
+- Rapid interactions and stale asynchronous responses must not overwrite the active detail state for a newer activation.
+
 ## Google Place Details Contract
 
 - Use Place Details (New): `GET https://places.googleapis.com/v1/places/{placeId}`.

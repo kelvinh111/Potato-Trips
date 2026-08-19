@@ -53,6 +53,7 @@ interface WindowWithGoogleMapsAuthFailure extends Window {
 interface GeneratedMapPanelProps {
   markers: GeneratedMapMarkerView[];
   selectedItemId: string | null;
+  focusedItemId?: string | null;
   selectionActivationVersion?: number;
   onMarkerActivate: (itemId: string) => void;
   onMapReadyChange?: (isReady: boolean) => void;
@@ -61,6 +62,7 @@ interface GeneratedMapPanelProps {
 export function GeneratedMapPanel({
   markers,
   selectedItemId,
+  focusedItemId = null,
   selectionActivationVersion = 0,
   onMarkerActivate,
   onMapReadyChange,
@@ -148,7 +150,7 @@ export function GeneratedMapPanel({
         },
         focusTarget: deriveSelectedMarkerFocus({
           markers,
-          selectedItemId,
+          selectedItemId: focusedItemId,
         }),
       });
     };
@@ -256,7 +258,7 @@ export function GeneratedMapPanel({
     return () => {
       isActive = false;
     };
-  }, [clearManagedMarkers, config, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
+  }, [clearManagedMarkers, config, focusedItemId, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
 
   useEffect(() => {
     const shouldInitialize = shouldInitializeGoogleMap({

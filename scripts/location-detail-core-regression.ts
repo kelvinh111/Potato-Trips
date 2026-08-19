@@ -3,6 +3,13 @@ import assert from "node:assert/strict";
 import {
   getPlanningSessionLocationDetailWithDependencies,
 } from "@/lib/planning-sessions/location-detail-operation";
+import { shouldApplyLocationDetailResponse } from "@/lib/planning-sessions/location-detail-client-state";
+import {
+  shouldOpenLocationDetailForInteraction,
+  shouldPreviewMapMarkerForInteraction,
+  shouldRequestProviderDetailForInteraction,
+} from "@/lib/planning-sessions/location-detail-interactions";
+import { deriveLocationDetailEligibleItemIds } from "@/lib/planning-sessions/itinerary-kanban";
 import { parsePersistedItinerary } from "@/lib/planning-sessions/types";
 
 class PlanningSessionUsageLimitError extends Error {
@@ -357,11 +364,82 @@ async function testNoProviderCallForInvalidStates() {
   assert.equal(called, false);
 }
 
+function testInteractionPolicies() {
+  assert.equal(
+    shouldPreviewMapMarkerForInteraction({ kind: "hover", isMapInteractive: true }),
+    true,
+  );
+  assert.equal(
+    shouldPreviewMapMarkerForInteraction({ kind: "focus", isMapInteractive: true }),
+    true,
+  );
+  assert.equal(
+    shouldPreviewMapMarkerForInteraction({ kind: "click", isMapInteractive: true }),
+    false,
+  );
+
+  assert.equal(shouldOpenLocationDetailForInteraction("click"), true);
+  assert.equal(shouldOpenLocationDetailForInteraction("keyboard-enter"), true);
+  assert.equal(shouldOpenLocationDetailForInteraction("touch"), true);
+  assert.equal(shouldOpenLocationDetailForInteraction("hover"), false);
+
+  assert.equal(
+    shouldRequestProviderDetailForInteraction({
+      kind: "hover",
+      hasGooglePlaceId: true,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRequestProviderDetailForInteraction({
+      kind: "click",
+      hasGooglePlaceId: false,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRequestProviderDetailForInteraction({
+      kind: "keyboard-enter",
+      hasGooglePlaceId: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRequestProviderDetailForInteraction({
+      kind: "touch",
+      hasGooglePlaceId: true,
+    }),
+    true,
+  );
+}
+
+function testStaleResponseGuard() {
+  assert.equal(
+    shouldApplyLocationDetailResponse({ activeRequestId: 3, responseRequestId: 2 }),
+    false,
+  );
+  assert.equal(
+    shouldApplyLocationDetailResponse({ activeRequestId: 3, responseRequestId: 3 }),
+    true,
+  );
+}
+
+function testAllItineraryItemsRemainOpenable() {
+  const session = createGeneratedSession();
+  const openableIds = deriveLocationDetailEligibleItemIds(session.generatedItinerary);
+
+  assert.equal(openableIds.has("item-place"), true);
+  assert.equal(openableIds.has("item-note"), true);
+}
+
 async function run() {
   await testSuccessAndOptionalFields();
   await testValidationAndStateGuards();
   await testUsageLimitAndProviderFailureMapping();
   await testNoProviderCallForInvalidStates();
+  testInteractionPolicies();
+  testStaleResponseGuard();
+  testAllItineraryItemsRemainOpenable();
 
   console.log("location-detail-core-regression: pass");
 }

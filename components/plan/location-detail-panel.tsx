@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { shouldApplyLocationDetailResponse } from "@/lib/planning-sessions/location-detail-client-state";
 import { findCanonicalItineraryItemContext } from "@/lib/planning-sessions/itinerary-kanban";
+import { shouldRequestProviderDetailForInteraction } from "@/lib/planning-sessions/location-detail-interactions";
 import {
   requestPlanningSessionLocationDetail,
   type PlanningSessionLocationDetailApiPayload,
@@ -43,8 +45,14 @@ export function LocationDetailPanel({
     return findCanonicalItineraryItemContext({ itinerary, itemId });
   }, [itinerary, itemId]);
 
+  const hasProviderDetailEligibility = Boolean(itemContext?.googlePlaceId);
+  const shouldRequestProviderDetail = shouldRequestProviderDetailForInteraction({
+    kind: "click",
+    hasGooglePlaceId: hasProviderDetailEligibility,
+  });
+
   useEffect(() => {
-    if (!itemContext || !itemContext.googlePlaceId) {
+    if (!itemContext || !shouldRequestProviderDetail) {
       return;
     }
 
@@ -53,14 +61,20 @@ export function LocationDetailPanel({
 
     void requestPlanningSessionLocationDetail(sessionId, itemId)
       .then((detail) => {
-        if (requestId !== requestIdRef.current) {
+        if (!shouldApplyLocationDetailResponse({
+          activeRequestId: requestIdRef.current,
+          responseRequestId: requestId,
+        })) {
           return;
         }
 
         setRequestState({ kind: "success", detail });
       })
       .catch((error) => {
-        if (requestId !== requestIdRef.current) {
+        if (!shouldApplyLocationDetailResponse({
+          activeRequestId: requestIdRef.current,
+          responseRequestId: requestId,
+        })) {
           return;
         }
 
@@ -72,7 +86,7 @@ export function LocationDetailPanel({
               : "Unable to load location details right now. Please retry.",
         });
       });
-  }, [activationVersion, itemContext, itemId, retryNonce, sessionId]);
+  }, [activationVersion, itemContext, itemId, retryNonce, sessionId, shouldRequestProviderDetail]);
 
   if (!itemContext) {
     return (
@@ -103,6 +117,7 @@ export function LocationDetailPanel({
   }
 
   const showSuccess = requestState.kind === "success";
+  const showItineraryOnly = !hasProviderDetailEligibility;
   const detail = showSuccess ? requestState.detail : null;
 
   return (
@@ -121,7 +136,7 @@ export function LocationDetailPanel({
           <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
             {detail?.displayName ?? itemContext.title}
           </h2>
-          {detail?.formattedAddress ? (
+          {showSuccess && detail?.formattedAddress ? (
             <p className="inline-flex items-start gap-2 text-sm text-text-secondary">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{detail.formattedAddress}</span>
@@ -197,6 +212,15 @@ export function LocationDetailPanel({
           </div>
         ) : null}
 
+        {showItineraryOnly ? (
+          <div className="rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Detail source</p>
+            <p className="mt-1 text-sm text-text-secondary">
+              Showing itinerary-authored details for this item.
+            </p>
+          </div>
+        ) : null}
+
         <div className="mt-5 rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-4">
           <h3 className="text-base font-semibold text-text-primary">About</h3>
           <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
@@ -204,7 +228,16 @@ export function LocationDetailPanel({
           </p>
         </div>
 
-        <p className="mt-4 text-xs text-text-faint">Place data © Google Maps</p>
+        <div className="mt-5 rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-4">
+          <h3 className="text-base font-semibold text-text-primary">Planning Text</h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
+            {itemContext.planningText}
+          </p>
+        </div>
+
+        {showSuccess ? (
+          <p className="mt-4 text-xs text-text-faint">Place data © Google Maps</p>
+        ) : null}
       </div>
     </section>
   );

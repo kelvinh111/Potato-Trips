@@ -12,6 +12,10 @@ import {
   findScopedItineraryItemElementById,
   toItineraryKanbanViewModel,
 } from "@/lib/planning-sessions/itinerary-kanban";
+import {
+  shouldOpenLocationDetailForInteraction,
+  shouldPreviewMapMarkerForInteraction,
+} from "@/lib/planning-sessions/location-detail-interactions";
 import type { PersistedItinerary } from "@/lib/planning-sessions/types";
 
 interface ItineraryKanbanBoardProps {
@@ -27,6 +31,7 @@ interface ItineraryKanbanBoardProps {
     itemId: string;
     triggerElement: HTMLElement | null;
   }) => void;
+  onPreviewInteractiveItem?: (itemId: string | null) => void;
   onActivateInteractiveItem?: (itemId: string) => void;
 }
 
@@ -40,6 +45,7 @@ export function ItineraryKanbanBoard({
   focusRestoreItemId = null,
   focusRestoreVersion = 0,
   onActivateLocationDetailItem,
+  onPreviewInteractiveItem,
   onActivateInteractiveItem,
 }: ItineraryKanbanBoardProps) {
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
@@ -298,7 +304,37 @@ export function ItineraryKanbanBoard({
                               <button
                                 type="button"
                                 data-itinerary-item-id={item.id}
+                                onMouseEnter={() => {
+                                  onPreviewInteractiveItem?.(
+                                    shouldPreviewMapMarkerForInteraction({
+                                      kind: "hover",
+                                      isMapInteractive,
+                                    })
+                                      ? item.id
+                                      : null,
+                                  );
+                                }}
+                                onMouseLeave={() => {
+                                  onPreviewInteractiveItem?.(null);
+                                }}
+                                onFocus={() => {
+                                  onPreviewInteractiveItem?.(
+                                    shouldPreviewMapMarkerForInteraction({
+                                      kind: "focus",
+                                      isMapInteractive,
+                                    })
+                                      ? item.id
+                                      : null,
+                                  );
+                                }}
+                                onBlur={() => {
+                                  onPreviewInteractiveItem?.(null);
+                                }}
                                 onClick={(event) => {
+                                  if (!shouldOpenLocationDetailForInteraction("click")) {
+                                    return;
+                                  }
+
                                   if (isMapInteractive) {
                                     onActivateInteractiveItem?.(item.id);
                                   }
@@ -325,26 +361,7 @@ export function ItineraryKanbanBoard({
                                   </p>
                                 ) : null}
                               </button>
-                            ) : (
-                              <article
-                                data-itinerary-item-id={item.id}
-                                className={`space-y-2 rounded-xl border px-3 py-3 ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated"}`}
-                              >
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                                  {item.typeLabel}
-                                </p>
-                                <h4 className="text-sm font-semibold text-text-primary">
-                                  {item.title}
-                                </h4>
-                                <p className="text-sm text-text-secondary">{item.description}</p>
-                                <p className="text-sm text-text-primary">{item.planningText}</p>
-                                {timeAndDurationParts.length > 0 ? (
-                                  <p className="text-xs text-text-muted">
-                                    {timeAndDurationParts.join(" • ")}
-                                  </p>
-                                ) : null}
-                              </article>
-                            )}
+                            ) : null}
                           </li>
                         );
                       })}

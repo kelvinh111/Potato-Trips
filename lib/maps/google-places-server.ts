@@ -122,6 +122,31 @@ const placeDetailsResponseSchema = z
   .strict();
 
 const GOOGLE_PLACES_REQUEST_TIMEOUT_MS = 5000;
+const GENERIC_MATCH_TOKENS = new Set([
+  "and",
+  "at",
+  "city",
+  "de",
+  "des",
+  "du",
+  "garden",
+  "gardens",
+  "hotel",
+  "in",
+  "la",
+  "le",
+  "les",
+  "museum",
+  "of",
+  "park",
+  "place",
+  "plaza",
+  "restaurant",
+  "square",
+  "station",
+  "temple",
+  "the",
+]);
 
 export function parseGooglePlacesServerConfig(
   env: Record<string, string | undefined>,
@@ -180,8 +205,12 @@ export function isDisplayNameCompatibleWithQuery(
     return true;
   }
 
-  const queryWords = normalizedQuery.split(" ");
-  const displayNameWords = normalizedDisplayName.split(" ");
+  const queryWords = tokenizeSearchText(normalizedQuery);
+  const displayNameWords = tokenizeSearchText(normalizedDisplayName);
+
+  if (queryWords.length === 0 || displayNameWords.length === 0) {
+    return false;
+  }
 
   const shorterWords =
     queryWords.length <= displayNameWords.length ? queryWords : displayNameWords;
@@ -196,16 +225,46 @@ export function isDisplayNameCompatibleWithQuery(
     return true;
   }
 
-  // Allow bilingual overlaps when there is a shared non-ASCII token.
   const queryWordSet = new Set(queryWords);
-  const sharedWords = displayNameWords.filter((word) => queryWordSet.has(word));
+  const sharedWords = displayNameWords.filter((word, index, words) => {
+    return queryWordSet.has(word) && words.indexOf(word) === index;
+  });
 
-  if (sharedWords.some((word) => /[^\x00-\x7F]/.test(word))) {
+  if (sharedWords.length === 0) {
+    return false;
+  }
+
+  const sharedDistinctiveWords = sharedWords.filter((word) => !isGenericMatchToken(word));
+
+  // Reject overlaps consisting only of generic terms (e.g. "museum", "garden").
+  if (sharedDistinctiveWords.length === 0) {
+    return false;
+  }
+
+  if (sharedDistinctiveWords.length >= 2) {
     return true;
   }
 
-  // ASCII overlaps must share at least two full words to avoid single-token false matches.
-  return sharedWords.length >= 2;
+  if (sharedDistinctiveWords.some((word) => /[^\x00-\x7F]/.test(word))) {
+    return true;
+  }
+
+  const distinctiveToken = sharedDistinctiveWords[0] ?? null;
+  if (!distinctiveToken) {
+    return false;
+  }
+
+  // Accept a single shared distinctive token for localized/canonical alias pairs,
+  // but avoid broad one-word query matches.
+  return (
+    distinctiveToken.length >= 4
+    && queryWords.length >= 2
+    && displayNameWords.length >= 2
+  );
+}
+
+function tokenizeSearchText(value: string): string[] {
+  return value.split(" ").filter((part) => part.length > 0);
 }
 
 export async function searchGooglePlaceByText(
@@ -478,10 +537,16 @@ export async function getGooglePlaceDetails(
 
 function normalizeSearchText(value: string): string {
   return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isGenericMatchToken(value: string): boolean {
+  return GENERIC_MATCH_TOKENS.has(value);
 }
 
 function containsWholePhrase(haystackWords: string[], phraseWords: string[]): boolean {
