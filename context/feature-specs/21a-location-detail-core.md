@@ -44,13 +44,6 @@ It must not add photos, ratings, review counts, opening hours, contact informati
 - Itinerary-only detail must not issue Google requests, must not claim provider detail availability, must not show provider-only fields (address, provider link), must not create marker interactions, and must not increment provider usage counters.
 - Hover/focus preview state is ephemeral and separate from persistent click/activation selection. Clearing hover/focus must not force map overview reset.
 - Rapid interactions and stale asynchronous responses must not overwrite the active detail state for a newer activation.
-- Location Detail remains a centre-column replacement surface only; chat and map remain mounted in generated desktop layouts.
-- Generated desktop default visual split targets approximately `1:3:2` for Chat/Kanban-or-Detail/Map. Chat is non-resizable in this unit.
-- Only the boundary between Kanban-or-Detail and Map is draggable; narrow-layout behavior and map visibility gating remain unchanged.
-- Drag separator supports pointer and keyboard resizing with safe minimum widths and ARIA semantics.
-- Opening and closing Location Detail preserves the active Kanban/Map split; refresh resets to default split.
-- Card surface click/Enter/Space selects and focuses eligible map marker only. A dedicated title control opens detail and restores focus back to that title on close.
-- Hover/focus preview and marker activation never open detail and never trigger Place Details requests.
 
 ## Google Place Details Contract
 

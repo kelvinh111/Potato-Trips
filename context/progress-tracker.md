@@ -6,13 +6,12 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete remaining Feature 21A browser verification and live-smoke validation while keeping center-detail/split behavior stable.
+- Complete Feature 21A Location Detail Core verification and close remaining live-smoke blocker.
 
 ## Current Feature Unit
 - Feature 21A Location Detail Core
 - context/feature-specs/21a-location-detail-core.md
 - Status: In Progress
-- Confirmed UX addendum expanded for centre-only detail replacement, generated-desktop split behavior, and activation semantics.
 
 ## Completed
 
@@ -309,26 +308,11 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved required positive identity cases (Senso-ji, Louvre, Tuileries) under conservative identity validation.
 - Removed retry instructions from non-retryable limit/provider-failure messages while preserving retry availability only when `retryable === true`.
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
-- Refactored Google Places server boundary into focused modules while preserving public contracts: `google-places-config`, `google-places-identity-matching`, `google-places-text-search`, and `google-places-place-details`, re-exported through `google-places-server`.
-- Extracted location-detail request lifecycle from panel presentation into `lib/planning-sessions/location-detail-request.ts` with stale-response and retryability handling.
-- Enforced center-only Location Detail activation semantics in kanban/runtime:
-	- card surface click/Enter/Space selects map-linked item only
-	- title control opens Location Detail
-	- marker activation and hover/focus preview never open detail
-	- close restores focus to title control
-- Added desktop center-map split sizing helpers/hook with fixed chat column, approx `1:3:2` default, single draggable center-map boundary, clamp handling, pointer capture, and keyboard arrow/Home/End behavior.
-- Replaced duplicated desktop/mobile workspace render branches with one responsive component tree so generated layout now has a single Chat, Centre, and Map instance (no CSS-hidden duplicate panel trees).
-- Simplified split sizing to the measured Centre+Map area with explicit separator width accounting and start-pointer/start-width delta drag math (zero pointer movement keeps width unchanged).
-- Hardened separator drag lifecycle to primary-button only with synchronous active-pointer tracking and explicit termination on pointer-up, pointer-cancel, lost capture, context menu, and window interruption.
-- Kept one mounted map instance in a stable container and added safe resize handling (no map reinitialization) while preserving marker focus behavior.
-- Removed invalid nested interactive card structure by separating card-surface selection control from title-only detail activation; increased title prominence while preserving hover/focus accent and underline.
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
-	- `scripts/workspace-layout-sizing-regression.ts`
 	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, country-context negatives, qualifier-suffix negatives (`Tokyo Station Hotel`, `Louvre Museum Abu Dhabi`, `Paris Opera Hotel`, `Manchester Museum Shop`), and a Text Search boundary check proving context-bearing query input is validated against separate canonical identity (`Senso-ji Temple Tokyo` query + `Senso-ji` identity).
 	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Pending:
-	- manual browser verification for the latest single-tree layout/drag-cancellation pass is still pending.
 	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.
 
 ## Next Up
@@ -400,16 +384,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npx prisma validate`: Pass
 	- `npm run prisma:generate`: Pass
 	- `npm run location-detail-core:regression`: Pass
-	- `npm run workspace-layout-sizing:regression`: Pass
 	- `npm run generated-place-resolution:regression`: Pass
 	- `npm run map-markers-kanban-sync:regression`: Pass
-	- `npm run itinerary-kanban:regression`: Pass
 	- `npm run google-maps-foundation:regression`: Pass
 	- `npm run planning-session-client-api:regression`: Pass
 	- `npm run lint`: Pass
 	- `git diff --check`: Pass
 	- `npm run build`: Pass
-	- latest root-cause layout refactor rerun of all above 21A checks: Pass
 	- controlled live smoke (`searchGooglePlaceByText` -> `getGooglePlaceDetails`): Blocked in this environment (`GOOGLE_PLACES_API_KEY` not configured)
   - deleted development `PlanningSession` records: `before 14`, `deleted 14`, `after 0`
   - `npm run planning-brief:regression`: pass

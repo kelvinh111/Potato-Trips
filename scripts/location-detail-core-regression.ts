@@ -9,10 +9,7 @@ import {
   shouldPreviewMapMarkerForInteraction,
   shouldRequestProviderDetailForInteraction,
 } from "@/lib/planning-sessions/location-detail-interactions";
-import {
-  shouldOpenDetailForTitleInteraction,
-  shouldSelectItemForInteraction,
-} from "@/lib/planning-sessions/location-detail-activation";
+import { deriveLocationDetailEligibleItemIds } from "@/lib/planning-sessions/itinerary-kanban";
 import { parsePersistedItinerary } from "@/lib/planning-sessions/types";
 
 class PlanningSessionUsageLimitError extends Error {
@@ -413,18 +410,6 @@ function testInteractionPolicies() {
   assert.equal(shouldOpenLocationDetailForInteraction("touch"), true);
   assert.equal(shouldOpenLocationDetailForInteraction("hover"), false);
 
-  assert.equal(shouldSelectItemForInteraction("card-click"), true);
-  assert.equal(shouldSelectItemForInteraction("card-enter"), true);
-  assert.equal(shouldSelectItemForInteraction("card-space"), true);
-  assert.equal(shouldSelectItemForInteraction("title-click"), false);
-  assert.equal(shouldSelectItemForInteraction("marker-click"), false);
-
-  assert.equal(shouldOpenDetailForTitleInteraction("title-click"), true);
-  assert.equal(shouldOpenDetailForTitleInteraction("title-enter"), true);
-  assert.equal(shouldOpenDetailForTitleInteraction("title-space"), true);
-  assert.equal(shouldOpenDetailForTitleInteraction("card-click"), false);
-  assert.equal(shouldOpenDetailForTitleInteraction("hover"), false);
-
   assert.equal(
     shouldRequestProviderDetailForInteraction({
       kind: "hover",
@@ -466,6 +451,14 @@ function testStaleResponseGuard() {
   );
 }
 
+function testAllItineraryItemsRemainOpenable() {
+  const session = createGeneratedSession();
+  const openableIds = deriveLocationDetailEligibleItemIds(session.generatedItinerary);
+
+  assert.equal(openableIds.has("item-place"), true);
+  assert.equal(openableIds.has("item-note"), true);
+}
+
 async function run() {
   await testSuccessAndOptionalFields();
   await testValidationAndStateGuards();
@@ -473,6 +466,7 @@ async function run() {
   await testNoProviderCallForInvalidStates();
   testInteractionPolicies();
   testStaleResponseGuard();
+  testAllItineraryItemsRemainOpenable();
 
   console.log("location-detail-core-regression: pass");
 }

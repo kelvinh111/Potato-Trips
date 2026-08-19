@@ -9,13 +9,11 @@ import {
 } from "react";
 
 import {
+  findScopedItineraryItemElementById,
   toItineraryKanbanViewModel,
 } from "@/lib/planning-sessions/itinerary-kanban";
 import {
-  shouldOpenDetailForTitleInteraction,
-  shouldSelectItemForInteraction,
-} from "@/lib/planning-sessions/location-detail-activation";
-import {
+  shouldOpenLocationDetailForInteraction,
   shouldPreviewMapMarkerForInteraction,
 } from "@/lib/planning-sessions/location-detail-interactions";
 import type { PersistedItinerary } from "@/lib/planning-sessions/types";
@@ -24,11 +22,15 @@ interface ItineraryKanbanBoardProps {
   itinerary: PersistedItinerary | null;
   selectedItemId?: string | null;
   selectionActivationVersion?: number;
+  detailEligibleItemIds?: Set<string>;
   interactiveItemIds?: Set<string>;
   isMapLinkedInteractionEnabled?: boolean;
-  focusRestoreElementId?: string | null;
+  focusRestoreItemId?: string | null;
   focusRestoreVersion?: number;
-  onActivateLocationDetailItem?: (itemId: string) => void;
+  onActivateLocationDetailItem?: (input: {
+    itemId: string;
+    triggerElement: HTMLElement | null;
+  }) => void;
   onPreviewInteractiveItem?: (itemId: string | null) => void;
   onActivateInteractiveItem?: (itemId: string) => void;
 }
@@ -37,9 +39,10 @@ export function ItineraryKanbanBoard({
   itinerary,
   selectedItemId = null,
   selectionActivationVersion = 0,
+  detailEligibleItemIds,
   interactiveItemIds,
   isMapLinkedInteractionEnabled = false,
-  focusRestoreElementId = null,
+  focusRestoreItemId = null,
   focusRestoreVersion = 0,
   onActivateLocationDetailItem,
   onPreviewInteractiveItem,
@@ -129,9 +132,10 @@ export function ItineraryKanbanBoard({
       return;
     }
 
-    const selectedElement = boardScrollRef.current?.querySelector<HTMLElement>(
-      `[data-itinerary-item-id="${selectedItemId}"]`,
-    ) ?? null;
+    const selectedElement = findScopedItineraryItemElementById({
+      root: boardScrollRef.current,
+      itemId: selectedItemId,
+    });
 
     if (!selectedElement) {
       return;
@@ -145,18 +149,21 @@ export function ItineraryKanbanBoard({
   }, [selectedItemId, selectionActivationVersion]);
 
   useEffect(() => {
-    if (!focusRestoreElementId) {
+    if (!focusRestoreItemId) {
       return;
     }
 
-    const selectedElement = document.getElementById(focusRestoreElementId);
+    const selectedElement = findScopedItineraryItemElementById({
+      root: boardScrollRef.current,
+      itemId: focusRestoreItemId,
+    });
 
     if (!selectedElement) {
       return;
     }
 
     selectedElement.focus({ preventScroll: true });
-  }, [focusRestoreElementId, focusRestoreVersion]);
+  }, [focusRestoreItemId, focusRestoreVersion]);
 
   const handleBoardScroll = () => {
     const boardScroll = boardScrollRef.current;
@@ -202,6 +209,10 @@ export function ItineraryKanbanBoard({
   const interactiveIds = useMemo(() => {
     return interactiveItemIds ?? new Set<string>();
   }, [interactiveItemIds]);
+
+  const detailEligibleIds = useMemo(() => {
+    return detailEligibleItemIds ?? new Set<string>();
+  }, [detailEligibleItemIds]);
 
   if (!itinerary) {
     return (
@@ -282,35 +293,30 @@ export function ItineraryKanbanBoard({
                           return part !== null;
                         });
 
+                        const isDetailEligible = detailEligibleIds.has(item.id);
                         const isMapInteractive =
                           isMapLinkedInteractionEnabled && interactiveIds.has(item.id);
                         const isSelected = selectedItemId === item.id;
 
-                        const titleControlId = `itinerary-item-title-${item.id}`;
-
                         return (
                           <li key={item.id}>
-                            <article
-                              data-itinerary-item-id={item.id}
-                              onMouseEnter={() => {
-                                onPreviewInteractiveItem?.(
-                                  shouldPreviewMapMarkerForInteraction({
-                                    kind: "hover",
-                                    isMapInteractive,
-                                  })
-                                    ? item.id
-                                    : null,
-                                );
-                              }}
-                              onMouseLeave={() => {
-                                onPreviewInteractiveItem?.(null);
-                              }}
-                              className={`relative rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
-                            >
+                            {isDetailEligible ? (
                               <button
                                 type="button"
-                                aria-label={`Select ${item.title}`}
-                                aria-pressed={isSelected}
+                                data-itinerary-item-id={item.id}
+                                onMouseEnter={() => {
+                                  onPreviewInteractiveItem?.(
+                                    shouldPreviewMapMarkerForInteraction({
+                                      kind: "hover",
+                                      isMapInteractive,
+                                    })
+                                      ? item.id
+                                      : null,
+                                  );
+                                }}
+                                onMouseLeave={() => {
+                                  onPreviewInteractiveItem?.(null);
+                                }}
                                 onFocus={() => {
                                   onPreviewInteractiveItem?.(
                                     shouldPreviewMapMarkerForInteraction({
@@ -324,85 +330,29 @@ export function ItineraryKanbanBoard({
                                 onBlur={() => {
                                   onPreviewInteractiveItem?.(null);
                                 }}
-                                onClick={() => {
-                                  if (!shouldSelectItemForInteraction("card-click")) {
+                                onClick={(event) => {
+                                  if (!shouldOpenLocationDetailForInteraction("click")) {
                                     return;
                                   }
 
                                   if (isMapInteractive) {
                                     onActivateInteractiveItem?.(item.id);
                                   }
-                                }}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter") {
-                                    if (shouldSelectItemForInteraction("card-enter")) {
-                                      event.preventDefault();
-                                      if (isMapInteractive) {
-                                        onActivateInteractiveItem?.(item.id);
-                                      }
-                                    }
-                                  }
 
-                                  if (event.key === " ") {
-                                    if (shouldSelectItemForInteraction("card-space")) {
-                                      event.preventDefault();
-                                      if (isMapInteractive) {
-                                        onActivateInteractiveItem?.(item.id);
-                                      }
-                                    }
-                                  }
+                                  onActivateLocationDetailItem?.({
+                                    itemId: item.id,
+                                    triggerElement: event.currentTarget,
+                                  });
                                 }}
-                                className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                                aria-pressed={isSelected}
+                                className={`block w-full space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
                               >
-                                <span className="sr-only">Select item</span>
-                              </button>
-
-                              <div className="pointer-events-none relative z-10 space-y-2">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                                   {item.typeLabel}
                                 </p>
-                                <button
-                                  id={titleControlId}
-                                  type="button"
-                                  onClick={() => {
-                                    if (!shouldOpenDetailForTitleInteraction("title-click")) {
-                                      return;
-                                    }
-
-                                    onActivateLocationDetailItem?.(item.id);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter") {
-                                      if (shouldOpenDetailForTitleInteraction("title-enter")) {
-                                        event.preventDefault();
-                                        onActivateLocationDetailItem?.(item.id);
-                                      }
-                                    }
-
-                                    if (event.key === " ") {
-                                      if (shouldOpenDetailForTitleInteraction("title-space")) {
-                                        event.preventDefault();
-                                        onActivateLocationDetailItem?.(item.id);
-                                      }
-                                    }
-                                  }}
-                                  onFocus={() => {
-                                    onPreviewInteractiveItem?.(
-                                      shouldPreviewMapMarkerForInteraction({
-                                        kind: "focus",
-                                        isMapInteractive,
-                                      })
-                                        ? item.id
-                                        : null,
-                                    );
-                                  }}
-                                  onBlur={() => {
-                                    onPreviewInteractiveItem?.(null);
-                                  }}
-                                  className="pointer-events-auto inline-flex items-center rounded-lg text-base font-semibold text-text-primary underline-offset-2 hover:text-accent-primary hover:underline focus-visible:text-accent-primary focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-                                >
+                                <h4 className="text-sm font-semibold text-text-primary">
                                   {item.title}
-                                </button>
+                                </h4>
                                 <p className="text-sm text-text-secondary">{item.description}</p>
                                 <p className="text-sm text-text-primary">{item.planningText}</p>
                                 {timeAndDurationParts.length > 0 ? (
@@ -410,8 +360,8 @@ export function ItineraryKanbanBoard({
                                     {timeAndDurationParts.join(" • ")}
                                   </p>
                                 ) : null}
-                              </div>
-                            </article>
+                              </button>
+                            ) : null}
                           </li>
                         );
                       })}
