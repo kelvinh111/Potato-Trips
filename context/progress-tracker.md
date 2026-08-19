@@ -6,12 +6,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Implementation
 
 ## Current Goal
-- Complete Feature 21A Location Detail Core verification and close remaining live-smoke blocker.
+- Complete remaining Feature 21A live-smoke validation while keeping recent center-detail/split refactor stable.
 
 ## Current Feature Unit
 - Feature 21A Location Detail Core
 - context/feature-specs/21a-location-detail-core.md
 - Status: In Progress
+- Confirmed UX addendum expanded for centre-only detail replacement, generated-desktop split behavior, and activation semantics.
 
 ## Completed
 
@@ -308,8 +309,17 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved required positive identity cases (Senso-ji, Louvre, Tuileries) under conservative identity validation.
 - Removed retry instructions from non-retryable limit/provider-failure messages while preserving retry availability only when `retryable === true`.
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
+- Refactored Google Places server boundary into focused modules while preserving public contracts: `google-places-config`, `google-places-identity-matching`, `google-places-text-search`, and `google-places-place-details`, re-exported through `google-places-server`.
+- Extracted location-detail request lifecycle from panel presentation into `lib/planning-sessions/location-detail-request.ts` with stale-response and retryability handling.
+- Enforced center-only Location Detail activation semantics in kanban/runtime:
+	- card surface click/Enter/Space selects map-linked item only
+	- title control opens Location Detail
+	- marker activation and hover/focus preview never open detail
+	- close restores focus to title control
+- Added desktop center-map split sizing helpers/hook with fixed chat column, approx `1:3:2` default, single draggable center-map boundary, clamp handling, pointer capture, and keyboard arrow/Home/End behavior.
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
+	- `scripts/workspace-layout-sizing-regression.ts`
 	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, country-context negatives, qualifier-suffix negatives (`Tokyo Station Hotel`, `Louvre Museum Abu Dhabi`, `Paris Opera Hotel`, `Manchester Museum Shop`), and a Text Search boundary check proving context-bearing query input is validated against separate canonical identity (`Senso-ji Temple Tokyo` query + `Senso-ji` identity).
 	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Pending:
@@ -384,8 +394,10 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npx prisma validate`: Pass
 	- `npm run prisma:generate`: Pass
 	- `npm run location-detail-core:regression`: Pass
+	- `npm run workspace-layout-sizing:regression`: Pass
 	- `npm run generated-place-resolution:regression`: Pass
 	- `npm run map-markers-kanban-sync:regression`: Pass
+	- `npm run itinerary-kanban:regression`: Pass
 	- `npm run google-maps-foundation:regression`: Pass
 	- `npm run planning-session-client-api:regression`: Pass
 	- `npm run lint`: Pass

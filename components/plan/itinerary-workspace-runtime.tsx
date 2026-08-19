@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/refs */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GeneratedMapPanel } from "@/components/plan/generated-map-panel";
@@ -24,9 +26,9 @@ import {
   usePlanningSessionGenerationController,
 } from "@/lib/planning-sessions/generation-controller";
 import {
-  deriveLocationDetailEligibleItemIds,
   findCanonicalItineraryItemContext,
 } from "@/lib/planning-sessions/itinerary-kanban";
+import { useDesktopCenterMapSplit } from "@/lib/planning-sessions/workspace-layout-sizing";
 import type { PlanningSessionRecord } from "@/lib/planning-sessions/repository";
 
 interface ItineraryWorkspaceRuntimeProps {
@@ -61,9 +63,9 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     kind: "ITINERARY",
   });
   const [focusRestore, setFocusRestore] = useState<{
-    itemId: string | null;
+    titleElementId: string | null;
     version: number;
-  }>({ itemId: null, version: 0 });
+  }>({ titleElementId: null, version: 0 });
 
   useEffect(() => {
     const mediaQueryList = window.matchMedia(WORKSPACE_DESKTOP_MEDIA_QUERY);
@@ -104,10 +106,6 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   const interactiveItemIds = useMemo(() => {
     return deriveInteractiveItemIds(markers);
   }, [markers]);
-
-  const detailEligibleItemIds = useMemo(() => {
-    return deriveLocationDetailEligibleItemIds(state.generatedItinerary);
-  }, [state.generatedItinerary]);
 
   const itineraryItemIds = useMemo(() => {
     const itemIds = new Set<string>();
@@ -156,18 +154,13 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     setSelectionActivationVersion(next.activationVersion);
   }, [selectedItemId, selectionActivationVersion]);
 
-  const handleActivateLocationDetailItem = useCallback((input: {
-    itemId: string;
-    triggerElement: HTMLElement | null;
-  }) => {
-    void input.triggerElement;
-
+  const handleActivateLocationDetailItem = useCallback((itemId: string) => {
     const nextSelection = activateSelectedItem({
       state: {
         selectedItemId,
         activationVersion: selectionActivationVersion,
       },
-      itemId: input.itemId,
+      itemId,
     });
 
     setSelectedItemId(nextSelection.selectedItemId);
@@ -180,7 +173,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
 
       return {
         kind: "LOCATION_DETAIL",
-        itemId: input.itemId,
+        itemId,
         activationVersion: nextActivationVersion,
       };
     });
@@ -189,7 +182,7 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
   const handleCloseLocationDetail = useCallback(() => {
     if (centerPanel.kind === "LOCATION_DETAIL") {
       setFocusRestore((stateValue) => ({
-        itemId: centerPanel.itemId,
+        titleElementId: `itinerary-item-title-${centerPanel.itemId}`,
         version: stateValue.version + 1,
       }));
     }
@@ -311,13 +304,113 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     };
   }, [state.generatedItinerary, markerEligibilityNowEpoch]);
 
-  const gridClassName = showMapSlot
-    ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)_minmax(16rem,22rem)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4"
-    : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden lg:p-4";
+  const desktopSplit = useDesktopCenterMapSplit({
+    isDesktopLayout,
+    showMapSlot,
+  });
+  const desktopContainerRef = desktopSplit.containerRef;
+  const desktopLayout = desktopSplit.layout;
+  const handleSeparatorKeyDown = desktopSplit.handleSeparatorKeyDown;
+  const handleSeparatorPointerDown = desktopSplit.handleSeparatorPointerDown;
+  const handleSeparatorPointerMove = desktopSplit.handleSeparatorPointerMove;
+  const handleSeparatorPointerUp = desktopSplit.handleSeparatorPointerUp;
+
+  const mobileGridClassName = showMapSlot
+    ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4"
+    : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4";
+
+  const desktopChatStyle = desktopLayout
+    ? { width: `${desktopLayout.chatWidth}px` }
+    : undefined;
+  const desktopCenterStyle = desktopLayout
+    ? { width: `${desktopLayout.centerWidth}px` }
+    : undefined;
+  const desktopMapStyle = desktopLayout
+    ? { width: `${desktopLayout.mapWidth}px` }
+    : undefined;
 
   return (
     <main className="flex min-h-0 flex-1 overflow-hidden">
-      <div className={gridClassName}>
+      <div className="hidden min-h-0 w-full flex-1 gap-4 overflow-hidden p-4 lg:flex" ref={desktopContainerRef}>
+        <div className="min-h-0 shrink-0" style={desktopChatStyle}>
+          <PlanningChatPanel
+            sessionId={session.id}
+            initialPrompt={session.initialPrompt}
+            status={state.status}
+            clarificationMessages={state.clarificationMessages}
+            onSessionUpdate={generationController.applyClarificationSession}
+          />
+        </div>
+
+        <div className="min-h-0 shrink-0" style={desktopCenterStyle}>
+          {showStatusPanel ? (
+            <TripPlanStatusPanel generationController={generationController} />
+          ) : (
+            <section
+              aria-label="Itinerary panel"
+              className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
+            >
+              <h1 className="sr-only">Itinerary Plan</h1>
+              {centerPanel.kind === "LOCATION_DETAIL" ? (
+                <LocationDetailPanel
+                  key={`${centerPanel.itemId}:${centerPanel.activationVersion}`}
+                  sessionId={session.id}
+                  itinerary={state.generatedItinerary}
+                  itemId={centerPanel.itemId}
+                  activationVersion={centerPanel.activationVersion}
+                  onClose={handleCloseLocationDetail}
+                />
+              ) : (
+                <ItineraryKanbanBoard
+                  itinerary={state.generatedItinerary}
+                  selectedItemId={selectedItemId}
+                  selectionActivationVersion={selectionActivationVersion}
+                  interactiveItemIds={interactiveItemIds}
+                  isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
+                  focusRestoreElementId={focusRestore.titleElementId}
+                  focusRestoreVersion={focusRestore.version}
+                  onActivateLocationDetailItem={handleActivateLocationDetailItem}
+                  onPreviewInteractiveItem={handlePreviewInteractiveItem}
+                  onActivateInteractiveItem={handleSelectItem}
+                />
+              )}
+            </section>
+          )}
+        </div>
+
+        {showMapSlot && desktopLayout ? (
+          <div
+            role="separator"
+            aria-label="Resize itinerary and map panels"
+            aria-orientation="vertical"
+            aria-valuemin={desktopLayout.separatorMin}
+            aria-valuemax={desktopLayout.separatorMax}
+            aria-valuenow={desktopLayout.separatorValue}
+            tabIndex={0}
+            onKeyDown={handleSeparatorKeyDown}
+            onPointerDown={handleSeparatorPointerDown}
+            onPointerMove={handleSeparatorPointerMove}
+            onPointerUp={handleSeparatorPointerUp}
+            onPointerCancel={handleSeparatorPointerUp}
+            className="w-2 cursor-col-resize rounded-full bg-border-subtle/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+          />
+        ) : null}
+
+        {showMapSlot ? (
+          <div className="min-h-0 min-w-0 flex-1" style={desktopMapStyle}>
+            <GeneratedMapPanel
+              markers={markers}
+              selectedItemId={effectiveSelectedItemId}
+              focusedItemId={focusedMapItemId}
+              selectionActivationVersion={selectionActivationVersion}
+              onMarkerActivate={handleSelectItem}
+              onMapReadyChange={handleMapReadyChange}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      <div className={`${mobileGridClassName} lg:hidden`}>
         <PlanningChatPanel
           sessionId={session.id}
           initialPrompt={session.initialPrompt}
@@ -325,11 +418,8 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
           clarificationMessages={state.clarificationMessages}
           onSessionUpdate={generationController.applyClarificationSession}
         />
-
         {showStatusPanel ? (
-          <TripPlanStatusPanel
-            generationController={generationController}
-          />
+          <TripPlanStatusPanel generationController={generationController} />
         ) : (
           <section
             aria-label="Itinerary panel"
@@ -350,10 +440,9 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
                 itinerary={state.generatedItinerary}
                 selectedItemId={selectedItemId}
                 selectionActivationVersion={selectionActivationVersion}
-                detailEligibleItemIds={detailEligibleItemIds}
                 interactiveItemIds={interactiveItemIds}
                 isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
-                focusRestoreItemId={focusRestore.itemId}
+                focusRestoreElementId={focusRestore.titleElementId}
                 focusRestoreVersion={focusRestore.version}
                 onActivateLocationDetailItem={handleActivateLocationDetailItem}
                 onPreviewInteractiveItem={handlePreviewInteractiveItem}
@@ -362,7 +451,6 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
             )}
           </section>
         )}
-
         {showMapSlot ? (
           <GeneratedMapPanel
             markers={markers}

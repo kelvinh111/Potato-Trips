@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { Loader2, MapPin, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { shouldApplyLocationDetailResponse } from "@/lib/planning-sessions/location-detail-client-state";
 import { findCanonicalItineraryItemContext } from "@/lib/planning-sessions/itinerary-kanban";
 import { shouldRequestProviderDetailForInteraction } from "@/lib/planning-sessions/location-detail-interactions";
-import {
-  requestPlanningSessionLocationDetail,
-  type PlanningSessionLocationDetailApiPayload,
-} from "@/lib/planning-sessions/client-api";
+import { useLocationDetailRequest } from "@/lib/planning-sessions/location-detail-request";
 import type { PersistedItinerary } from "@/lib/planning-sessions/types";
 
 interface LocationDetailPanelProps {
@@ -21,16 +17,6 @@ interface LocationDetailPanelProps {
   onClose: () => void;
 }
 
-type DetailRequestState =
-  | { kind: "idle" }
-  | { kind: "success"; detail: PlanningSessionLocationDetailApiPayload }
-  | { kind: "error"; message: string; retryable: boolean };
-
-interface DetailRequestSnapshot {
-  key: string;
-  state: DetailRequestState;
-}
-
 export function LocationDetailPanel({
   sessionId,
   itinerary,
@@ -38,9 +24,6 @@ export function LocationDetailPanel({
   activationVersion,
   onClose,
 }: LocationDetailPanelProps) {
-  const [retryNonce, setRetryNonce] = useState(0);
-  const requestIdRef = useRef(0);
-
   const itemContext = useMemo(() => {
     if (!itinerary) {
       return null;
@@ -54,66 +37,12 @@ export function LocationDetailPanel({
     kind: "click",
     hasGooglePlaceId: hasProviderDetailEligibility,
   });
-  const requestKey = `${sessionId}:${itemId}:${activationVersion}:${retryNonce}`;
-  const [requestSnapshot, setRequestSnapshot] = useState<DetailRequestSnapshot>(() => {
-    return {
-      key: requestKey,
-      state: { kind: "idle" },
-    };
+  const { requestState, retry } = useLocationDetailRequest({
+    sessionId,
+    itemId,
+    activationVersion,
+    shouldRequestProviderDetail: Boolean(itemContext) && shouldRequestProviderDetail,
   });
-  const requestState =
-    requestSnapshot.key === requestKey
-      ? requestSnapshot.state
-      : ({ kind: "idle" } satisfies DetailRequestState);
-
-  useEffect(() => {
-    requestIdRef.current += 1;
-    const requestId = requestIdRef.current;
-
-    if (!itemContext || !shouldRequestProviderDetail) {
-      return;
-    }
-
-    void requestPlanningSessionLocationDetail(sessionId, itemId)
-      .then((detail) => {
-        if (!shouldApplyLocationDetailResponse({
-          activeRequestId: requestIdRef.current,
-          responseRequestId: requestId,
-        })) {
-          return;
-        }
-
-        setRequestSnapshot({
-          key: requestKey,
-          state: { kind: "success", detail },
-        });
-      })
-      .catch((error) => {
-        if (!shouldApplyLocationDetailResponse({
-          activeRequestId: requestIdRef.current,
-          responseRequestId: requestId,
-        })) {
-          return;
-        }
-
-        setRequestSnapshot({
-          key: requestKey,
-          state: {
-            kind: "error",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Unable to load location details right now. Please retry.",
-            retryable:
-              error instanceof Error
-              && "retryable" in error
-              && typeof error.retryable === "boolean"
-                ? error.retryable
-                : true,
-          },
-        });
-      });
-  }, [itemContext, itemId, requestKey, sessionId, shouldRequestProviderDetail]);
 
   if (!itemContext) {
     return (
@@ -219,9 +148,7 @@ export function LocationDetailPanel({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setRetryNonce((value) => value + 1);
-                }}
+                onClick={retry}
                 className="rounded-xl"
               >
                 Retry

@@ -9,11 +9,13 @@ import {
 } from "react";
 
 import {
-  findScopedItineraryItemElementById,
   toItineraryKanbanViewModel,
 } from "@/lib/planning-sessions/itinerary-kanban";
 import {
-  shouldOpenLocationDetailForInteraction,
+  shouldOpenDetailForTitleInteraction,
+  shouldSelectItemForInteraction,
+} from "@/lib/planning-sessions/location-detail-activation";
+import {
   shouldPreviewMapMarkerForInteraction,
 } from "@/lib/planning-sessions/location-detail-interactions";
 import type { PersistedItinerary } from "@/lib/planning-sessions/types";
@@ -22,15 +24,11 @@ interface ItineraryKanbanBoardProps {
   itinerary: PersistedItinerary | null;
   selectedItemId?: string | null;
   selectionActivationVersion?: number;
-  detailEligibleItemIds?: Set<string>;
   interactiveItemIds?: Set<string>;
   isMapLinkedInteractionEnabled?: boolean;
-  focusRestoreItemId?: string | null;
+  focusRestoreElementId?: string | null;
   focusRestoreVersion?: number;
-  onActivateLocationDetailItem?: (input: {
-    itemId: string;
-    triggerElement: HTMLElement | null;
-  }) => void;
+  onActivateLocationDetailItem?: (itemId: string) => void;
   onPreviewInteractiveItem?: (itemId: string | null) => void;
   onActivateInteractiveItem?: (itemId: string) => void;
 }
@@ -39,10 +37,9 @@ export function ItineraryKanbanBoard({
   itinerary,
   selectedItemId = null,
   selectionActivationVersion = 0,
-  detailEligibleItemIds,
   interactiveItemIds,
   isMapLinkedInteractionEnabled = false,
-  focusRestoreItemId = null,
+  focusRestoreElementId = null,
   focusRestoreVersion = 0,
   onActivateLocationDetailItem,
   onPreviewInteractiveItem,
@@ -132,10 +129,9 @@ export function ItineraryKanbanBoard({
       return;
     }
 
-    const selectedElement = findScopedItineraryItemElementById({
-      root: boardScrollRef.current,
-      itemId: selectedItemId,
-    });
+    const selectedElement = boardScrollRef.current?.querySelector<HTMLElement>(
+      `[data-itinerary-item-id="${selectedItemId}"]`,
+    ) ?? null;
 
     if (!selectedElement) {
       return;
@@ -149,21 +145,18 @@ export function ItineraryKanbanBoard({
   }, [selectedItemId, selectionActivationVersion]);
 
   useEffect(() => {
-    if (!focusRestoreItemId) {
+    if (!focusRestoreElementId) {
       return;
     }
 
-    const selectedElement = findScopedItineraryItemElementById({
-      root: boardScrollRef.current,
-      itemId: focusRestoreItemId,
-    });
+    const selectedElement = document.getElementById(focusRestoreElementId);
 
     if (!selectedElement) {
       return;
     }
 
     selectedElement.focus({ preventScroll: true });
-  }, [focusRestoreItemId, focusRestoreVersion]);
+  }, [focusRestoreElementId, focusRestoreVersion]);
 
   const handleBoardScroll = () => {
     const boardScroll = boardScrollRef.current;
@@ -209,10 +202,6 @@ export function ItineraryKanbanBoard({
   const interactiveIds = useMemo(() => {
     return interactiveItemIds ?? new Set<string>();
   }, [interactiveItemIds]);
-
-  const detailEligibleIds = useMemo(() => {
-    return detailEligibleItemIds ?? new Set<string>();
-  }, [detailEligibleItemIds]);
 
   if (!itinerary) {
     return (
@@ -293,16 +282,15 @@ export function ItineraryKanbanBoard({
                           return part !== null;
                         });
 
-                        const isDetailEligible = detailEligibleIds.has(item.id);
                         const isMapInteractive =
                           isMapLinkedInteractionEnabled && interactiveIds.has(item.id);
                         const isSelected = selectedItemId === item.id;
 
+                        const titleControlId = `itinerary-item-title-${item.id}`;
+
                         return (
                           <li key={item.id}>
-                            {isDetailEligible ? (
-                              <button
-                                type="button"
+                              <article
                                 data-itinerary-item-id={item.id}
                                 onMouseEnter={() => {
                                   onPreviewInteractiveItem?.(
@@ -317,6 +305,9 @@ export function ItineraryKanbanBoard({
                                 onMouseLeave={() => {
                                   onPreviewInteractiveItem?.(null);
                                 }}
+                                tabIndex={0}
+                                role="button"
+                                aria-pressed={isSelected}
                                 onFocus={() => {
                                   onPreviewInteractiveItem?.(
                                     shouldPreviewMapMarkerForInteraction({
@@ -330,29 +321,70 @@ export function ItineraryKanbanBoard({
                                 onBlur={() => {
                                   onPreviewInteractiveItem?.(null);
                                 }}
-                                onClick={(event) => {
-                                  if (!shouldOpenLocationDetailForInteraction("click")) {
+                                onClick={() => {
+                                  if (!shouldSelectItemForInteraction("card-click")) {
                                     return;
                                   }
 
                                   if (isMapInteractive) {
                                     onActivateInteractiveItem?.(item.id);
                                   }
-
-                                  onActivateLocationDetailItem?.({
-                                    itemId: item.id,
-                                    triggerElement: event.currentTarget,
-                                  });
                                 }}
-                                aria-pressed={isSelected}
-                                className={`block w-full space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    if (shouldSelectItemForInteraction("card-enter")) {
+                                      event.preventDefault();
+                                      if (isMapInteractive) {
+                                        onActivateInteractiveItem?.(item.id);
+                                      }
+                                    }
+                                  }
+
+                                  if (event.key === " ") {
+                                    if (shouldSelectItemForInteraction("card-space")) {
+                                      event.preventDefault();
+                                      if (isMapInteractive) {
+                                        onActivateInteractiveItem?.(item.id);
+                                      }
+                                    }
+                                  }
+                                }}
+                                className={`space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
                               >
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                                   {item.typeLabel}
                                 </p>
-                                <h4 className="text-sm font-semibold text-text-primary">
+                                <button
+                                  id={titleControlId}
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+
+                                    if (!shouldOpenDetailForTitleInteraction("title-click")) {
+                                      return;
+                                    }
+
+                                    onActivateLocationDetailItem?.(item.id);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") {
+                                      if (shouldOpenDetailForTitleInteraction("title-enter")) {
+                                        event.preventDefault();
+                                        onActivateLocationDetailItem?.(item.id);
+                                      }
+                                    }
+
+                                    if (event.key === " ") {
+                                      if (shouldOpenDetailForTitleInteraction("title-space")) {
+                                        event.preventDefault();
+                                        onActivateLocationDetailItem?.(item.id);
+                                      }
+                                    }
+                                  }}
+                                  className="inline-flex items-center rounded-lg text-sm font-semibold text-text-primary underline-offset-2 hover:text-accent-primary hover:underline focus-visible:text-accent-primary focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                                >
                                   {item.title}
-                                </h4>
+                                </button>
                                 <p className="text-sm text-text-secondary">{item.description}</p>
                                 <p className="text-sm text-text-primary">{item.planningText}</p>
                                 {timeAndDurationParts.length > 0 ? (
@@ -360,8 +392,7 @@ export function ItineraryKanbanBoard({
                                     {timeAndDurationParts.join(" • ")}
                                   </p>
                                 ) : null}
-                              </button>
-                            ) : null}
+                              </article>
                           </li>
                         );
                       })}
