@@ -17,6 +17,7 @@ interface GooglePlacesServerConfig {
 
 interface GooglePlacesTextSearchInput {
   query: string;
+  expectedIdentity: string;
   timeoutMs?: number;
 }
 
@@ -190,32 +191,62 @@ export function isValidGooglePlaceCoordinates(
   );
 }
 
-export function isDisplayNameCompatibleWithQuery(
-  query: string,
+const SAFE_ALIAS_DESCRIPTOR_TOKENS = new Set([
+  "de",
+  "des",
+  "du",
+  "garden",
+  "jardin",
+  "museum",
+  "musee",
+  "the",
+]);
+
+const PLACE_TYPE_DESCRIPTOR_GROUPS: Record<string, string> = {
+  aquarium: "aquarium",
+  waterpark: "aquarium",
+  museum: "museum",
+  musee: "museum",
+  "博物館": "museum",
+  garden: "garden",
+  jardin: "garden",
+  zoo: "zoo",
+  gallery: "gallery",
+  galerie: "gallery",
+  opera: "opera",
+  "水族館": "aquarium",
+};
+
+export function isDisplayNameCompatibleWithIdentity(
+  expectedIdentity: string,
   displayName: string,
 ): boolean {
-  const normalizedQuery = normalizeSearchText(query);
+  const normalizedExpectedIdentity = normalizeSearchText(expectedIdentity);
   const normalizedDisplayName = normalizeSearchText(displayName);
 
-  if (!normalizedQuery || !normalizedDisplayName) {
+  if (!normalizedExpectedIdentity || !normalizedDisplayName) {
     return false;
   }
 
-  if (normalizedQuery === normalizedDisplayName) {
+  if (normalizedExpectedIdentity === normalizedDisplayName) {
     return true;
   }
 
-  const queryWords = tokenizeSearchText(normalizedQuery);
+  const expectedIdentityWords = tokenizeSearchText(normalizedExpectedIdentity);
   const displayNameWords = tokenizeSearchText(normalizedDisplayName);
 
-  if (queryWords.length === 0 || displayNameWords.length === 0) {
+  if (expectedIdentityWords.length === 0 || displayNameWords.length === 0) {
     return false;
   }
 
   const shorterWords =
-    queryWords.length <= displayNameWords.length ? queryWords : displayNameWords;
+    expectedIdentityWords.length <= displayNameWords.length
+      ? expectedIdentityWords
+      : displayNameWords;
   const longerWords =
-    queryWords.length <= displayNameWords.length ? displayNameWords : queryWords;
+    expectedIdentityWords.length <= displayNameWords.length
+      ? displayNameWords
+      : expectedIdentityWords;
 
   // Require at least a two-word whole phrase before accepting phrase containment.
   if (
@@ -225,9 +256,20 @@ export function isDisplayNameCompatibleWithQuery(
     return true;
   }
 
-  const queryWordSet = new Set(queryWords);
+  const expectedDescriptorGroups = derivePlaceTypeDescriptorGroups(expectedIdentityWords);
+  const displayDescriptorGroups = derivePlaceTypeDescriptorGroups(displayNameWords);
+
+  if (
+    expectedDescriptorGroups.size > 0
+    && displayDescriptorGroups.size > 0
+    && !hasOverlappingDescriptorGroup(expectedDescriptorGroups, displayDescriptorGroups)
+  ) {
+    return false;
+  }
+
+  const expectedIdentityWordSet = new Set(expectedIdentityWords);
   const sharedWords = displayNameWords.filter((word, index, words) => {
-    return queryWordSet.has(word) && words.indexOf(word) === index;
+    return expectedIdentityWordSet.has(word) && words.indexOf(word) === index;
   });
 
   if (sharedWords.length === 0) {
@@ -250,65 +292,89 @@ export function isDisplayNameCompatibleWithQuery(
     return false;
   }
 
-  const startsBoth =
-    queryWords[0] === distinctiveToken && displayNameWords[0] === distinctiveToken;
-  const hasExtraQueryWords = queryWords.some((word) => word !== distinctiveToken);
-  const hasExtraDisplayWords = displayNameWords.some(
-    (word) => word !== distinctiveToken,
+  const distinctiveExpectedIdentityWords = expectedIdentityWords.filter(
+    (word) => !isGenericMatchToken(word),
   );
-
-  // Prevent city/country context-only verification for different places
-  // (including non-Latin context tokens) when only one token overlaps.
-  if (
-    startsBoth
-    && hasExtraQueryWords
-    && hasExtraDisplayWords
-    && sharedWords.length < 2
-  ) {
-    return false;
-  }
-
-  const distinctiveQueryWords = queryWords.filter((word) => !isGenericMatchToken(word));
   const distinctiveDisplayWords = displayNameWords.filter((word) => !isGenericMatchToken(word));
 
-  if (sharedDistinctiveWords.some((word) => /[^\x00-\x7F]/.test(word))) {
-    return true;
-  }
-
-  const unmatchedDistinctiveQueryWords = distinctiveQueryWords.filter((word) => {
+  const unmatchedDistinctiveExpectedWords = distinctiveExpectedIdentityWords.filter((word) => {
     return !sharedDistinctiveWords.includes(word);
   });
   const unmatchedDistinctiveDisplayWords = distinctiveDisplayWords.filter((word) => {
     return !sharedDistinctiveWords.includes(word);
   });
 
+  if (
+    sharedDistinctiveWords.length === 1
+    && /[^\x00-\x7F]/.test(distinctiveToken)
+    && (expectedIdentityWords.length === 1 || displayNameWords.length === 1)
+  ) {
+    return true;
+  }
+
   // If both sides have extra distinctive identity terms, shared overlap is likely
   // location context (e.g. city) rather than the place identity.
   if (
-    unmatchedDistinctiveQueryWords.length > 0
+    unmatchedDistinctiveExpectedWords.length > 0
     && unmatchedDistinctiveDisplayWords.length > 0
   ) {
     return false;
   }
 
-  if (
-    startsBoth
-    && unmatchedDistinctiveQueryWords.length + unmatchedDistinctiveDisplayWords.length > 1
-  ) {
-    return false;
+  // With only one shared distinctive token, any extra terms on both sides are
+  // context-only overlap unless all extras are safe alias descriptors.
+  if (sharedDistinctiveWords.length === 1) {
+    const extraExpectedWords = expectedIdentityWords.filter((word) => word !== distinctiveToken);
+    const extraDisplayWords = displayNameWords.filter((word) => word !== distinctiveToken);
+
+    if (extraExpectedWords.length > 0 && extraDisplayWords.length > 0) {
+      const expectedExtrasAreSafe = extraExpectedWords.every((word) => {
+        return SAFE_ALIAS_DESCRIPTOR_TOKENS.has(word) || isGenericMatchToken(word);
+      });
+      const displayExtrasAreSafe = extraDisplayWords.every((word) => {
+        return SAFE_ALIAS_DESCRIPTOR_TOKENS.has(word) || isGenericMatchToken(word);
+      });
+
+      if (!expectedExtrasAreSafe || !displayExtrasAreSafe) {
+        return false;
+      }
+    }
   }
 
   // Accept a single shared distinctive token for localized/canonical alias pairs,
   // but avoid broad one-word query matches.
   return (
     distinctiveToken.length >= 4
-    && queryWords.length >= 2
+    && expectedIdentityWords.length >= 2
     && displayNameWords.length >= 2
   );
 }
 
 function tokenizeSearchText(value: string): string[] {
   return value.split(" ").filter((part) => part.length > 0);
+}
+
+function derivePlaceTypeDescriptorGroups(words: string[]): Set<string> {
+  const groups = new Set<string>();
+
+  words.forEach((word) => {
+    const group = PLACE_TYPE_DESCRIPTOR_GROUPS[word];
+    if (group) {
+      groups.add(group);
+    }
+  });
+
+  return groups;
+}
+
+function hasOverlappingDescriptorGroup(left: Set<string>, right: Set<string>): boolean {
+  for (const value of left) {
+    if (right.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function searchGooglePlaceByText(
@@ -325,8 +391,9 @@ export async function searchGooglePlaceByText(
   }
 
   const query = input.query.trim();
+  const expectedIdentity = input.expectedIdentity.trim();
 
-  if (!query) {
+  if (!query || !expectedIdentity) {
     return { kind: "NO_RESULT" };
   }
 
@@ -429,7 +496,7 @@ export async function searchGooglePlaceByText(
       return { kind: "INVALID_RESULT" };
     }
 
-    if (!isDisplayNameCompatibleWithQuery(query, displayName)) {
+    if (!isDisplayNameCompatibleWithIdentity(expectedIdentity, displayName)) {
       return { kind: "INVALID_RESULT" };
     }
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   getGooglePlaceDetails,
   getGooglePlacesProviderAvailability,
-  isDisplayNameCompatibleWithQuery,
+  isDisplayNameCompatibleWithIdentity,
   isValidGooglePlaceCoordinates,
   parseGooglePlacesServerConfig,
   searchGooglePlaceByText,
@@ -130,84 +130,111 @@ async function testProviderBoundary() {
   assert.equal(isValidGooglePlaceCoordinates(35.6, 139.7), true);
   assert.equal(isValidGooglePlaceCoordinates(99, 139.7), false);
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Senso-ji Temple Tokyo", "Senso-ji Temple"),
+    isDisplayNameCompatibleWithIdentity("Senso-ji Temple Tokyo", "Senso-ji Temple"),
     true,
   );
-  assert.equal(isDisplayNameCompatibleWithQuery("Tokyo", "Tokyo Station"), false);
+  assert.equal(isDisplayNameCompatibleWithIdentity("Tokyo", "Tokyo Station"), false);
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Tokyo Station Japan", "Tokyo Station"),
-    true,
-  );
-  assert.equal(
-    isDisplayNameCompatibleWithQuery("Musée du Louvre", "Louvre Museum"),
+    isDisplayNameCompatibleWithIdentity("Tokyo Station Japan", "Tokyo Station"),
     true,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Jardin des Tuileries", "Tuileries Garden"),
+    isDisplayNameCompatibleWithIdentity("Musée du Louvre", "Louvre Museum"),
     true,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Paris Opera", "Paris Aquarium"),
+    isDisplayNameCompatibleWithIdentity("Jardin des Tuileries", "Tuileries Garden"),
+    true,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Opera", "Paris Aquarium"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Paris Aquarium", "Paris Opera"),
+    isDisplayNameCompatibleWithIdentity("Paris Aquarium", "Paris Opera"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Paris Museum", "Paris Aquarium"),
+    isDisplayNameCompatibleWithIdentity("Paris Museum", "Paris Aquarium"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Paris Aquarium", "Paris Museum"),
+    isDisplayNameCompatibleWithIdentity("Paris Aquarium", "Paris Museum"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Manchester Museum", "Manchester Art Gallery"),
+    isDisplayNameCompatibleWithIdentity("Museum Paris", "Aquarium Paris"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Manchester Art Gallery", "Manchester Museum"),
+    isDisplayNameCompatibleWithIdentity("Aquarium Paris", "Museum Paris"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Manchester Museum", "Manchester Aquarium"),
+    isDisplayNameCompatibleWithIdentity("Manchester Museum", "Manchester Art Gallery"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Manchester Aquarium", "Manchester Museum"),
+    isDisplayNameCompatibleWithIdentity("Manchester Art Gallery", "Manchester Museum"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("London Museum", "London Zoo"),
+    isDisplayNameCompatibleWithIdentity("Manchester Museum", "Manchester Aquarium"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("London Zoo", "London Museum"),
+    isDisplayNameCompatibleWithIdentity("Manchester Aquarium", "Manchester Museum"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("東京 博物館", "東京 水族館"),
+    isDisplayNameCompatibleWithIdentity("London Museum", "London Zoo"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("東京 水族館", "東京 博物館"),
+    isDisplayNameCompatibleWithIdentity("London Zoo", "London Museum"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Modern Art Museum", "Science Museum"),
+    isDisplayNameCompatibleWithIdentity("東京 博物館", "東京 水族館"),
     false,
   );
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Tokyo Garden", "Kyoto Garden"),
+    isDisplayNameCompatibleWithIdentity("東京 水族館", "東京 博物館"),
     false,
   );
-  assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "東京駅"), true);
-  assert.equal(isDisplayNameCompatibleWithQuery("東京駅 Tokyo Station", "東京駅"), true);
-  assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "大阪駅"), false);
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("博物館 東京", "水族館 東京"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("水族館 東京", "博物館 東京"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris France Museum", "Paris France Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris France Aquarium", "Paris France Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Modern Art Museum", "Science Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Tokyo Garden", "Kyoto Garden"),
+    false,
+  );
+  assert.equal(isDisplayNameCompatibleWithIdentity("東京駅", "東京駅"), true);
+  assert.equal(isDisplayNameCompatibleWithIdentity("東京駅 Tokyo Station", "東京駅"), true);
+  assert.equal(isDisplayNameCompatibleWithIdentity("東京駅", "大阪駅"), false);
 
   delete process.env.GOOGLE_PLACES_API_KEY;
-  const missingCredentialResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const missingCredentialResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(missingCredentialResult, {
     kind: "FAILED",
     reason: "CONFIGURATION",
@@ -219,7 +246,10 @@ async function testProviderBoundary() {
   globalThis.fetch = async () => {
     throw new Error("network down");
   };
-  const rejectedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const rejectedResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(rejectedResult, {
     kind: "FAILED",
     reason: "REQUEST",
@@ -229,7 +259,10 @@ async function testProviderBoundary() {
   globalThis.fetch = async () => {
     return new Response("not json", { status: 200 });
   };
-  const malformedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const malformedResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(malformedResult, {
     kind: "FAILED",
     reason: "MALFORMED_RESPONSE",
@@ -239,7 +272,10 @@ async function testProviderBoundary() {
   globalThis.fetch = async () => {
     return new Response(JSON.stringify({ places: [] }), { status: 200 });
   };
-  const emptyResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const emptyResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(emptyResult, { kind: "NO_RESULT" });
 
   globalThis.fetch = async () => {
@@ -256,7 +292,10 @@ async function testProviderBoundary() {
       { status: 200 },
     );
   };
-  const invalidCoordinateResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const invalidCoordinateResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(invalidCoordinateResult, { kind: "INVALID_RESULT" });
 
   globalThis.fetch = async () => {
@@ -273,7 +312,10 @@ async function testProviderBoundary() {
       { status: 200 },
     );
   };
-  const verifiedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const verifiedResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(verifiedResult, {
     kind: "VERIFIED",
     placeId: "places/abc",
@@ -295,7 +337,10 @@ async function testProviderBoundary() {
       { status: 200 },
     );
   };
-  const nonLatinVerifiedResult = await searchGooglePlaceByText({ query: "東京駅" });
+  const nonLatinVerifiedResult = await searchGooglePlaceByText({
+    query: "東京駅",
+    expectedIdentity: "東京駅",
+  });
   assert.deepEqual(nonLatinVerifiedResult, {
     kind: "VERIFIED",
     placeId: "places/tokyo-eki",
@@ -328,6 +373,7 @@ async function testProviderBoundary() {
   };
   const timeoutResult = await searchGooglePlaceByText({
     query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
     timeoutMs: 1,
   });
   assert.deepEqual(timeoutResult, {
@@ -367,6 +413,7 @@ async function testProviderBoundary() {
   };
   const stalledBodyTimeoutResult = await searchGooglePlaceByText({
     query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
     timeoutMs: 1,
   });
   assert.deepEqual(stalledBodyTimeoutResult, {
@@ -524,6 +571,7 @@ async function testConcurrencyBoundAndContentPreservation() {
   let active = 0;
   let maxActive = 0;
   const calledQueries: string[] = [];
+  const calledExpectedIdentities: string[] = [];
   const now = new Date("2031-06-01T12:00:00.000Z");
   const sessionExpiresAt = new Date("2031-06-20T00:00:00.000Z");
 
@@ -532,8 +580,9 @@ async function testConcurrencyBoundAndContentPreservation() {
     sessionExpiresAt,
     now,
     concurrency: 2,
-    resolveQuery: async (query) => {
+    resolveQuery: async ({ query, expectedIdentity }) => {
       calledQueries.push(query);
+      calledExpectedIdentities.push(expectedIdentity);
       active += 1;
       maxActive = Math.max(maxActive, active);
       await new Promise((resolve) => setTimeout(resolve, 1));
@@ -565,6 +614,12 @@ async function testConcurrencyBoundAndContentPreservation() {
     "Park Hotel Tokyo",
     "Haneda Airport",
   ]);
+  assert.deepEqual(calledExpectedIdentities, [
+    "Senso-ji",
+    "Tokyo Station",
+    "Park Hotel",
+    "Transfer",
+  ]);
 
   const firstItem = result.itinerary.days[0]!.items[0]!;
   assert.equal(firstItem.placeReference?.provider, "GOOGLE");
@@ -589,7 +644,7 @@ async function testRequestCapBehavior() {
     sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
     maxRequests: 2,
     concurrency: 3,
-    resolveQuery: async (query) => {
+    resolveQuery: async ({ query }) => {
       calledQueries.push(query);
       return { kind: "NO_RESULT" as const };
     },
@@ -734,7 +789,7 @@ async function testUnexpectedLookupRejectionDoesNotFailResolution() {
     itinerary,
     sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
     concurrency: 1,
-    resolveQuery: async (query) => {
+    resolveQuery: async ({ query }) => {
       if (query === "Tokyo Station") {
         throw new Error("unexpected rejection");
       }

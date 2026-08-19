@@ -84,8 +84,11 @@ export const initialItineraryGenerationTask = schemaTask({
         checkProviderAvailability: async () => {
           return getGooglePlacesProviderAvailability();
         },
-        resolveQuery: async (query) => {
-          return searchGooglePlaceByText({ query });
+        resolveQuery: async ({ query, expectedIdentity }) => {
+          return searchGooglePlaceByText({
+            query,
+            expectedIdentity,
+          });
         },
       });
 

@@ -298,6 +298,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Added thin endpoint `GET /api/planning-sessions/[sessionId]/location-detail/[itemId]` that derives Place ID from canonical itinerary item and never accepts arbitrary client Place IDs.
 - Added atomic per-session request cap enforcement (max 60) before provider requests through `reservePlanningSessionLocationDetailAttempt`.
 - Added center-panel Location Detail runtime flow (ITINERARY vs LOCATION_DETAIL), close/retry behavior, stale-response protection, and focus restoration to activating card.
+- Stopped inferring identity from query token order by threading each canonical itinerary item title as expected place identity through generated-place resolution and Google Text Search verification.
 - Ensured itinerary-only/unverified items never trigger provider requests and never remain in loading state; these now render canonical itinerary-authored detail content only.
 - Preserved application-owned error semantics by propagating location-detail `retryable` metadata through operation -> route error payload -> client API -> panel error UI.
 - Updated location-detail panel retry behavior to show `Retry` only for transient/retryable failures.
@@ -307,7 +308,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
-	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives.
+	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, and country-context negatives.
 	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Pending:
 	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.

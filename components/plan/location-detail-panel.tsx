@@ -169,17 +169,6 @@ export function LocationDetailPanel({
               <span>{detail.formattedAddress}</span>
             </p>
           ) : null}
-          {showSuccess ? (
-            <p className="text-xs text-text-faint">
-              Source:{" "}
-              <span
-                translate="no"
-                className="whitespace-nowrap font-semibold tracking-tight text-text-secondary"
-              >
-                Google Maps
-              </span>
-            </p>
-          ) : null}
         </div>
         <Button
           type="button"
@@ -249,11 +238,11 @@ export function LocationDetailPanel({
               </div>
             ) : null}
 
-            <p className="text-[11px] text-text-faint">
-              Data source:{" "}
-              <span translate="no" className="whitespace-nowrap font-semibold tracking-tight">
-                Google Maps
-              </span>
+            <p
+              translate="no"
+              className="whitespace-nowrap text-sm font-normal tracking-normal text-text-secondary"
+            >
+              Google Maps
             </p>
           </div>
         ) : null}
