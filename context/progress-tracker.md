@@ -298,10 +298,15 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Added thin endpoint `GET /api/planning-sessions/[sessionId]/location-detail/[itemId]` that derives Place ID from canonical itinerary item and never accepts arbitrary client Place IDs.
 - Added atomic per-session request cap enforcement (max 60) before provider requests through `reservePlanningSessionLocationDetailAttempt`.
 - Added center-panel Location Detail runtime flow (ITINERARY vs LOCATION_DETAIL), close/retry behavior, stale-response protection, and focus restoration to activating card.
+- Ensured itinerary-only/unverified items never trigger provider requests and never remain in loading state; these now render canonical itinerary-authored detail content only.
+- Preserved application-owned error semantics by propagating location-detail `retryable` metadata through operation -> route error payload -> client API -> panel error UI.
+- Updated location-detail panel retry behavior to show `Retry` only for transient/retryable failures.
+- Replaced Google-content attribution placement with an in-container compliant attribution label (`© Google`) using required `translate="no"` and no-wrap treatment.
+- Hardened place-name compatibility to separate place identity from shared city/context overlap and prevent context-only false positives.
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
-	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage.
+	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester context-collision negatives.
 - Pending:
 	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.
 
@@ -375,6 +380,8 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run prisma:generate`: Pass
 	- `npm run location-detail-core:regression`: Pass
 	- `npm run generated-place-resolution:regression`: Pass
+	- `npm run map-markers-kanban-sync:regression`: Pass
+	- `npm run google-maps-foundation:regression`: Pass
 	- `npm run planning-session-client-api:regression`: Pass
 	- targeted ESLint on changed 21A files: Pass
 	- `npx tsc --noEmit`: Pass

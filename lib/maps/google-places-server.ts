@@ -245,12 +245,40 @@ export function isDisplayNameCompatibleWithQuery(
     return true;
   }
 
+  const distinctiveQueryWords = queryWords.filter((word) => !isGenericMatchToken(word));
+  const distinctiveDisplayWords = displayNameWords.filter((word) => !isGenericMatchToken(word));
+
   if (sharedDistinctiveWords.some((word) => /[^\x00-\x7F]/.test(word))) {
     return true;
   }
 
   const distinctiveToken = sharedDistinctiveWords[0] ?? null;
   if (!distinctiveToken) {
+    return false;
+  }
+
+  const unmatchedDistinctiveQueryWords = distinctiveQueryWords.filter((word) => {
+    return !sharedDistinctiveWords.includes(word);
+  });
+  const unmatchedDistinctiveDisplayWords = distinctiveDisplayWords.filter((word) => {
+    return !sharedDistinctiveWords.includes(word);
+  });
+
+  // If both sides have extra distinctive identity terms, shared overlap is likely
+  // location context (e.g. city) rather than the place identity.
+  if (
+    unmatchedDistinctiveQueryWords.length > 0
+    && unmatchedDistinctiveDisplayWords.length > 0
+  ) {
+    return false;
+  }
+
+  const startsBoth =
+    queryWords[0] === distinctiveToken && displayNameWords[0] === distinctiveToken;
+  if (
+    startsBoth
+    && unmatchedDistinctiveQueryWords.length + unmatchedDistinctiveDisplayWords.length > 1
+  ) {
     return false;
   }
 

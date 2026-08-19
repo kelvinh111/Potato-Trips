@@ -94,12 +94,14 @@ export function planningSessionErrorResponse(input: {
   code: PlanningSessionErrorCode;
   message: string;
   status: number;
+  retryable?: boolean;
 }) {
   return NextResponse.json(
     {
       error: {
         code: input.code,
         message: input.message,
+        retryable: input.retryable,
       },
     },
     { status: input.status },

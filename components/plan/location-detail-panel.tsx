@@ -22,9 +22,14 @@ interface LocationDetailPanelProps {
 }
 
 type DetailRequestState =
-  | { kind: "loading" }
+  | { kind: "idle" }
   | { kind: "success"; detail: PlanningSessionLocationDetailApiPayload }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; retryable: boolean };
+
+interface DetailRequestSnapshot {
+  key: string;
+  state: DetailRequestState;
+}
 
 export function LocationDetailPanel({
   sessionId,
@@ -34,7 +39,6 @@ export function LocationDetailPanel({
   onClose,
 }: LocationDetailPanelProps) {
   const [retryNonce, setRetryNonce] = useState(0);
-  const [requestState, setRequestState] = useState<DetailRequestState>({ kind: "loading" });
   const requestIdRef = useRef(0);
 
   const itemContext = useMemo(() => {
@@ -50,14 +54,25 @@ export function LocationDetailPanel({
     kind: "click",
     hasGooglePlaceId: hasProviderDetailEligibility,
   });
+  const requestKey = `${sessionId}:${itemId}:${activationVersion}:${retryNonce}`;
+  const [requestSnapshot, setRequestSnapshot] = useState<DetailRequestSnapshot>(() => {
+    return {
+      key: requestKey,
+      state: { kind: "idle" },
+    };
+  });
+  const requestState =
+    requestSnapshot.key === requestKey
+      ? requestSnapshot.state
+      : ({ kind: "idle" } satisfies DetailRequestState);
 
   useEffect(() => {
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
+
     if (!itemContext || !shouldRequestProviderDetail) {
       return;
     }
-
-    requestIdRef.current += 1;
-    const requestId = requestIdRef.current;
 
     void requestPlanningSessionLocationDetail(sessionId, itemId)
       .then((detail) => {
@@ -68,7 +83,10 @@ export function LocationDetailPanel({
           return;
         }
 
-        setRequestState({ kind: "success", detail });
+        setRequestSnapshot({
+          key: requestKey,
+          state: { kind: "success", detail },
+        });
       })
       .catch((error) => {
         if (!shouldApplyLocationDetailResponse({
@@ -78,15 +96,24 @@ export function LocationDetailPanel({
           return;
         }
 
-        setRequestState({
-          kind: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unable to load location details right now. Please retry.",
+        setRequestSnapshot({
+          key: requestKey,
+          state: {
+            kind: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unable to load location details right now. Please retry.",
+            retryable:
+              error instanceof Error
+              && "retryable" in error
+              && typeof error.retryable === "boolean"
+                ? error.retryable
+                : true,
+          },
         });
       });
-  }, [activationVersion, itemContext, itemId, retryNonce, sessionId, shouldRequestProviderDetail]);
+  }, [itemContext, itemId, requestKey, sessionId, shouldRequestProviderDetail]);
 
   if (!itemContext) {
     return (
@@ -156,7 +183,7 @@ export function LocationDetailPanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-        {requestState.kind === "loading" ? (
+        {shouldRequestProviderDetail && requestState.kind === "idle" ? (
           <p
             role="status"
             aria-live="polite"
@@ -174,17 +201,18 @@ export function LocationDetailPanel({
             className="space-y-3 rounded-2xl border border-state-error/30 bg-state-error/10 px-4 py-3"
           >
             <p className="text-sm text-state-error">{requestState.message}</p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setRequestState({ kind: "loading" });
-                setRetryNonce((value) => value + 1);
-              }}
-              className="rounded-xl"
-            >
-              Retry
-            </Button>
+            {requestState.retryable ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setRetryNonce((value) => value + 1);
+                }}
+                className="rounded-xl"
+              >
+                Retry
+              </Button>
+            ) : null}
           </div>
         ) : null}
 
@@ -207,6 +235,13 @@ export function LocationDetailPanel({
                 >
                   View on Google Maps
                 </a>
+
+                <p
+                  translate="no"
+                  className="mt-2 whitespace-nowrap text-[11px] font-medium text-text-faint"
+                >
+                  © Google
+                </p>
               </div>
             ) : null}
           </div>
@@ -234,10 +269,6 @@ export function LocationDetailPanel({
             {itemContext.planningText}
           </p>
         </div>
-
-        {showSuccess ? (
-          <p className="mt-4 text-xs text-text-faint">Place data © Google Maps</p>
-        ) : null}
       </div>
     </section>
   );

@@ -330,6 +330,33 @@ async function testUsageLimitAndProviderFailureMapping() {
     reason: "REQUEST",
     retryable: true,
   });
+
+  const nonRetryableProviderFailure = await getPlanningSessionLocationDetailWithDependencies(
+    {
+      sessionId: "session-1",
+      itemId: "item-place",
+    },
+    {
+      findSessionById: async () => createGeneratedSession(),
+      isSessionExpired: () => false,
+      reserveAttempt: async () => ({ locationDetailAttempts: 3 }),
+      getProviderAvailability: () => ({ ok: true }),
+      getPlaceDetails: async () => ({
+        kind: "FAILED",
+        reason: "MALFORMED_RESPONSE",
+        retryable: false,
+        providerWide: false,
+      }),
+      maxAttempts: 60,
+      logOutcome: () => {},
+    },
+  );
+
+  assert.deepEqual(nonRetryableProviderFailure, {
+    kind: "PROVIDER_FAILURE",
+    reason: "MALFORMED_RESPONSE",
+    retryable: false,
+  });
 }
 
 async function testNoProviderCallForInvalidStates() {

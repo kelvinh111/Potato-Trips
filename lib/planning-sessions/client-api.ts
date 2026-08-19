@@ -17,6 +17,7 @@ interface ApiErrorPayload {
   error: {
     code: string;
     message: string;
+    retryable?: boolean;
   };
 }
 
@@ -26,6 +27,7 @@ const apiErrorPayloadSchema = z
       .object({
         code: z.string(),
         message: z.string().trim().min(1),
+        retryable: z.boolean().optional(),
       })
       .strict(),
   })
@@ -59,9 +61,17 @@ export interface PlanningSessionLocationDetailApiPayload {
 }
 
 export class PlanningSessionClientApiError extends Error {
-  constructor(message: string) {
+  readonly code: string | null;
+  readonly retryable: boolean | null;
+
+  constructor(
+    message: string,
+    options?: { code?: string | null; retryable?: boolean | null },
+  ) {
     super(message);
     this.name = "PlanningSessionClientApiError";
+    this.code = options?.code ?? null;
+    this.retryable = options?.retryable ?? null;
   }
 }
 
@@ -90,13 +100,28 @@ function parseApiErrorPayload(payload: unknown): ApiErrorPayload | null {
   return result.data;
 }
 
-function readApiErrorMessage(payload: unknown): string {
+function readApiError(payload: unknown): {
+  message: string;
+  code: string | null;
+  retryable: boolean | null;
+} {
   const parsedPayload = parseApiErrorPayload(payload);
   if (parsedPayload) {
-    return parsedPayload.error.message;
+    return {
+      message: parsedPayload.error.message,
+      code: parsedPayload.error.code,
+      retryable:
+        typeof parsedPayload.error.retryable === "boolean"
+          ? parsedPayload.error.retryable
+          : null,
+    };
   }
 
-  return "Unable to complete that request. Please try again.";
+  return {
+    message: "Unable to complete that request. Please try again.",
+    code: null,
+    retryable: null,
+  };
 }
 
 function parseGenerationAttempts(value: unknown, invalidMessage: string): number {
@@ -209,7 +234,11 @@ async function requestPlanningSessionApi(
   const payload = await parseJsonPayload(response);
 
   if (!response.ok) {
-    throw new PlanningSessionClientApiError(readApiErrorMessage(payload));
+    const apiError = readApiError(payload);
+    throw new PlanningSessionClientApiError(apiError.message, {
+      code: apiError.code,
+      retryable: apiError.retryable,
+    });
   }
 
   return payload;

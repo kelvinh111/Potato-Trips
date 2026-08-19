@@ -22,6 +22,7 @@ export async function GET(
       code: "INVALID_REQUEST",
       message: "Invalid request parameters.",
       status: 400,
+        retryable: false,
     });
   }
 
@@ -36,6 +37,7 @@ export async function GET(
         code: "PLANNING_SESSION_NOT_FOUND",
         message: "Planning session not found.",
         status: 404,
+        retryable: false,
       });
     }
 
@@ -44,6 +46,7 @@ export async function GET(
         code: "PLANNING_SESSION_EXPIRED",
         message: "Planning session has expired.",
         status: 410,
+        retryable: false,
       });
     }
 
@@ -59,6 +62,7 @@ export async function GET(
         code: "LOCATION_DETAIL_UNAVAILABLE",
         message,
         status: 404,
+        retryable: false,
       });
     }
 
@@ -68,6 +72,7 @@ export async function GET(
         message:
           "Location detail request limit reached for this session. Start a new session to continue.",
         status: 429,
+        retryable: false,
       });
     }
 
@@ -89,6 +94,7 @@ export async function GET(
         code: "LOCATION_DETAIL_UNAVAILABLE",
         message,
         status,
+        retryable: result.retryable,
       });
     }
 
@@ -98,6 +104,7 @@ export async function GET(
       code: "INTERNAL_ERROR",
       message: "Internal server error.",
       status: 500,
+      retryable: true,
     });
   }
 }
