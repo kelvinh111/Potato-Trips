@@ -203,6 +203,7 @@ const SAFE_ALIAS_DESCRIPTOR_TOKENS = new Set([
   "jardin",
   "museum",
   "musee",
+  "temple",
   "the",
 ]);
 

@@ -304,12 +304,13 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Updated location-detail panel retry behavior to show `Retry` only for transient/retryable failures.
 - Replaced Google-content attribution with compliant `Google Maps` text attribution rendered for every successful provider response (including missing `googleMapsUri`), and associated provider display name/address/category/link with attributed provider-content containers only (no attribution applied to itinerary-authored content blocks).
 - Removed unsafe unconditional phrase-containment success; containment now verifies only when extra tokens are explicitly safe alias descriptors, while conflicting place-type and unsafe qualifier expansions remain unverified.
+- Added `temple` as an explicit safe alias descriptor so canonical title `Senso-ji` safely matches provider display name `Senso-ji Temple` without re-allowing unsafe generic qualifiers.
 - Preserved required positive identity cases (Senso-ji, Louvre, Tuileries) under conservative identity validation.
 - Removed retry instructions from non-retryable limit/provider-failure messages while preserving retry availability only when `retryable === true`.
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
-	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, country-context negatives, and qualifier-suffix negatives (`Tokyo Station Hotel`, `Louvre Museum Abu Dhabi`, `Paris Opera Hotel`, `Manchester Museum Shop`).
+	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, country-context negatives, qualifier-suffix negatives (`Tokyo Station Hotel`, `Louvre Museum Abu Dhabi`, `Paris Opera Hotel`, `Manchester Museum Shop`), and a Text Search boundary check proving context-bearing query input is validated against separate canonical identity (`Senso-ji Temple Tokyo` query + `Senso-ji` identity).
 	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Pending:
 	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.

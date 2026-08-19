@@ -130,7 +130,7 @@ async function testProviderBoundary() {
   assert.equal(isValidGooglePlaceCoordinates(35.6, 139.7), true);
   assert.equal(isValidGooglePlaceCoordinates(99, 139.7), false);
   assert.equal(
-    isDisplayNameCompatibleWithIdentity("Senso-ji Temple Tokyo", "Senso-ji Temple"),
+    isDisplayNameCompatibleWithIdentity("Senso-ji", "Senso-ji Temple"),
     true,
   );
   assert.equal(isDisplayNameCompatibleWithIdentity("Tokyo", "Tokyo Station"), false);
@@ -362,6 +362,39 @@ async function testProviderBoundary() {
     placeId: "places/tokyo-eki",
     latitude: 35.6812,
     longitude: 139.7671,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        places: [
+          {
+            id: "places/sensoji",
+            displayName: { text: "Senso-ji Temple" },
+            location: { latitude: 35.7148, longitude: 139.7967 },
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+  };
+  const contextQueryCanonicalIdentityVerified = await searchGooglePlaceByText({
+    query: "Senso-ji Temple Tokyo",
+    expectedIdentity: "Senso-ji",
+  });
+  assert.deepEqual(contextQueryCanonicalIdentityVerified, {
+    kind: "VERIFIED",
+    placeId: "places/sensoji",
+    latitude: 35.7148,
+    longitude: 139.7967,
+  });
+
+  const contextQueryWrongCanonicalIdentityRejected = await searchGooglePlaceByText({
+    query: "Senso-ji Temple Tokyo",
+    expectedIdentity: "Tokyo Station",
+  });
+  assert.deepEqual(contextQueryWrongCanonicalIdentityRejected, {
+    kind: "INVALID_RESULT",
   });
 
   globalThis.fetch = (_input, init) => {
