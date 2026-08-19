@@ -160,15 +160,29 @@ export function LocationDetailPanel({
           <p className="inline-flex rounded-full border border-border-default bg-bg-elevated px-3 py-1 text-xs font-semibold text-text-secondary">
             {itemContext.itemTypeLabel}
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
-            {detail?.displayName ?? itemContext.title}
-          </h2>
-          {showSuccess && detail?.formattedAddress ? (
-            <p className="inline-flex items-start gap-2 text-sm text-text-secondary">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{detail.formattedAddress}</span>
-            </p>
-          ) : null}
+          {showSuccess ? (
+            <div className="space-y-2 rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-3">
+              <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
+                {detail?.displayName ?? itemContext.title}
+              </h2>
+              {detail?.formattedAddress ? (
+                <p className="inline-flex items-start gap-2 text-sm text-text-secondary">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{detail.formattedAddress}</span>
+                </p>
+              ) : null}
+              <p
+                translate="no"
+                className="whitespace-nowrap text-sm font-normal tracking-normal text-text-secondary"
+              >
+                Google Maps
+              </p>
+            </div>
+          ) : (
+            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
+              {itemContext.title}
+            </h2>
+          )}
         </div>
         <Button
           type="button"

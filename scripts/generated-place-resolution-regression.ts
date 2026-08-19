@@ -136,7 +136,7 @@ async function testProviderBoundary() {
   assert.equal(isDisplayNameCompatibleWithIdentity("Tokyo", "Tokyo Station"), false);
   assert.equal(
     isDisplayNameCompatibleWithIdentity("Tokyo Station Japan", "Tokyo Station"),
-    true,
+    false,
   );
   assert.equal(
     isDisplayNameCompatibleWithIdentity("Musée du Louvre", "Louvre Museum"),
@@ -224,6 +224,22 @@ async function testProviderBoundary() {
   );
   assert.equal(
     isDisplayNameCompatibleWithIdentity("Tokyo Garden", "Kyoto Garden"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Tokyo Station", "Tokyo Station Hotel"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Louvre Museum", "Louvre Museum Abu Dhabi"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Opera", "Paris Opera Hotel"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Manchester Museum", "Manchester Museum Shop"),
     false,
   );
   assert.equal(isDisplayNameCompatibleWithIdentity("東京駅", "東京駅"), true);

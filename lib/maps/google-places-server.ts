@@ -195,6 +195,10 @@ const SAFE_ALIAS_DESCRIPTOR_TOKENS = new Set([
   "de",
   "des",
   "du",
+  "of",
+  "la",
+  "le",
+  "les",
   "garden",
   "jardin",
   "museum",
@@ -248,12 +252,12 @@ export function isDisplayNameCompatibleWithIdentity(
       ? displayNameWords
       : expectedIdentityWords;
 
-  // Require at least a two-word whole phrase before accepting phrase containment.
   if (
-    shorterWords.length >= 2
-    && containsWholePhrase(longerWords, shorterWords)
+    displayNameWords.length > expectedIdentityWords.length
+    && containsWholePhrase(displayNameWords, expectedIdentityWords)
+    && !hasSafeContainmentAliasTokens(displayNameWords, expectedIdentityWords)
   ) {
-    return true;
+    return false;
   }
 
   const expectedDescriptorGroups = derivePlaceTypeDescriptorGroups(expectedIdentityWords);
@@ -265,6 +269,14 @@ export function isDisplayNameCompatibleWithIdentity(
     && !hasOverlappingDescriptorGroup(expectedDescriptorGroups, displayDescriptorGroups)
   ) {
     return false;
+  }
+
+  // Phrase containment can only verify identity when additional tokens are
+  // explicitly safe alias descriptors.
+  if (shorterWords.length >= 2 && containsWholePhrase(longerWords, shorterWords)) {
+    if (hasSafeContainmentAliasTokens(longerWords, shorterWords)) {
+      return true;
+    }
   }
 
   const expectedIdentityWordSet = new Set(expectedIdentityWords);
@@ -329,10 +341,10 @@ export function isDisplayNameCompatibleWithIdentity(
 
     if (extraExpectedWords.length > 0 && extraDisplayWords.length > 0) {
       const expectedExtrasAreSafe = extraExpectedWords.every((word) => {
-        return SAFE_ALIAS_DESCRIPTOR_TOKENS.has(word) || isGenericMatchToken(word);
+        return SAFE_ALIAS_DESCRIPTOR_TOKENS.has(word);
       });
       const displayExtrasAreSafe = extraDisplayWords.every((word) => {
-        return SAFE_ALIAS_DESCRIPTOR_TOKENS.has(word) || isGenericMatchToken(word);
+        return SAFE_ALIAS_DESCRIPTOR_TOKENS.has(word);
       });
 
       if (!expectedExtrasAreSafe || !displayExtrasAreSafe) {
@@ -370,6 +382,40 @@ function derivePlaceTypeDescriptorGroups(words: string[]): Set<string> {
 function hasOverlappingDescriptorGroup(left: Set<string>, right: Set<string>): boolean {
   for (const value of left) {
     if (right.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasSafeContainmentAliasTokens(
+  longerWords: string[],
+  containedPhraseWords: string[],
+): boolean {
+  if (containedPhraseWords.length === 0 || longerWords.length < containedPhraseWords.length) {
+    return false;
+  }
+
+  for (let i = 0; i <= longerWords.length - containedPhraseWords.length; i += 1) {
+    let matches = true;
+
+    for (let j = 0; j < containedPhraseWords.length; j += 1) {
+      if (longerWords[i + j] !== containedPhraseWords[j]) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (!matches) {
+      continue;
+    }
+
+    const beforeTokens = longerWords.slice(0, i);
+    const afterTokens = longerWords.slice(i + containedPhraseWords.length);
+    const extraTokens = beforeTokens.concat(afterTokens);
+
+    if (extraTokens.every((token) => SAFE_ALIAS_DESCRIPTOR_TOKENS.has(token))) {
       return true;
     }
   }
