@@ -491,8 +491,41 @@ async function testPlaceDetailsBoundary() {
   assert.deepEqual(authFailure, {
     kind: "FAILED",
     reason: "AUTHENTICATION",
-    retryable: true,
+    retryable: false,
     providerWide: true,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 400 });
+  };
+  const deterministicClientFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(deterministicClientFailure, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 429 });
+  };
+  const rateLimitFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(rateLimitFailure, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    retryable: true,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 503 });
+  };
+  const serverFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(serverFailure, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    retryable: true,
+    providerWide: false,
   });
 
   globalThis.fetch = async () => {

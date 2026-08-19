@@ -626,7 +626,7 @@ export async function getGooglePlaceDetails(
       return {
         kind: "FAILED",
         reason: "AUTHENTICATION",
-        retryable: true,
+        retryable: false,
         providerWide: true,
       };
     }
@@ -641,10 +641,15 @@ export async function getGooglePlaceDetails(
     }
 
     if (!response.ok) {
+      const isTransientStatus =
+        response.status === 408
+        || response.status === 429
+        || response.status >= 500;
+
       return {
         kind: "FAILED",
         reason: "REQUEST",
-        retryable: true,
+        retryable: isTransientStatus,
         providerWide: false,
       };
     }

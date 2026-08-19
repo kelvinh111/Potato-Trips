@@ -184,6 +184,7 @@ export function LocationDetailPanel({
               <p
                 translate="no"
                 className="whitespace-nowrap text-sm font-normal tracking-normal text-text-secondary"
+                style={{ color: "#5E5E5E" }}
               >
                 Google Maps
               </p>
@@ -265,6 +266,7 @@ export function LocationDetailPanel({
             <p
               translate="no"
               className="whitespace-nowrap text-sm font-normal tracking-normal text-text-secondary"
+              style={{ color: "#5E5E5E" }}
             >
               Google Maps
             </p>
