@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { shouldApplyLocationDetailResponse } from "@/lib/planning-sessions/location-detail-client-state";
+import {
+  shouldApplyLocationDetailResponse,
+  shouldStartLocationDetailRequest,
+} from "@/lib/planning-sessions/location-detail-client-state";
 import { findCanonicalItineraryItemContext } from "@/lib/planning-sessions/itinerary-kanban";
 import { shouldRequestProviderDetailForInteraction } from "@/lib/planning-sessions/location-detail-interactions";
 import {
@@ -40,6 +43,7 @@ export function LocationDetailPanel({
 }: LocationDetailPanelProps) {
   const [retryNonce, setRetryNonce] = useState(0);
   const requestIdRef = useRef(0);
+  const activeRequestKeyRef = useRef<string | null>(null);
 
   const itemContext = useMemo(() => {
     if (!itinerary) {
@@ -67,12 +71,18 @@ export function LocationDetailPanel({
       : ({ kind: "idle" } satisfies DetailRequestState);
 
   useEffect(() => {
-    requestIdRef.current += 1;
-    const requestId = requestIdRef.current;
-
-    if (!itemContext || !shouldRequestProviderDetail) {
+    if (!shouldStartLocationDetailRequest({
+      hasItemContext: itemContext !== null,
+      shouldRequestProviderDetail,
+      requestKey,
+      activeRequestKey: activeRequestKeyRef.current,
+    })) {
       return;
     }
+
+    activeRequestKeyRef.current = requestKey;
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
 
     void requestPlanningSessionLocationDetail(sessionId, itemId)
       .then((detail) => {

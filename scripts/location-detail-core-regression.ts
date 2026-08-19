@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import {
   getPlanningSessionLocationDetailWithDependencies,
 } from "@/lib/planning-sessions/location-detail-operation";
-import { shouldApplyLocationDetailResponse } from "@/lib/planning-sessions/location-detail-client-state";
+import {
+  shouldApplyLocationDetailResponse,
+  shouldStartLocationDetailRequest,
+} from "@/lib/planning-sessions/location-detail-client-state";
 import {
   shouldOpenLocationDetailForInteraction,
   shouldPreviewMapMarkerForInteraction,
@@ -451,6 +454,60 @@ function testStaleResponseGuard() {
   );
 }
 
+function testStrictModeDuplicateEffectGuard() {
+  const firstStart = shouldStartLocationDetailRequest({
+    hasItemContext: true,
+    shouldRequestProviderDetail: true,
+    requestKey: "session-1:item-place:1:0",
+    activeRequestKey: null,
+  });
+  assert.equal(firstStart, true);
+
+  const strictModeSecondPass = shouldStartLocationDetailRequest({
+    hasItemContext: true,
+    shouldRequestProviderDetail: true,
+    requestKey: "session-1:item-place:1:0",
+    activeRequestKey: "session-1:item-place:1:0",
+  });
+  assert.equal(strictModeSecondPass, false);
+}
+
+function testOneRequestPerActivationAndRetry() {
+  const activationStart = shouldStartLocationDetailRequest({
+    hasItemContext: true,
+    shouldRequestProviderDetail: true,
+    requestKey: "session-1:item-place:5:0",
+    activeRequestKey: null,
+  });
+  assert.equal(activationStart, true);
+
+  const duplicateForSameActivation = shouldStartLocationDetailRequest({
+    hasItemContext: true,
+    shouldRequestProviderDetail: true,
+    requestKey: "session-1:item-place:5:0",
+    activeRequestKey: "session-1:item-place:5:0",
+  });
+  assert.equal(duplicateForSameActivation, false);
+
+  const retryStart = shouldStartLocationDetailRequest({
+    hasItemContext: true,
+    shouldRequestProviderDetail: true,
+    requestKey: "session-1:item-place:5:1",
+    activeRequestKey: "session-1:item-place:5:0",
+  });
+  assert.equal(retryStart, true);
+}
+
+function testZeroRequestForUnverifiedItems() {
+  const unverifiedStart = shouldStartLocationDetailRequest({
+    hasItemContext: true,
+    shouldRequestProviderDetail: false,
+    requestKey: "session-1:item-note:2:0",
+    activeRequestKey: null,
+  });
+  assert.equal(unverifiedStart, false);
+}
+
 function testAllItineraryItemsRemainOpenable() {
   const session = createGeneratedSession();
   const openableIds = deriveLocationDetailEligibleItemIds(session.generatedItinerary);
@@ -466,6 +523,9 @@ async function run() {
   await testNoProviderCallForInvalidStates();
   testInteractionPolicies();
   testStaleResponseGuard();
+  testStrictModeDuplicateEffectGuard();
+  testOneRequestPerActivationAndRetry();
+  testZeroRequestForUnverifiedItems();
   testAllItineraryItemsRemainOpenable();
 
   console.log("location-detail-core-regression: pass");

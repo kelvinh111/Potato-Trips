@@ -302,6 +302,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Ensured itinerary-only/unverified items never trigger provider requests and never remain in loading state; these now render canonical itinerary-authored detail content only.
 - Preserved application-owned error semantics by propagating location-detail `retryable` metadata through operation -> route error payload -> client API -> panel error UI.
 - Updated location-detail panel retry behavior to show `Retry` only for transient/retryable failures.
+- Added a narrow client request-key ref guard in `LocationDetailPanel` to prevent duplicate development Strict Mode effect requests for the same activation key while preserving new activations, explicit Retry, stale-response protection, and itinerary-only zero-request behavior.
 - Replaced Google-content attribution with compliant `Google Maps` text attribution rendered for every successful provider response (including missing `googleMapsUri`), and associated provider display name/address/category/link with attributed provider-content containers only (no attribution applied to itinerary-authored content blocks).
 - Removed unsafe unconditional phrase-containment success; containment now verifies only when extra tokens are explicitly safe alias descriptors, while conflicting place-type and unsafe qualifier expansions remain unverified.
 - Added `temple` as an explicit safe alias descriptor so canonical title `Senso-ji` safely matches provider display name `Senso-ji Temple` without re-allowing unsafe generic qualifiers.
@@ -310,9 +311,14 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
+		- strict-mode duplicate effect guard for same request key
+		- one request per activation key
+		- one additional request for explicit retry key change
+		- zero requests for unverified items
 	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, country-context negatives, qualifier-suffix negatives (`Tokyo Station Hotel`, `Louvre Museum Abu Dhabi`, `Paris Opera Hotel`, `Manchester Museum Shop`), and a Text Search boundary check proving context-bearing query input is validated against separate canonical identity (`Senso-ji Temple Tokyo` query + `Senso-ji` identity).
 	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Pending:
+	- manual browser verification for the latest Strict Mode duplicate-request guard remains pending.
 	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.
 
 ## Next Up
@@ -386,8 +392,10 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run location-detail-core:regression`: Pass
 	- `npm run generated-place-resolution:regression`: Pass
 	- `npm run map-markers-kanban-sync:regression`: Pass
+	- `npm run itinerary-kanban:regression`: Pass
 	- `npm run google-maps-foundation:regression`: Pass
 	- `npm run planning-session-client-api:regression`: Pass
+	- `npm run workspace-layout-sizing:regression`: Not run in current workspace (script missing from `package.json`)
 	- `npm run lint`: Pass
 	- `git diff --check`: Pass
 	- `npm run build`: Pass
