@@ -155,11 +155,43 @@ async function testProviderBoundary() {
     false,
   );
   assert.equal(
+    isDisplayNameCompatibleWithQuery("Paris Museum", "Paris Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Paris Aquarium", "Paris Museum"),
+    false,
+  );
+  assert.equal(
     isDisplayNameCompatibleWithQuery("Manchester Museum", "Manchester Art Gallery"),
     false,
   );
   assert.equal(
     isDisplayNameCompatibleWithQuery("Manchester Art Gallery", "Manchester Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Manchester Museum", "Manchester Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("Manchester Aquarium", "Manchester Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("London Museum", "London Zoo"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("London Zoo", "London Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("東京 博物館", "東京 水族館"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithQuery("東京 水族館", "東京 博物館"),
     false,
   );
   assert.equal(

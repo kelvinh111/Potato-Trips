@@ -301,12 +301,14 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Ensured itinerary-only/unverified items never trigger provider requests and never remain in loading state; these now render canonical itinerary-authored detail content only.
 - Preserved application-owned error semantics by propagating location-detail `retryable` metadata through operation -> route error payload -> client API -> panel error UI.
 - Updated location-detail panel retry behavior to show `Retry` only for transient/retryable failures.
-- Replaced Google-content attribution placement with an in-container compliant attribution label (`© Google`) using required `translate="no"` and no-wrap treatment.
-- Hardened place-name compatibility to separate place identity from shared city/context overlap and prevent context-only false positives.
+- Replaced Google-content attribution with compliant `Google Maps` text attribution rendered for every successful provider response (including missing `googleMapsUri`) and kept it visually associated with provider-sourced content.
+- Hardened place-name compatibility so shared city/country context tokens alone (including non-Latin context) cannot verify different places while preserving safe Louvre/Tuileries alias acceptance.
+- Removed retry instructions from non-retryable limit/provider-failure messages while preserving retry availability only when `retryable === true`.
 - Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
 - Added deterministic regressions:
 	- `scripts/location-detail-core-regression.ts`
-	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester context-collision negatives.
+	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives.
+	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Pending:
 	- controlled live Place Details smoke remains blocked by missing `GOOGLE_PLACES_API_KEY` in current environment.
 
@@ -383,8 +385,7 @@ Update this file after each meaningful feature unit or architecture change, not 
 	- `npm run map-markers-kanban-sync:regression`: Pass
 	- `npm run google-maps-foundation:regression`: Pass
 	- `npm run planning-session-client-api:regression`: Pass
-	- targeted ESLint on changed 21A files: Pass
-	- `npx tsc --noEmit`: Pass
+	- `npm run lint`: Pass
 	- `git diff --check`: Pass
 	- `npm run build`: Pass
 	- controlled live smoke (`searchGooglePlaceByText` -> `getGooglePlaceDetails`): Blocked in this environment (`GOOGLE_PLACES_API_KEY` not configured)

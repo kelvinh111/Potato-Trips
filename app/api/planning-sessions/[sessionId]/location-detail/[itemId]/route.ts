@@ -79,14 +79,14 @@ export async function GET(
     if (result.kind === "PROVIDER_FAILURE") {
       const message =
         result.reason === "AUTHENTICATION"
-          ? "Location details are temporarily unavailable. Please try again."
+          ? "Location details are temporarily unavailable."
           : result.reason === "CONFIGURATION"
             ? "Location details are currently unavailable."
             : result.reason === "NOT_FOUND"
               ? "Location details are unavailable for this place."
               : result.reason === "REQUEST"
-                ? "Unable to load location details right now. Please retry."
-                : "Received an unexpected location-details response. Please retry.";
+              ? "Unable to load location details right now."
+              : "Location details are currently unavailable for this place.";
 
       const status = result.reason === "CONFIGURATION" ? 503 : 502;
 

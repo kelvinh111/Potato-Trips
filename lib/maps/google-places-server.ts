@@ -245,16 +245,34 @@ export function isDisplayNameCompatibleWithQuery(
     return true;
   }
 
+  const distinctiveToken = sharedDistinctiveWords[0] ?? null;
+  if (!distinctiveToken) {
+    return false;
+  }
+
+  const startsBoth =
+    queryWords[0] === distinctiveToken && displayNameWords[0] === distinctiveToken;
+  const hasExtraQueryWords = queryWords.some((word) => word !== distinctiveToken);
+  const hasExtraDisplayWords = displayNameWords.some(
+    (word) => word !== distinctiveToken,
+  );
+
+  // Prevent city/country context-only verification for different places
+  // (including non-Latin context tokens) when only one token overlaps.
+  if (
+    startsBoth
+    && hasExtraQueryWords
+    && hasExtraDisplayWords
+    && sharedWords.length < 2
+  ) {
+    return false;
+  }
+
   const distinctiveQueryWords = queryWords.filter((word) => !isGenericMatchToken(word));
   const distinctiveDisplayWords = displayNameWords.filter((word) => !isGenericMatchToken(word));
 
   if (sharedDistinctiveWords.some((word) => /[^\x00-\x7F]/.test(word))) {
     return true;
-  }
-
-  const distinctiveToken = sharedDistinctiveWords[0] ?? null;
-  if (!distinctiveToken) {
-    return false;
   }
 
   const unmatchedDistinctiveQueryWords = distinctiveQueryWords.filter((word) => {
@@ -273,8 +291,6 @@ export function isDisplayNameCompatibleWithQuery(
     return false;
   }
 
-  const startsBoth =
-    queryWords[0] === distinctiveToken && displayNameWords[0] === distinctiveToken;
   if (
     startsBoth
     && unmatchedDistinctiveQueryWords.length + unmatchedDistinctiveDisplayWords.length > 1

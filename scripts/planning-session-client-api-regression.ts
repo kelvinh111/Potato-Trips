@@ -5,6 +5,7 @@ import {
   requestPlanningSessionClarificationStart,
   requestPlanningSessionGenerationStart,
   requestPlanningSessionGenerationState,
+  requestPlanningSessionLocationDetail,
   PlanningSessionClientApiError,
 } from "@/lib/planning-sessions/client-api";
 
@@ -222,11 +223,86 @@ async function serverErrorMessageIsPreserved() {
   );
 }
 
+async function locationDetailErrorMetadataIsPreserved() {
+  const nonRetryableFetch = createMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "LOCATION_DETAIL_UNAVAILABLE",
+            message: "Location details are currently unavailable for this place.",
+            retryable: false,
+          },
+        }),
+        {
+          status: 502,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+  );
+
+  await assert.rejects(
+    requestPlanningSessionLocationDetail("session-e", "item-1", {
+      fetchImpl: nonRetryableFetch,
+    }),
+    (error: unknown) => {
+      if (!(error instanceof PlanningSessionClientApiError)) {
+        return false;
+      }
+
+      return (
+        error.code === "LOCATION_DETAIL_UNAVAILABLE"
+        && error.retryable === false
+        && error.message === "Location details are currently unavailable for this place."
+      );
+    },
+  );
+
+  const retryableFetch = createMockFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "LOCATION_DETAIL_UNAVAILABLE",
+            message: "Unable to load location details right now.",
+            retryable: true,
+          },
+        }),
+        {
+          status: 502,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+  );
+
+  await assert.rejects(
+    requestPlanningSessionLocationDetail("session-f", "item-2", {
+      fetchImpl: retryableFetch,
+    }),
+    (error: unknown) => {
+      if (!(error instanceof PlanningSessionClientApiError)) {
+        return false;
+      }
+
+      return (
+        error.code === "LOCATION_DETAIL_UNAVAILABLE"
+        && error.retryable === true
+        && error.message === "Unable to load location details right now."
+      );
+    },
+  );
+}
+
 async function run() {
   await validPayloadsAreParsedAndRequestsAreShaped();
   await malformedSuccessPayloadFailsSafely();
   await nonJsonFailureUsesSafeFallbackMessage();
   await serverErrorMessageIsPreserved();
+  await locationDetailErrorMetadataIsPreserved();
 
   console.log("planning-session-client-api-regression: pass");
 }

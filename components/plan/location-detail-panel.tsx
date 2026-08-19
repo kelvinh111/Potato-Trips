@@ -169,6 +169,17 @@ export function LocationDetailPanel({
               <span>{detail.formattedAddress}</span>
             </p>
           ) : null}
+          {showSuccess ? (
+            <p className="text-xs text-text-faint">
+              Source:{" "}
+              <span
+                translate="no"
+                className="whitespace-nowrap font-semibold tracking-tight text-text-secondary"
+              >
+                Google Maps
+              </span>
+            </p>
+          ) : null}
         </div>
         <Button
           type="button"
@@ -217,16 +228,16 @@ export function LocationDetailPanel({
         ) : null}
 
         {showSuccess ? (
-          <div className="space-y-5">
+          <div className="space-y-5 rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-4">
             {detail?.primaryTypeDisplayName ? (
-              <div className="rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-3">
+              <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Category</p>
                 <p className="mt-1 text-sm text-text-primary">{detail.primaryTypeDisplayName}</p>
               </div>
             ) : null}
 
             {detail?.googleMapsUri ? (
-              <div className="rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-3">
+              <div>
                 <a
                   href={detail.googleMapsUri}
                   target="_blank"
@@ -235,15 +246,15 @@ export function LocationDetailPanel({
                 >
                   View on Google Maps
                 </a>
-
-                <p
-                  translate="no"
-                  className="mt-2 whitespace-nowrap text-[11px] font-medium text-text-faint"
-                >
-                  © Google
-                </p>
               </div>
             ) : null}
+
+            <p className="text-[11px] text-text-faint">
+              Data source:{" "}
+              <span translate="no" className="whitespace-nowrap font-semibold tracking-tight">
+                Google Maps
+              </span>
+            </p>
           </div>
         ) : null}
 
