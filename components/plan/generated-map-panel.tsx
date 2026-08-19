@@ -473,6 +473,40 @@ export function GeneratedMapPanel({
     onMapReadyChangeRef.current?.(resolvedPanelStatus === "ready");
   }, [resolvedPanelStatus]);
 
+  useEffect(() => {
+    if (resolvedPanelStatus !== "ready") {
+      return;
+    }
+
+    const map = mapInstanceRef.current;
+    const mapContainer = mapContainerRef.current;
+
+    if (!map || !mapContainer) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+
+      google.maps.event.trigger(map, "resize");
+
+      if (center) {
+        map.setCenter(center);
+      }
+
+      if (typeof zoom === "number") {
+        map.setZoom(zoom);
+      }
+    });
+
+    resizeObserver.observe(mapContainer);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [resolvedPanelStatus]);
+
   return (
     <aside
       aria-label="Map panel"

@@ -290,23 +290,26 @@ export function ItineraryKanbanBoard({
 
                         return (
                           <li key={item.id}>
-                              <article
-                                data-itinerary-item-id={item.id}
-                                onMouseEnter={() => {
-                                  onPreviewInteractiveItem?.(
-                                    shouldPreviewMapMarkerForInteraction({
-                                      kind: "hover",
-                                      isMapInteractive,
-                                    })
-                                      ? item.id
-                                      : null,
-                                  );
-                                }}
-                                onMouseLeave={() => {
-                                  onPreviewInteractiveItem?.(null);
-                                }}
-                                tabIndex={0}
-                                role="button"
+                            <article
+                              data-itinerary-item-id={item.id}
+                              onMouseEnter={() => {
+                                onPreviewInteractiveItem?.(
+                                  shouldPreviewMapMarkerForInteraction({
+                                    kind: "hover",
+                                    isMapInteractive,
+                                  })
+                                    ? item.id
+                                    : null,
+                                );
+                              }}
+                              onMouseLeave={() => {
+                                onPreviewInteractiveItem?.(null);
+                              }}
+                              className={`relative rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
+                            >
+                              <button
+                                type="button"
+                                aria-label={`Select ${item.title}`}
                                 aria-pressed={isSelected}
                                 onFocus={() => {
                                   onPreviewInteractiveItem?.(
@@ -349,17 +352,19 @@ export function ItineraryKanbanBoard({
                                     }
                                   }
                                 }}
-                                className={`space-y-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${isSelected ? "border-accent-primary bg-bg-selected" : "border-border-subtle bg-bg-elevated hover:border-accent-primary/45"}`}
+                                className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
                               >
+                                <span className="sr-only">Select item</span>
+                              </button>
+
+                              <div className="pointer-events-none relative z-10 space-y-2">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                                   {item.typeLabel}
                                 </p>
                                 <button
                                   id={titleControlId}
                                   type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-
+                                  onClick={() => {
                                     if (!shouldOpenDetailForTitleInteraction("title-click")) {
                                       return;
                                     }
@@ -381,7 +386,20 @@ export function ItineraryKanbanBoard({
                                       }
                                     }
                                   }}
-                                  className="inline-flex items-center rounded-lg text-sm font-semibold text-text-primary underline-offset-2 hover:text-accent-primary hover:underline focus-visible:text-accent-primary focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                                  onFocus={() => {
+                                    onPreviewInteractiveItem?.(
+                                      shouldPreviewMapMarkerForInteraction({
+                                        kind: "focus",
+                                        isMapInteractive,
+                                      })
+                                        ? item.id
+                                        : null,
+                                    );
+                                  }}
+                                  onBlur={() => {
+                                    onPreviewInteractiveItem?.(null);
+                                  }}
+                                  className="pointer-events-auto inline-flex items-center rounded-lg text-base font-semibold text-text-primary underline-offset-2 hover:text-accent-primary hover:underline focus-visible:text-accent-primary focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
                                 >
                                   {item.title}
                                 </button>
@@ -392,7 +410,8 @@ export function ItineraryKanbanBoard({
                                     {timeAndDurationParts.join(" • ")}
                                   </p>
                                 ) : null}
-                              </article>
+                              </div>
+                            </article>
                           </li>
                         );
                       })}

@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/refs */
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GeneratedMapPanel } from "@/components/plan/generated-map-panel";
@@ -308,109 +306,70 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
     isDesktopLayout,
     showMapSlot,
   });
-  const desktopContainerRef = desktopSplit.containerRef;
-  const desktopLayout = desktopSplit.layout;
-  const handleSeparatorKeyDown = desktopSplit.handleSeparatorKeyDown;
-  const handleSeparatorPointerDown = desktopSplit.handleSeparatorPointerDown;
-  const handleSeparatorPointerMove = desktopSplit.handleSeparatorPointerMove;
-  const handleSeparatorPointerUp = desktopSplit.handleSeparatorPointerUp;
+  const {
+    workspaceRef,
+    centerMapAreaRef,
+    layout: desktopLayout,
+    isResizing,
+    handleSeparatorKeyDown,
+    handleSeparatorPointerDown,
+    handleSeparatorPointerMove,
+    handleSeparatorPointerUp,
+    handleSeparatorLostPointerCapture,
+  } = desktopSplit;
+  void isResizing;
 
-  const mobileGridClassName = showMapSlot
-    ? "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4"
-    : "grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(18rem,1fr)_minmax(18rem,1fr)] gap-3 overflow-x-hidden overflow-y-auto p-3 sm:gap-4 sm:p-4";
-
-  const desktopChatStyle = desktopLayout
+  const chatStyle = desktopLayout
     ? { width: `${desktopLayout.chatWidth}px` }
     : undefined;
-  const desktopCenterStyle = desktopLayout
+  const centerStyle = desktopLayout
     ? { width: `${desktopLayout.centerWidth}px` }
     : undefined;
-  const desktopMapStyle = desktopLayout
+  const mapStyle = desktopLayout
     ? { width: `${desktopLayout.mapWidth}px` }
     : undefined;
 
+  const centerPanelContent = showStatusPanel ? (
+    <TripPlanStatusPanel generationController={generationController} />
+  ) : (
+    <section
+      aria-label="Itinerary panel"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
+    >
+      <h1 className="sr-only">Itinerary Plan</h1>
+      {centerPanel.kind === "LOCATION_DETAIL" ? (
+        <LocationDetailPanel
+          key={`${centerPanel.itemId}:${centerPanel.activationVersion}`}
+          sessionId={session.id}
+          itinerary={state.generatedItinerary}
+          itemId={centerPanel.itemId}
+          activationVersion={centerPanel.activationVersion}
+          onClose={handleCloseLocationDetail}
+        />
+      ) : (
+        <ItineraryKanbanBoard
+          itinerary={state.generatedItinerary}
+          selectedItemId={selectedItemId}
+          selectionActivationVersion={selectionActivationVersion}
+          interactiveItemIds={interactiveItemIds}
+          isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
+          focusRestoreElementId={focusRestore.titleElementId}
+          focusRestoreVersion={focusRestore.version}
+          onActivateLocationDetailItem={handleActivateLocationDetailItem}
+          onPreviewInteractiveItem={handlePreviewInteractiveItem}
+          onActivateInteractiveItem={handleSelectItem}
+        />
+      )}
+    </section>
+  );
+
   return (
     <main className="flex min-h-0 flex-1 overflow-hidden">
-      <div className="hidden min-h-0 w-full flex-1 gap-4 overflow-hidden p-4 lg:flex" ref={desktopContainerRef}>
-        <div className="min-h-0 shrink-0" style={desktopChatStyle}>
-          <PlanningChatPanel
-            sessionId={session.id}
-            initialPrompt={session.initialPrompt}
-            status={state.status}
-            clarificationMessages={state.clarificationMessages}
-            onSessionUpdate={generationController.applyClarificationSession}
-          />
-        </div>
-
-        <div className="min-h-0 shrink-0" style={desktopCenterStyle}>
-          {showStatusPanel ? (
-            <TripPlanStatusPanel generationController={generationController} />
-          ) : (
-            <section
-              aria-label="Itinerary panel"
-              className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
-            >
-              <h1 className="sr-only">Itinerary Plan</h1>
-              {centerPanel.kind === "LOCATION_DETAIL" ? (
-                <LocationDetailPanel
-                  key={`${centerPanel.itemId}:${centerPanel.activationVersion}`}
-                  sessionId={session.id}
-                  itinerary={state.generatedItinerary}
-                  itemId={centerPanel.itemId}
-                  activationVersion={centerPanel.activationVersion}
-                  onClose={handleCloseLocationDetail}
-                />
-              ) : (
-                <ItineraryKanbanBoard
-                  itinerary={state.generatedItinerary}
-                  selectedItemId={selectedItemId}
-                  selectionActivationVersion={selectionActivationVersion}
-                  interactiveItemIds={interactiveItemIds}
-                  isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
-                  focusRestoreElementId={focusRestore.titleElementId}
-                  focusRestoreVersion={focusRestore.version}
-                  onActivateLocationDetailItem={handleActivateLocationDetailItem}
-                  onPreviewInteractiveItem={handlePreviewInteractiveItem}
-                  onActivateInteractiveItem={handleSelectItem}
-                />
-              )}
-            </section>
-          )}
-        </div>
-
-        {showMapSlot && desktopLayout ? (
-          <div
-            role="separator"
-            aria-label="Resize itinerary and map panels"
-            aria-orientation="vertical"
-            aria-valuemin={desktopLayout.separatorMin}
-            aria-valuemax={desktopLayout.separatorMax}
-            aria-valuenow={desktopLayout.separatorValue}
-            tabIndex={0}
-            onKeyDown={handleSeparatorKeyDown}
-            onPointerDown={handleSeparatorPointerDown}
-            onPointerMove={handleSeparatorPointerMove}
-            onPointerUp={handleSeparatorPointerUp}
-            onPointerCancel={handleSeparatorPointerUp}
-            className="w-2 cursor-col-resize rounded-full bg-border-subtle/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-          />
-        ) : null}
-
-        {showMapSlot ? (
-          <div className="min-h-0 min-w-0 flex-1" style={desktopMapStyle}>
-            <GeneratedMapPanel
-              markers={markers}
-              selectedItemId={effectiveSelectedItemId}
-              focusedItemId={focusedMapItemId}
-              selectionActivationVersion={selectionActivationVersion}
-              onMarkerActivate={handleSelectItem}
-              onMapReadyChange={handleMapReadyChange}
-            />
-          </div>
-        ) : null}
-      </div>
-
-      <div className={`${mobileGridClassName} lg:hidden`}>
+      <div
+        ref={workspaceRef}
+        className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:flex-row"
+      >
+        <div className="min-h-0 min-w-0 shrink-0 lg:min-w-[18rem]" style={chatStyle}>
         <PlanningChatPanel
           sessionId={session.id}
           initialPrompt={session.initialPrompt}
@@ -418,49 +377,43 @@ export function ItineraryWorkspaceRuntime({ session }: ItineraryWorkspaceRuntime
           clarificationMessages={state.clarificationMessages}
           onSessionUpdate={generationController.applyClarificationSession}
         />
-        {showStatusPanel ? (
-          <TripPlanStatusPanel generationController={generationController} />
-        ) : (
-          <section
-            aria-label="Itinerary panel"
-            className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[2rem] border-0 bg-column-center"
-          >
-            <h1 className="sr-only">Itinerary Plan</h1>
-            {centerPanel.kind === "LOCATION_DETAIL" ? (
-              <LocationDetailPanel
-                key={`${centerPanel.itemId}:${centerPanel.activationVersion}`}
-                sessionId={session.id}
-                itinerary={state.generatedItinerary}
-                itemId={centerPanel.itemId}
-                activationVersion={centerPanel.activationVersion}
-                onClose={handleCloseLocationDetail}
-              />
-            ) : (
-              <ItineraryKanbanBoard
-                itinerary={state.generatedItinerary}
-                selectedItemId={selectedItemId}
+        </div>
+
+        {showMapSlot && desktopLayout ? (
+          <div ref={centerMapAreaRef} className="flex min-h-0 min-w-0 flex-1">
+            <div className="min-h-0 min-w-0 shrink-0" style={centerStyle}>
+              {centerPanelContent}
+            </div>
+            <div
+              role="separator"
+              aria-label="Resize itinerary and map panels"
+              aria-orientation="vertical"
+              aria-valuemin={desktopLayout.separatorMin}
+              aria-valuemax={desktopLayout.separatorMax}
+              aria-valuenow={desktopLayout.separatorValue}
+              tabIndex={0}
+              onKeyDown={handleSeparatorKeyDown}
+              onPointerDown={handleSeparatorPointerDown}
+              onPointerMove={handleSeparatorPointerMove}
+              onPointerUp={handleSeparatorPointerUp}
+              onPointerCancel={handleSeparatorPointerUp}
+              onLostPointerCapture={handleSeparatorLostPointerCapture}
+              className="w-2 shrink-0 cursor-col-resize rounded-full bg-border-subtle/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            />
+            <div className="h-full min-h-0 min-w-[20rem] shrink-0" style={mapStyle}>
+              <GeneratedMapPanel
+                markers={markers}
+                selectedItemId={effectiveSelectedItemId}
+                focusedItemId={focusedMapItemId}
                 selectionActivationVersion={selectionActivationVersion}
-                interactiveItemIds={interactiveItemIds}
-                isMapLinkedInteractionEnabled={isMapLinkedInteractionEnabled}
-                focusRestoreElementId={focusRestore.titleElementId}
-                focusRestoreVersion={focusRestore.version}
-                onActivateLocationDetailItem={handleActivateLocationDetailItem}
-                onPreviewInteractiveItem={handlePreviewInteractiveItem}
-                onActivateInteractiveItem={handleSelectItem}
+                onMarkerActivate={handleSelectItem}
+                onMapReadyChange={handleMapReadyChange}
               />
-            )}
-          </section>
+            </div>
+          </div>
+        ) : (
+          <div className="min-h-0 min-w-0 flex-1">{centerPanelContent}</div>
         )}
-        {showMapSlot ? (
-          <GeneratedMapPanel
-            markers={markers}
-            selectedItemId={effectiveSelectedItemId}
-            focusedItemId={focusedMapItemId}
-            selectionActivationVersion={selectionActivationVersion}
-            onMarkerActivate={handleSelectItem}
-            onMapReadyChange={handleMapReadyChange}
-          />
-        ) : null}
       </div>
     </main>
   );
