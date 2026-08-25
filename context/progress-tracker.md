@@ -292,6 +292,35 @@ Update this file after each meaningful feature unit or architecture change, not 
 - Feature 20 completion checklist satisfied and marked complete.
 
 ### Feature 21A: Location Detail Core
+- Added planning-session location-detail attempt counter persistence (`locationDetailAttempts`) with migration `20260818121000_add_location_detail_attempts`.
+- Added server-only Place Details (New) boundary in `lib/maps/google-places-server.ts` with minimal field mask, timeout, no-store fetch, runtime validation, and normalized failure outcomes.
+- Added thin endpoint `GET /api/planning-sessions/[sessionId]/location-detail/[itemId]` that derives Place ID from canonical itinerary item and never accepts arbitrary client Place IDs.
+- Added atomic per-session request cap enforcement (max 60) before provider requests through `reservePlanningSessionLocationDetailAttempt`.
+- Added center-panel Location Detail runtime flow (ITINERARY vs LOCATION_DETAIL), close/retry behavior, stale-response protection, and focus restoration to activating card.
+- Stopped inferring identity from query token order by threading each canonical itinerary item title as expected place identity through generated-place resolution and Google Text Search verification.
+- Ensured itinerary-only/unverified items never trigger provider requests and never remain in loading state; these now render canonical itinerary-authored detail content only.
+- Preserved application-owned error semantics by propagating location-detail `retryable` metadata through operation -> route error payload -> client API -> panel error UI.
+- Updated location-detail panel retry behavior to show `Retry` only for transient/retryable failures.
+- Added a narrow client request-key ref guard in `LocationDetailPanel` to prevent duplicate development Strict Mode effect requests for the same activation key while preserving new activations, explicit Retry, stale-response protection, and itinerary-only zero-request behavior.
+- Updated Place Details retryability classification to transient-only behavior: network/timeout and HTTP `408`, `429`, `5xx` remain retryable while authentication and deterministic `4xx` responses are nonretryable.
+- Updated both `Google Maps` text attributions in `LocationDetailPanel` to use the officially allowed attribution text color while preserving existing size, weight, nowrap, `translate="no"`, and provider container structure.
+- Replaced Google-content attribution with compliant `Google Maps` text attribution rendered for every successful provider response (including missing `googleMapsUri`), and associated provider display name/address/category/link with attributed provider-content containers only (no attribution applied to itinerary-authored content blocks).
+- Removed unsafe unconditional phrase-containment success; containment now verifies only when extra tokens are explicitly safe alias descriptors, while conflicting place-type and unsafe qualifier expansions remain unverified.
+- Added `temple` as an explicit safe alias descriptor so canonical title `Senso-ji` safely matches provider display name `Senso-ji Temple` without re-allowing unsafe generic qualifiers.
+- Preserved required positive identity cases (Senso-ji, Louvre, Tuileries) under conservative identity validation.
+- Removed retry instructions from non-retryable limit/provider-failure messages while preserving retry availability only when `retryable === true`.
+- Preserved Feature 20 marker activation behavior (marker activation selects/reveals kanban item only; does not open Location Detail).
+- Added deterministic regressions:
+	- `scripts/location-detail-core-regression.ts`
+		- strict-mode duplicate effect guard for same request key
+		- one request per activation key
+		- one additional request for explicit retry key change
+		- zero requests for unverified items
+	- `scripts/generated-place-resolution-regression.ts`
+		- `400` and `403` Place Details failures are nonretryable
+		- `429` and `5xx` Place Details failures are retryable
+	- extended `scripts/generated-place-resolution-regression.ts` for Place Details boundary coverage plus Paris/Manchester/London/non-Latin context-collision negatives, trailing/middle context-order negatives, country-context negatives, qualifier-suffix negatives (`Tokyo Station Hotel`, `Louvre Museum Abu Dhabi`, `Paris Opera Hotel`, `Manchester Museum Shop`), and a Text Search boundary check proving context-bearing query input is validated against separate canonical identity (`Senso-ji Temple Tokyo` query + `Senso-ji` identity).
+	- extended `scripts/planning-session-client-api-regression.ts` to prove application-owned `code` and both `retryable: true|false` survive the location-detail error path.
 - Confirmed manual browser verification: one Location Detail request is issued per explicit open action, and the request counter increments by +1 for each actual provider attempt.
 - Confirmed live Google Place Details smoke succeeds with the production field mask and correct attribution/optional-field rendering.
 - Confirmed the 60-attempt hard limit returns HTTP `429` with no `Retry` control while the persisted counter remains at `60`.
