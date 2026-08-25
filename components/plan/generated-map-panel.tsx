@@ -22,9 +22,12 @@ import {
   loadGoogleMapsLibrary,
 } from "@/lib/maps/google-maps-client";
 import {
+  applyMapReadinessIdle,
+  applyMapReadinessTimeout,
   deriveGeneratedMapPanelStatus,
   isStaleMapInitializationResult,
   readGoogleMapsPublicConfig,
+  shouldArmMapReadyTimeout,
   shouldAttemptMapInitialization,
   shouldInitializeGoogleMap,
   type GeneratedMapPanelStatus,
@@ -50,6 +53,7 @@ interface WindowWithGoogleMapsAuthFailure extends Window {
 interface GeneratedMapPanelProps {
   markers: GeneratedMapMarkerView[];
   selectedItemId: string | null;
+  focusedItemId?: string | null;
   selectionActivationVersion?: number;
   onMarkerActivate: (itemId: string) => void;
   onMapReadyChange?: (isReady: boolean) => void;
@@ -58,6 +62,7 @@ interface GeneratedMapPanelProps {
 export function GeneratedMapPanel({
   markers,
   selectedItemId,
+  focusedItemId = null,
   selectionActivationVersion = 0,
   onMarkerActivate,
   onMapReadyChange,
@@ -72,6 +77,7 @@ export function GeneratedMapPanel({
   const mapReadyTimeoutRef = useRef<number | null>(null);
   const activeRequestIdRef = useRef(0);
   const hasMapReadySignalRef = useRef(false);
+  const hasRenderFailureRef = useRef(false);
   const hasAppliedInitialViewportRef = useRef(false);
   const previousMarkerCountRef = useRef(0);
   const markerPayloadSignatureRef = useRef("");
@@ -144,7 +150,7 @@ export function GeneratedMapPanel({
         },
         focusTarget: deriveSelectedMarkerFocus({
           markers,
-          selectedItemId,
+          selectedItemId: focusedItemId,
         }),
       });
     };
@@ -252,7 +258,7 @@ export function GeneratedMapPanel({
     return () => {
       isActive = false;
     };
-  }, [clearManagedMarkers, config, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
+  }, [clearManagedMarkers, config, focusedItemId, hasMapReadySignal, markers, selectedItemId, selectionActivationVersion]);
 
   useEffect(() => {
     const shouldInitialize = shouldInitializeGoogleMap({
@@ -282,10 +288,12 @@ export function GeneratedMapPanel({
     const windowWithAuthFailure = window as WindowWithGoogleMapsAuthFailure;
     const previousAuthFailureHandler = windowWithAuthFailure.gm_authFailure;
     let readyListener: google.maps.MapsEventListener | null = null;
+    let hasLibraryLoaded = false;
 
     setHasAuthFailure(false);
     setHasLoadFailure(false);
     setHasRenderFailure(false);
+    hasRenderFailureRef.current = false;
     setHasMapReadySignal(false);
     hasAppliedInitialViewportRef.current = false;
     markerPayloadSignatureRef.current = "";
@@ -316,24 +324,6 @@ export function GeneratedMapPanel({
       }
     };
 
-    mapReadyTimeoutRef.current = window.setTimeout(() => {
-      if (isStaleMapInitializationResult({
-        isComponentActive,
-        requestId,
-        activeRequestId: activeRequestIdRef.current,
-      })) {
-        return;
-      }
-
-      if (!hasMapReadySignalRef.current) {
-        hasInitializationFailureRef.current = true;
-        isInitializingRef.current = false;
-        setHasMapReadySignal(false);
-        hasMapReadySignalRef.current = false;
-        setHasRenderFailure(true);
-      }
-    }, MAP_READY_TIMEOUT_MS);
-
     void loadGoogleMapsLibrary(config)
       .then((mapsLibrary) => {
         if (isStaleMapInitializationResult({
@@ -343,6 +333,8 @@ export function GeneratedMapPanel({
         })) {
           return;
         }
+
+        hasLibraryLoaded = true;
 
         if (!mapContainerRef.current) {
           hasInitializationFailureRef.current = true;
@@ -384,8 +376,16 @@ export function GeneratedMapPanel({
             return;
           }
 
-          setHasMapReadySignal(true);
-          hasMapReadySignalRef.current = true;
+          const readinessState = applyMapReadinessIdle({
+            hasMapReadySignal: hasMapReadySignalRef.current,
+            hasRenderFailure: hasRenderFailureRef.current,
+          });
+
+          setHasMapReadySignal(readinessState.hasMapReadySignal);
+          hasMapReadySignalRef.current = readinessState.hasMapReadySignal;
+          setHasRenderFailure(readinessState.hasRenderFailure);
+          hasRenderFailureRef.current = readinessState.hasRenderFailure;
+          hasInitializationFailureRef.current = false;
           isInitializingRef.current = false;
           clearReadyTimeout();
 
@@ -394,6 +394,35 @@ export function GeneratedMapPanel({
             readyListener = null;
           }
         });
+
+        if (shouldArmMapReadyTimeout({
+          hasLibraryLoaded,
+          hasMapInstance: mapInstanceRef.current !== null,
+          hasIdleListener: readyListener !== null,
+          hasMapReadySignal: hasMapReadySignalRef.current,
+        })) {
+          mapReadyTimeoutRef.current = window.setTimeout(() => {
+            if (isStaleMapInitializationResult({
+              isComponentActive,
+              requestId,
+              activeRequestId: activeRequestIdRef.current,
+            })) {
+              return;
+            }
+
+            const readinessState = applyMapReadinessTimeout({
+              hasMapReadySignal: hasMapReadySignalRef.current,
+              hasRenderFailure: hasRenderFailureRef.current,
+            });
+
+            hasInitializationFailureRef.current = true;
+            isInitializingRef.current = false;
+            setHasMapReadySignal(readinessState.hasMapReadySignal);
+            hasMapReadySignalRef.current = readinessState.hasMapReadySignal;
+            setHasRenderFailure(readinessState.hasRenderFailure);
+            hasRenderFailureRef.current = readinessState.hasRenderFailure;
+          }, MAP_READY_TIMEOUT_MS);
+        }
       })
       .catch(() => {
         if (isStaleMapInitializationResult({

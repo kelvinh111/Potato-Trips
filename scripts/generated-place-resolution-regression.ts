@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 
 import {
+  getGooglePlaceDetails,
   getGooglePlacesProviderAvailability,
-  isDisplayNameCompatibleWithQuery,
+  isDisplayNameCompatibleWithIdentity,
   isValidGooglePlaceCoordinates,
   parseGooglePlacesServerConfig,
   searchGooglePlaceByText,
@@ -129,20 +130,127 @@ async function testProviderBoundary() {
   assert.equal(isValidGooglePlaceCoordinates(35.6, 139.7), true);
   assert.equal(isValidGooglePlaceCoordinates(99, 139.7), false);
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Senso-ji Temple Tokyo", "Senso-ji Temple"),
+    isDisplayNameCompatibleWithIdentity("Senso-ji", "Senso-ji Temple"),
     true,
   );
-  assert.equal(isDisplayNameCompatibleWithQuery("Tokyo", "Tokyo Station"), false);
+  assert.equal(isDisplayNameCompatibleWithIdentity("Tokyo", "Tokyo Station"), false);
   assert.equal(
-    isDisplayNameCompatibleWithQuery("Tokyo Station Japan", "Tokyo Station"),
+    isDisplayNameCompatibleWithIdentity("Tokyo Station Japan", "Tokyo Station"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Musée du Louvre", "Louvre Museum"),
     true,
   );
-  assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "東京駅"), true);
-  assert.equal(isDisplayNameCompatibleWithQuery("東京駅 Tokyo Station", "東京駅"), true);
-  assert.equal(isDisplayNameCompatibleWithQuery("東京駅", "大阪駅"), false);
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Jardin des Tuileries", "Tuileries Garden"),
+    true,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Opera", "Paris Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Aquarium", "Paris Opera"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Museum", "Paris Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Aquarium", "Paris Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Museum Paris", "Aquarium Paris"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Aquarium Paris", "Museum Paris"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Manchester Museum", "Manchester Art Gallery"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Manchester Art Gallery", "Manchester Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Manchester Museum", "Manchester Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Manchester Aquarium", "Manchester Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("London Museum", "London Zoo"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("London Zoo", "London Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("東京 博物館", "東京 水族館"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("東京 水族館", "東京 博物館"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("博物館 東京", "水族館 東京"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("水族館 東京", "博物館 東京"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris France Museum", "Paris France Aquarium"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris France Aquarium", "Paris France Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Modern Art Museum", "Science Museum"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Tokyo Garden", "Kyoto Garden"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Tokyo Station", "Tokyo Station Hotel"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Louvre Museum", "Louvre Museum Abu Dhabi"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Paris Opera", "Paris Opera Hotel"),
+    false,
+  );
+  assert.equal(
+    isDisplayNameCompatibleWithIdentity("Manchester Museum", "Manchester Museum Shop"),
+    false,
+  );
+  assert.equal(isDisplayNameCompatibleWithIdentity("東京駅", "東京駅"), true);
+  assert.equal(isDisplayNameCompatibleWithIdentity("東京駅 Tokyo Station", "東京駅"), true);
+  assert.equal(isDisplayNameCompatibleWithIdentity("東京駅", "大阪駅"), false);
 
   delete process.env.GOOGLE_PLACES_API_KEY;
-  const missingCredentialResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const missingCredentialResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(missingCredentialResult, {
     kind: "FAILED",
     reason: "CONFIGURATION",
@@ -154,7 +262,10 @@ async function testProviderBoundary() {
   globalThis.fetch = async () => {
     throw new Error("network down");
   };
-  const rejectedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const rejectedResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(rejectedResult, {
     kind: "FAILED",
     reason: "REQUEST",
@@ -164,7 +275,10 @@ async function testProviderBoundary() {
   globalThis.fetch = async () => {
     return new Response("not json", { status: 200 });
   };
-  const malformedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const malformedResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(malformedResult, {
     kind: "FAILED",
     reason: "MALFORMED_RESPONSE",
@@ -174,7 +288,10 @@ async function testProviderBoundary() {
   globalThis.fetch = async () => {
     return new Response(JSON.stringify({ places: [] }), { status: 200 });
   };
-  const emptyResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const emptyResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(emptyResult, { kind: "NO_RESULT" });
 
   globalThis.fetch = async () => {
@@ -191,7 +308,10 @@ async function testProviderBoundary() {
       { status: 200 },
     );
   };
-  const invalidCoordinateResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const invalidCoordinateResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(invalidCoordinateResult, { kind: "INVALID_RESULT" });
 
   globalThis.fetch = async () => {
@@ -208,7 +328,10 @@ async function testProviderBoundary() {
       { status: 200 },
     );
   };
-  const verifiedResult = await searchGooglePlaceByText({ query: "Tokyo Station" });
+  const verifiedResult = await searchGooglePlaceByText({
+    query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
+  });
   assert.deepEqual(verifiedResult, {
     kind: "VERIFIED",
     placeId: "places/abc",
@@ -230,12 +353,48 @@ async function testProviderBoundary() {
       { status: 200 },
     );
   };
-  const nonLatinVerifiedResult = await searchGooglePlaceByText({ query: "東京駅" });
+  const nonLatinVerifiedResult = await searchGooglePlaceByText({
+    query: "東京駅",
+    expectedIdentity: "東京駅",
+  });
   assert.deepEqual(nonLatinVerifiedResult, {
     kind: "VERIFIED",
     placeId: "places/tokyo-eki",
     latitude: 35.6812,
     longitude: 139.7671,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        places: [
+          {
+            id: "places/sensoji",
+            displayName: { text: "Senso-ji Temple" },
+            location: { latitude: 35.7148, longitude: 139.7967 },
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+  };
+  const contextQueryCanonicalIdentityVerified = await searchGooglePlaceByText({
+    query: "Senso-ji Temple Tokyo",
+    expectedIdentity: "Senso-ji",
+  });
+  assert.deepEqual(contextQueryCanonicalIdentityVerified, {
+    kind: "VERIFIED",
+    placeId: "places/sensoji",
+    latitude: 35.7148,
+    longitude: 139.7967,
+  });
+
+  const contextQueryWrongCanonicalIdentityRejected = await searchGooglePlaceByText({
+    query: "Senso-ji Temple Tokyo",
+    expectedIdentity: "Tokyo Station",
+  });
+  assert.deepEqual(contextQueryWrongCanonicalIdentityRejected, {
+    kind: "INVALID_RESULT",
   });
 
   globalThis.fetch = (_input, init) => {
@@ -263,6 +422,7 @@ async function testProviderBoundary() {
   };
   const timeoutResult = await searchGooglePlaceByText({
     query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
     timeoutMs: 1,
   });
   assert.deepEqual(timeoutResult, {
@@ -302,12 +462,128 @@ async function testProviderBoundary() {
   };
   const stalledBodyTimeoutResult = await searchGooglePlaceByText({
     query: "Tokyo Station",
+    expectedIdentity: "Tokyo Station",
     timeoutMs: 1,
   });
   assert.deepEqual(stalledBodyTimeoutResult, {
     kind: "FAILED",
     reason: "REQUEST",
     providerWide: false,
+  });
+}
+
+async function testPlaceDetailsBoundary() {
+  delete process.env.GOOGLE_PLACES_API_KEY;
+  const missingConfig = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(missingConfig, {
+    kind: "FAILED",
+    reason: "CONFIGURATION",
+    retryable: false,
+    providerWide: true,
+  });
+
+  process.env.GOOGLE_PLACES_API_KEY = "test-key";
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 403 });
+  };
+  const authFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(authFailure, {
+    kind: "FAILED",
+    reason: "AUTHENTICATION",
+    retryable: false,
+    providerWide: true,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 400 });
+  };
+  const deterministicClientFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(deterministicClientFailure, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 429 });
+  };
+  const rateLimitFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(rateLimitFailure, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    retryable: true,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 503 });
+  };
+  const serverFailure = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(serverFailure, {
+    kind: "FAILED",
+    reason: "REQUEST",
+    retryable: true,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("", { status: 404 });
+  };
+  const notFound = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(notFound, {
+    kind: "FAILED",
+    reason: "NOT_FOUND",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response("not json", { status: 200 });
+  };
+  const malformed = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(malformed, {
+    kind: "FAILED",
+    reason: "MALFORMED_RESPONSE",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "places/other",
+        displayName: { text: "Tokyo Station" },
+      }),
+      { status: 200 },
+    );
+  };
+  const mismatched = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(mismatched, {
+    kind: "FAILED",
+    reason: "MISMATCHED_ID",
+    retryable: false,
+    providerWide: false,
+  });
+
+  globalThis.fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "places/test",
+        displayName: { text: "Tokyo Station" },
+      }),
+      { status: 200 },
+    );
+  };
+  const successWithoutOptional = await getGooglePlaceDetails({ placeId: "places/test" });
+  assert.deepEqual(successWithoutOptional, {
+    kind: "SUCCESS",
+    placeId: "places/test",
+    displayName: "Tokyo Station",
+    primaryTypeDisplayName: null,
+    formattedAddress: null,
+    googleMapsUri: null,
   });
 }
 
@@ -377,6 +653,7 @@ async function testConcurrencyBoundAndContentPreservation() {
   let active = 0;
   let maxActive = 0;
   const calledQueries: string[] = [];
+  const calledExpectedIdentities: string[] = [];
   const now = new Date("2031-06-01T12:00:00.000Z");
   const sessionExpiresAt = new Date("2031-06-20T00:00:00.000Z");
 
@@ -385,8 +662,9 @@ async function testConcurrencyBoundAndContentPreservation() {
     sessionExpiresAt,
     now,
     concurrency: 2,
-    resolveQuery: async (query) => {
+    resolveQuery: async ({ query, expectedIdentity }) => {
       calledQueries.push(query);
+      calledExpectedIdentities.push(expectedIdentity);
       active += 1;
       maxActive = Math.max(maxActive, active);
       await new Promise((resolve) => setTimeout(resolve, 1));
@@ -418,6 +696,12 @@ async function testConcurrencyBoundAndContentPreservation() {
     "Park Hotel Tokyo",
     "Haneda Airport",
   ]);
+  assert.deepEqual(calledExpectedIdentities, [
+    "Senso-ji",
+    "Tokyo Station",
+    "Park Hotel",
+    "Transfer",
+  ]);
 
   const firstItem = result.itinerary.days[0]!.items[0]!;
   assert.equal(firstItem.placeReference?.provider, "GOOGLE");
@@ -442,7 +726,7 @@ async function testRequestCapBehavior() {
     sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
     maxRequests: 2,
     concurrency: 3,
-    resolveQuery: async (query) => {
+    resolveQuery: async ({ query }) => {
       calledQueries.push(query);
       return { kind: "NO_RESULT" as const };
     },
@@ -587,7 +871,7 @@ async function testUnexpectedLookupRejectionDoesNotFailResolution() {
     itinerary,
     sessionExpiresAt: new Date("2031-06-20T00:00:00.000Z"),
     concurrency: 1,
-    resolveQuery: async (query) => {
+    resolveQuery: async ({ query }) => {
       if (query === "Tokyo Station") {
         throw new Error("unexpected rejection");
       }
@@ -641,6 +925,7 @@ function testLegacyItineraryParsing() {
 async function run() {
   try {
     await testProviderBoundary();
+    await testPlaceDetailsBoundary();
     testQueryNormalization();
     await testConcurrencyBoundAndContentPreservation();
     await testRequestCapBehavior();

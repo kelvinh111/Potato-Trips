@@ -38,6 +38,18 @@ interface ShouldAttemptMapInitializationInput {
   hasMapInstance: boolean;
 }
 
+interface ShouldArmMapReadyTimeoutInput {
+  hasLibraryLoaded: boolean;
+  hasMapInstance: boolean;
+  hasIdleListener: boolean;
+  hasMapReadySignal: boolean;
+}
+
+interface MapReadinessState {
+  hasMapReadySignal: boolean;
+  hasRenderFailure: boolean;
+}
+
 export type GeneratedMapPanelStatus = "loading" | "ready" | "unavailable" | "error";
 
 function normalizePublicValue(value: string | undefined): string | null {
@@ -141,4 +153,42 @@ export function shouldAttemptMapInitialization({
     && !hasInFlightInitialization
     && !hasMapInstance
   );
+}
+
+export function shouldArmMapReadyTimeout({
+  hasLibraryLoaded,
+  hasMapInstance,
+  hasIdleListener,
+  hasMapReadySignal,
+}: ShouldArmMapReadyTimeoutInput): boolean {
+  return (
+    hasLibraryLoaded
+    && hasMapInstance
+    && hasIdleListener
+    && !hasMapReadySignal
+  );
+}
+
+export function applyMapReadinessTimeout(
+  state: MapReadinessState,
+): MapReadinessState {
+  if (state.hasMapReadySignal) {
+    return state;
+  }
+
+  return {
+    hasMapReadySignal: false,
+    hasRenderFailure: true,
+  };
+}
+
+export function applyMapReadinessIdle(
+  state: MapReadinessState,
+): MapReadinessState {
+  void state;
+
+  return {
+    hasMapReadySignal: true,
+    hasRenderFailure: false,
+  };
 }

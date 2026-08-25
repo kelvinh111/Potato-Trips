@@ -28,6 +28,8 @@ export const planningSessionIdSchema = z
   .min(1)
   .max(PLANNING_SESSION_ID_MAX_LENGTH);
 
+export const itineraryItemIdSchema = z.string().trim().min(1).max(240);
+
 const trimmedChatMessageSchema = z
   .string()
   .trim()

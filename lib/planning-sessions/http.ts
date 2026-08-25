@@ -10,6 +10,8 @@ import type {
 
 export type PlanningSessionErrorCode =
   | "INVALID_REQUEST"
+  | "INVALID_STATE"
+  | "LOCATION_DETAIL_UNAVAILABLE"
   | "USAGE_LIMIT_EXCEEDED"
   | "PLANNING_SESSION_NOT_FOUND"
   | "PLANNING_SESSION_EXPIRED"
@@ -92,12 +94,14 @@ export function planningSessionErrorResponse(input: {
   code: PlanningSessionErrorCode;
   message: string;
   status: number;
+  retryable?: boolean;
 }) {
   return NextResponse.json(
     {
       error: {
         code: input.code,
         message: input.message,
+        retryable: input.retryable,
       },
     },
     { status: input.status },

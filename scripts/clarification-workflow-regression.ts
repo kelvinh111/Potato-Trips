@@ -54,6 +54,7 @@ function createSession(input?: Partial<PlanningSessionRecord>): PlanningSessionR
     generationPhase: input?.generationPhase ?? null,
     generationAttempts: input?.generationAttempts ?? 0,
     confirmationRevisionAiTurns: input?.confirmationRevisionAiTurns ?? 0,
+    locationDetailAttempts: input?.locationDetailAttempts ?? 0,
     generationError: input?.generationError ?? null,
     status: input?.status ?? "CLARIFYING",
     expiresAt:

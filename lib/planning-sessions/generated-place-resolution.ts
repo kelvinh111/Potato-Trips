@@ -18,7 +18,7 @@ interface ResolveGeneratedPlacesInput {
         providerWide: boolean;
       }
   >;
-  resolveQuery: (query: string) => Promise<
+  resolveQuery: (input: { query: string; expectedIdentity: string }) => Promise<
     | {
         kind: "VERIFIED";
         placeId: string;
@@ -49,6 +49,7 @@ interface ResolutionTargetItem {
   dayIndex: number;
   itemIndex: number;
   query: string;
+  expectedIdentity: string;
 }
 
 const nonPlaceQueryPhrases = [
@@ -150,7 +151,12 @@ export async function resolveGeneratedItineraryPlaces(
         return;
       }
 
-      targets.push({ dayIndex, itemIndex, query });
+      targets.push({
+        dayIndex,
+        itemIndex,
+        query,
+        expectedIdentity: item.title,
+      });
     });
   });
 
@@ -204,7 +210,10 @@ export async function resolveGeneratedItineraryPlaces(
           | { kind: "FAILED"; providerWide: boolean };
 
         try {
-          result = await input.resolveQuery(target.query);
+          result = await input.resolveQuery({
+            query: target.query,
+            expectedIdentity: target.expectedIdentity,
+          });
         } catch {
           summary.failed += 1;
           continue;
